@@ -1,4 +1,7 @@
 #!/usr/bin/python3
+"""
+Objects for storing data
+"""
 
 from typing import Any
 import numpy as np
