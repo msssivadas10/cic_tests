@@ -30,11 +30,11 @@ class Catalog:
     
     """
     __slots__ = (
-                    'x', 'y', 'z', 'vx', 'vy', 'vz', 
-                    'm', 'mag', 'redshift', 
+                    'x', 'y', 'z', 'vx', 'vy', 'vz', 'm', 'mag', 
+                    'redshift', "nobj", "space"
                 )
     
-    def __init__(self, pos: Any, vel: Any, mass: Any = ..., mag: Any = ..., z: float = ...) -> None:
+    def __init__(self, pos: Any, vel: Any, mass: Any = ..., mag: Any = ..., z: float = ..., space: str = "real") -> None:
         pos, vel = np.asarray(pos), np.asarray(vel)
         if pos.shape[1] != 3:
             raise CatalogError("data should correspond to 3 dimensionsss")
@@ -58,3 +58,7 @@ class Catalog:
         self.vx, self.vy, self.vz = vel.T
         self.m, self.mag          = mass, mag
         self.redshift             = z
+        self.space                = space
+
+    def __repr__(self) -> str:
+        return f"<Catalog z: {self.redshift}, nobjects: {self.nobj}, space: '{self.space}'>"
