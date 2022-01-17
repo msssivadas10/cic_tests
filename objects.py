@@ -62,4 +62,7 @@ class Catalog:
     def __repr__(self) -> str:
         return f"<Catalog z: {self.redshift}, nobjects: {self.nobj}, space: '{self.space}'>"
 
-    
+    def getPosition(self, ):
+        """
+        Get the position
+        """
