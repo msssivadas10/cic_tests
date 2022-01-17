@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 from typing import Any
-import numpy as np
+import numpy as np 
 
 class CatalogError(Exception):
     """
@@ -61,3 +61,5 @@ class Catalog:
 
     def __repr__(self) -> str:
         return f"<Catalog z: {self.redshift}, nobjects: {self.nobj}, space: '{self.space}'>"
+
+    
