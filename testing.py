@@ -8,4 +8,4 @@ v = np.random.uniform(-10., 10., (256, 3))
 
 cat = o.Catalog(x, v, z = 0., )
 
-print(cat.xPositions())
+print(cat)

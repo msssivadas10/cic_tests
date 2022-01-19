@@ -26,10 +26,11 @@ class Catalog:
     z: float. optional
         Redshift property of the catalog.
     space: str, optional
-        Which space the position coordinates are specified. It has two possible values, `real` 
-        for real space and `z` for redshift space.
+        Which space the position coordinates are specified. It has two possible values, 
+        `real` for real space and `z` for redshift space.
     coord_sys: str, optional
-        Which coordinate system to use. Only `cart` (for cartetian system) currently available.
+        Which coordinate system to use. Only `cart` (for cartetian system) is currently 
+        available.
 
     
     """
@@ -94,41 +95,6 @@ class Catalog:
         """
         return self.propertyValue(key)
 
-    def xPositions(self, ) -> Any:
-        """
-        Get the X coordinates of all the objects.
-        """
-        return self.pos[:, 0]
-
-    def yPositions(self, ) -> Any:
-        """
-        Get the Y coordinates of all the objects.
-        """
-        return self.pos[:, 1]
-
-    def zPositions(self, ) -> Any:
-        """
-        Get the Z coordinates of all the objects.
-        """
-        return self.pos[:, 2]
-
-    def xVelocities(self, ) -> Any:
-        """
-        Get the X component of velocies of all the objects.
-        """
-        return self.vel[: 0]
-
-    def yVelocities(self, ) -> Any:
-        """
-        Get the Y component of velocies of all the objects.
-        """
-        return self.vel[: 1]
-
-    def zVelocities(self, ) -> Any:
-        """
-        Get the Z component of velocies of all the objects.
-        """
-        return self.vel[: 2]
 
 
 
