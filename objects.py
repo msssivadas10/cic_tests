@@ -38,7 +38,7 @@ class Catalog:
                     'pos', 'vel', 'prop', 'redshift', 
                 )
     
-    def __init__(self, pos: Any, vel: Any, z: float = ..., prop: dict = {}, space: str = "real", coord_sys: str = "cart") -> None:
+    def __init__(self, pos: Any, vel: Any, z: float = ..., space: str = "real", coord_sys: str = "cart", **prop) -> None:
         pos, vel = np.asarray(pos), np.asarray(vel)
         if pos.shape[1] != 3:
             raise CatalogError("data should correspond to 3 dimensionsss")
