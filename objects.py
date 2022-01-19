@@ -2,6 +2,26 @@
 from typing import Any
 import numpy as np 
 
+
+class VectorArray(np.ndarray):
+    """
+    An array of 3D vectors.
+    """
+
+    def __new__(cls, input_array, info=None):
+        # Input array is an already formed ndarray instance
+        # We first cast to be our class type
+        obj = np.asarray(input_array).view(cls)
+        # add the new attribute to the created instance
+        obj.info = info
+        # Finally, we must return the newly created object:
+        return obj
+
+    def __array_finalize__(self, obj):
+        # see InfoArray.__array_finalize__ for comments
+        if obj is None: return
+        self.info = getattr(obj, 'info', None)
+
 class CatalogError(Exception):
     """
     Exceptions used by catalog objects.
@@ -19,21 +39,25 @@ class Catalog:
         Object positions as a list/array of 3D vectors.
     vel: array_like
         Object velocity as list/array of 3D vectors.
-    mass: array_like, optional
-        Object mass.
-    mag: array_like, optional
-        Object magnitudes.
-    z: float
-        Redshift at the time of configuration.
+    prop: dict, optional
+        A python dictionary of properties of the objects, with property name as keys and 
+        property values as their values. For example, if there is a property called `mass`,
+        then this dict has the form `{'mass': mass_array}`.
+    z: float. optional
+        Redshift property of the catalog.
+    space: str, optional
+        Which space the position coordinates are specified. It has two possible values, `real` 
+        for real space and `z` for redshift space.
+    coord_sys: str, optional
+        Which coordinate system to use. Only `cart` (for cartetian system) currently available.
 
     
     """
     __slots__ = (
-                    'x', 'y', 'z', 'vx', 'vy', 'vz', 'm', 'mag', 
-                    'redshift', "nobj", "space"
+                    'pos', 'vel', 'prop', 'redshift', 
                 )
     
-    def __init__(self, pos: Any, vel: Any, mass: Any = ..., mag: Any = ..., z: float = ..., space: str = "real") -> None:
+    def __init__(self, pos: Any, vel: Any, z: float = ..., prop: dict = {}, space: str = "real", coord_sys: str = "cart") -> None:
         pos, vel = np.asarray(pos), np.asarray(vel)
         if pos.shape[1] != 3:
             raise CatalogError("data should correspond to 3 dimensionsss")
@@ -42,23 +66,55 @@ class Catalog:
 
         nobj = pos.shape[0]
 
-        if mass is not ... :
-            mass = np.asarray(mass)
-            if mass.shape[0] != nobj or mass.shape[1] != 3:
-                raise CatalogError("mass data have different size/shape")
-        
-        if mag is not ... :
-            mag = np.asarray(mag)
-            if mag.shape[0] != nobj or mag.shape[1] != 3:
-                raise CatalogError("magnitude data have different size/shape")
+        self.pos      = pos
+        self.vel      = vel
+        self.redshift = z
 
-        self.nobj = nobj
-        self.x,  self.y,  self.z  = pos.T
-        self.vx, self.vy, self.vz = vel.T
-        self.m, self.mag          = mass, mag
-        self.redshift             = z
-        self.space                = space
+        if space not in ["real", "z"]:
+            raise CatalogError(f"invalid space ({space}), only `real` and `z` are the allowed values")
+        if coord_sys not in ["cart", ]:
+            raise CatalogError(f"invalid coordinate system ({coord_sys})")
+
+        # create property table:
+        self.prop = {
+                        "space": space, "coord_sys": coord_sys, "nobj": nobj, **prop
+                    }
 
     def __repr__(self) -> str:
-        return f"<Catalog z: {self.redshift}, nobjects: {self.nobj}, space: '{self.space}'>"
+        return f"<Catalog z: {self.redshift}, nobj: {self.prop['nobj']}, space: '{self.prop['space']}'>"
+
+    def properties(self, ) -> list:
+        """
+        Return a list of all the properties of the catalog.
+        """
+        return list(self.prop.keys())
+
+    def propertyValue(self, key: str) -> Any:
+        """
+        Get the value of the given property, if it exists, else :class:`CatalogError` is raised.
+
+        Parameters
+        ----------
+        key: str
+            Name of the property.
+
+        Returns
+        -------
+        val: Any
+            Value of the named property.
+
+        """
+        if key not in self.prop.keys():
+            raise CatalogError(f"catalog has no property called `{key}`")
+        return self.prop[key]
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Alias for `propertyValue`: get the named property.
+        """
+        return self.propertyValue(key)
+
+
+
+
 
