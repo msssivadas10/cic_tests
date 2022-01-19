@@ -93,6 +93,17 @@ class Catalog:
         """
         return self.propertyValue(key)
 
+    def countCells(self, ) -> None:
+        """
+        Divide the entire space into cells and count the number of objects in each cell.
+        This is stored in the attribute `cell_count` and can be accessed by the method
+        'getCount`.
+
+        Parameters
+        ----------
+        subdiv: int, optional
+            Number of cell divisions to use.
+        """
 
 
 
