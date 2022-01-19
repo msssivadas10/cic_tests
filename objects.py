@@ -19,10 +19,6 @@ class Catalog:
         Object positions as a list/array of 3D vectors.
     vel: array_like
         Object velocity as list/array of 3D vectors.
-    prop: dict, optional
-        A python dictionary of properties of the objects, with property name as keys and 
-        property values as their values. For example, if there is a property called `mass`,
-        then this dict has the form `{'mass': mass_array}`.
     z: float. optional
         Redshift property of the catalog.
     space: str, optional
@@ -31,6 +27,8 @@ class Catalog:
     coord_sys: str, optional
         Which coordinate system to use. Only `cart` (for cartetian system) is currently 
         available.
+    **prop: , optional
+        Other properties of the objects as name-value pairs. 
 
     
     """
