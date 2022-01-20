@@ -194,7 +194,7 @@ class Catalog:
                 warnings.warn("catalog already in real space")
                 return False
             # convert from redshift to real: 
-            self.pos           = self._transform_r2s()
+            self.pos           = self._transform_s2r()
             self.prop['space'] = "real"
             return True
         raise CatalogError(f"invalid action {action}")
@@ -203,19 +203,23 @@ class Catalog:
         """ 
         Real to redshift space transformation 
         """
-        if self.prop['coord_sys'] == 'cart':
-            if "H" not in self.prop.keys():
-                raise CatalogError("no H property for conversion")
-            Hz = self.prop['H']
-            
-            if self.redshift is ... :
-                raise CatalogError("no redshift given conversion")
-            z = self.redshift
+        if "H" not in self.prop.keys():
+            raise CatalogError("no H property for conversion")
+        Hz = self.prop['H']
+        
+        if self.redshift is ... :
+            raise CatalogError("no redshift given conversion")
+        z = self.redshift
 
-            if self.prop["los"] is ... :
-                los = self.pos
-            else:
-                los = np.asarray(self.prop["los"])
+        if self.vel is ... :
+            raise CatalogError("no velocity information")
+
+        if self.prop["los"] is ... :
+            los = self.pos
+        else:
+            los = np.asarray(self.prop["los"])
+            
+        if self.prop['coord_sys'] == 'cart':
             ds = np.sum(self.vel * los, axis = -1) / np.sum(los**2, axis = -1)
             ds = los * ds[:, np.newaxis]
 
