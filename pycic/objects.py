@@ -203,13 +203,16 @@ class Catalog:
         """ 
         Real to redshift space transformation 
         """
-        if "H" not in self.prop.keys():
-            raise CatalogError("no H property for conversion")
-        Hz = self.prop['H']
-        
         if self.redshift is ... :
-            raise CatalogError("no redshift given conversion")
+            raise CatalogError("no redshift information")
         z = self.redshift
+
+        if "H" not in self.prop.keys():
+            if self.Hz is not None:
+                Hz = self.Hz
+            raise CatalogError("no H property or function")
+        else:
+            Hz = self.prop['H']
 
         if self.vel is ... :
             raise CatalogError("no velocity information")
@@ -218,7 +221,7 @@ class Catalog:
             los = self.pos
         else:
             los = np.asarray(self.prop["los"])
-            
+
         if self.prop['coord_sys'] == 'cart':
             ds = np.sum(self.vel * los, axis = -1) / np.sum(los**2, axis = -1)
             ds = los * ds[:, np.newaxis]
