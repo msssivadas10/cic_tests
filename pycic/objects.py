@@ -230,7 +230,7 @@ class Catalog:
         else:
             raise NotImplementedError("function not implemented")
 
-    def _transform_r2s(self, ) -> Any:
+    def _transform_s2r(self, ) -> Any:
         """ 
         Redshift to real space transformation 
         """
