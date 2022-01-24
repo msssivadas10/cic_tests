@@ -112,7 +112,7 @@ class cicDistribution:
         Presnt value of the Hubble parameter in units of 100 km/sec/Mpc.
 
     """
-    __slots__ = "pk_spline", "z", "Om0", "Ode0", "h", 
+    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", 
 
     def __init__(self, pk_table: Any, z: float, Om0: float, Ode0: float, h: float) -> None:
         if z < -1.:
@@ -126,6 +126,9 @@ class cicDistribution:
         if Ode0 < 0.: 
             raise CICError("Ode0 cannot be negative")
         self.Ode0 = Ode0
+        self.Ok0  = 1. - Om0 - Ode0
+        if abs(self.Ok0) < 1.e-08:
+            self.Ok0 = 0.
 
         if h < 0.:
             raise CICError("h cannot be neative")
@@ -139,6 +142,95 @@ class cicDistribution:
         lnk, lnpk      = pk_table.T
         self.pk_spline = CubicSpline(lnk, lnpk)
 
+    def Ez(self, z: Any) -> Any:
+        r"""
+        Evaluate the function :math:`E(z) := H(z) / H_0` as a function of the 
+        redshift :math:`z`.
+
+        .. math::
+            E(z) = \sqrt{\Omega_{\rm m} (1 + z)^3 + \Omega_{\rm k} (1 + z)^2 + 
+                         \Omega_{\rm de}}
+
+        Parameters
+        ----------
+        z: array_like
+            Redshift.
+
+        Returns
+        -------
+        Ez: array_like
+            Value of the function at z.
+
+        Examples
+        --------
+        TODO
+
+        """
+        zp1 = 1. + np.asarray(z)
+        return np.sqrt(self.Om0 * zp1**3 + self.Ok0 * zp1**2 + self.Ode0)
+
+    def Omz(self, z: Any) -> Any:
+        r"""
+        Evaluate the normalized density of (dark) matter at redshift :math:`z`. 
+        
+        .. math::
+            \Omega_{\rm m}(z) = \frac{\Omega_{\rm m} (z + 1)^3}{E^2(z)}
+        
+        Parameters
+        ----------
+        z: array_like
+            Redshift
+
+        Returns
+        -------
+        Omz: array_like
+            Normalized matter density at z.
+
+        Examples
+        --------
+
+        """
+        zp1 = 1 + np.asarray(z)
+        Omz = self.Om0 * zp1**3
+        return Omz / (Omz + self.Ok0 * zp1**2 + self.Ode0)
+
+    def _Pdelta(self, delta: Any, mu: float, sigma: float, xi: float) -> Any:
+        r"""
+        PDF of :math:`\delta` as given in Repp and Szapudi (2020).
+
+        .. math::
+            P(\delta) = \frac{1}{(1 + \delta) \sigma}t^{1 + \xi} e^{-t}
+
+        where, :math:`t \equiv t(\delta)` is given by
+
+        .. math::
+            t(\delta) = \left( 1 + \frac{\ln \delta - \mu}{\sigma} \xi \right)^{-1/\xi}
+
+        :math:`\mu, \sigma, \xi` are the location, scale and shape parameters.
+
+        Parameters
+        ----------
+        delta: array_like
+            :math:`\delta` value - density fluctuation.
+        mu: float
+            Lccation parameter.
+        sigma: float
+            Scale parameter.
+        xi: float
+            Shape parameter.
+
+        Returns
+        -------
+        Pdelta: array_like
+            Probability density for the delta value.
+
+        Examples
+        --------
+        TODO
+
+        """
+        t = (1. + (np.log(delta) - mu) * xi / sigma)**(-1./xi)
+        return t**(1 + xi) * np.exp(-t) / (1. + delta) / sigma
 
 
 
