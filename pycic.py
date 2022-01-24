@@ -3,6 +3,7 @@
 import numpy as np
 from typing import Any
 from scipy.interpolate import CubicSpline
+from scipy.special import gamma
 
 class CICError(Exception):
     """
