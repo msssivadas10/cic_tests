@@ -111,11 +111,13 @@ class cicDistribution:
         Present value of the normalized dark-energy density, :math:`\Omega_{\rm de}`.
     h: float
         Presnt value of the Hubble parameter in units of 100 km/sec/Mpc.
+    pixsize: float
+        Size of a pixel (cell). Th entire space is divided into cells of this size.
 
     """
-    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", 
+    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", "pixsize", 
 
-    def __init__(self, pk_table: Any, z: float, Om0: float, Ode0: float, h: float) -> None:
+    def __init__(self, pk_table: Any, z: float, Om0: float, Ode0: float, h: float, pixsize: float) -> None:
         if z < -1.:
             raise CICError("redshift cannot be less than -1")
         self.z = z
@@ -134,6 +136,10 @@ class cicDistribution:
         if h < 0.:
             raise CICError("h cannot be neative")
         self.h = h
+
+        if not isinstance(pixsize, (float, int)):
+            raise CICError("pixsize should be a number")
+        self.pixsize = pixsize
 
         pk_table = np.asarray(pk_table)
         if pk_table.ndim != 2:
@@ -233,7 +239,56 @@ class cicDistribution:
         t = (1. + (np.log(delta) - mu) * xi / sigma)**(-1./xi)
         return t**(1 + xi) * np.exp(-t) / (1. + delta) / sigma
 
+    def _var_lin(self, km: float) -> float:
+        r"""
+        Compute the value of the linear variance from an integral.
 
+        Parameters
+        ----------
+        km: float
+            Upper limit of integration. It should be a number.
+
+        Returns
+        -------
+        sigma2_lin: float
+            Value of linear variance in the box.
+        """
+        return NotImplemented
+
+    def var_lin(self, ) -> float:
+        r"""
+        Get the linear variance in the cell. 
+        """
+        return self._var_lin(np.pi / self.pixsize)
+
+    def var_A(self, ) -> float:
+        r"""
+        Get the A-variance in the cell, where :math:`A = \ln (1 + \delta)`.
+        This uses the fit given Repp & Szapudi (2018).
+
+        Returns
+        -------
+        sigma: float
+            Value of variance.
+
+        """
+        mu = 0.73
+        return mu * np.log(1. + self.var_lin() / mu)
+
+    def bias_A(self, ) -> float:
+        r"""
+        Get the A-bias factor. It is given by 
+
+        .. math::
+            b_A = \frac{\sigma^2_a (k_N)}{\sigma^2_{\rm lin} (k_N)}
+        
+        Returns
+        -------
+        b: float
+            Bias value.
+
+        """
+        return self.var_A() / self.var_lin()
 
 
 
