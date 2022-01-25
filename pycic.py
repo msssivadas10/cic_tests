@@ -290,5 +290,5 @@ class cicDistribution:
         """
         return self.var_A() / self.var_lin()
 
-
+    
 
