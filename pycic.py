@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 
 import numpy as np
-from typing import Any
+from typing import Any, Tuple
 from scipy.interpolate import CubicSpline
 from scipy.integrate import quad
 from scipy.special import gamma
+from scipy.optimize import newton
 
 class CICError(Exception):
     """
@@ -428,6 +429,48 @@ class cicDistribution:
         pn  = d + c * np.log(np3)
         return Tn * vl**(-pn)
 
-    
+    def getParameters(self, vlin: float, vl: float) -> Tuple[float, float, float]:
+        r"""
+        Get the location, scale and shape parameters of the probability distribution 
+        corrsponding to the linear and count-in-cell variance value.
+
+        Parameters
+        ----------
+        vlin: float
+            Linear Variance.
+        vl: float
+            Count-in-cells variance.
+
+        Returns
+        -------
+        mu: float
+            Value of location parameter, :math:`\mu`.
+        sigma: float
+            Value of scale parameter, :math:`\sigma`.
+        xi: float
+            Value of shape parameter, :math:`\xi`. 
+
+        """    
+        # finding for xi:
+        r1 = vl * self.skewA(vl) # Pearson’s moment coefficient (\gamma_1)
+
+        def fxi(xi: float) -> float:
+            """ function whose roort is xi """
+            fn = gamma(1 - 3*xi) - 3*gamma(1 - xi)*gamma(1 - 2*xi) + 2*gamma(1 - xi)**3
+            fd = (gamma(1 - 2*xi) - gamma(1 - xi)**2)**1.5
+            return r1 + fn / fd
+
+        # TODO: using r1 as an initial guess root. need to find a better one.
+        xi = newton(fxi, r1, )
+
+        # finding sigma:
+        sigma = xi * vl / np.sqrt(gamma(1 - 2*xi) - gamma(1 - xi)**2)
+
+        # finding mu:
+        mu = self.meanA(vlin) - sigma * (gamma(1 - xi) - 1) / xi
+
+        return mu, sigma, xi
+
+
 
 
