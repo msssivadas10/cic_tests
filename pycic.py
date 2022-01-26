@@ -3,6 +3,7 @@
 import numpy as np
 from typing import Any
 from scipy.interpolate import CubicSpline
+from scipy.integrate import quad
 from scipy.special import gamma
 
 class CICError(Exception):
@@ -115,7 +116,7 @@ class cicDistribution:
         Size of a pixel (cell). Th entire space is divided into cells of this size.
 
     """
-    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", "pixsize", 
+    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", "pixsize", "kn", 
 
     def __init__(self, pk_table: Any, z: float, Om0: float, Ode0: float, h: float, pixsize: float) -> None:
         if z < -1.:
@@ -140,6 +141,7 @@ class cicDistribution:
         if not isinstance(pixsize, (float, int)):
             raise CICError("pixsize should be a number")
         self.pixsize = pixsize
+        self.kn      = np.pi / self.pixsize # nyquist wavenumber 
 
         pk_table = np.asarray(pk_table)
         if pk_table.ndim != 2:
@@ -201,6 +203,24 @@ class cicDistribution:
         Omz = self.Om0 * zp1**3
         return Omz / (Omz + self.Ok0 * zp1**2 + self.Ode0)
 
+    def power(self, lnk: Any) -> Any:
+        r"""
+        Get the power spectrum, calculated by interpolating the values in the power
+        spectrum table.
+
+        Parameters
+        ----------
+        lnk: array_like
+            Natural logarithm of the wavenumber.
+
+        Returns
+        -------
+        pk: array_like
+            Value of the power spectrum.
+
+        """
+        return np.exp(self.pk_spline(lnk))
+
     def _Pdelta(self, delta: Any, mu: float, sigma: float, xi: float) -> Any:
         r"""
         PDF of :math:`\delta` as given in Repp and Szapudi (2020).
@@ -213,7 +233,7 @@ class cicDistribution:
         .. math::
             t(\delta) = \left( 1 + \frac{\ln \delta - \mu}{\sigma} \xi \right)^{-1/\xi}
 
-        :math:`\mu, \sigma, \xi` are the location, scale and shape parameters.
+        and :math:`\mu, \sigma, \xi` are the location, scale and shape parameters.
 
         Parameters
         ----------
@@ -239,32 +259,54 @@ class cicDistribution:
         t = (1. + (np.log(delta) - mu) * xi / sigma)**(-1./xi)
         return t**(1 + xi) * np.exp(-t) / (1. + delta) / sigma
 
-    def _var_lin(self, km: float) -> float:
+    def _var_lin_integrand(self, lnk: Any) -> Any:
         r"""
-        Compute the value of the linear variance from an integral.
+        Function to be integrated in order to find the linear variance in the cell,
+        :math:`\sigma^2_{\rm lin}`, given by :math:`k^3 P_{\rm lin}(k)`, where the 
+        integration variable is :math:`\ln k`. The :math:`1/2\pi^2` factor is not 
+        included here. 
 
         Parameters
         ----------
-        km: float
-            Upper limit of integration. It should be a number.
+        lnk: array_like
+            Integration variable, natural logarithm of wavenumber.
+
+        Returns
+        -------
+        fk: array_like
+            Value of the function.
+
+        """
+        return np.exp(lnk)**3 * self.power(lnk)
+
+    def varLin(self, ) -> float:
+        r"""
+        Compute the value of the linear variance in the cell. It is computed from
+        the linear power spectrum as the integral
+
+        .. math::
+            \sigma_{\rm lin}^2 = \int_0^{k_N} \frac{{\rm d}k k^2}{2 \pi^2} P_{\rm lin}(k) 
+
+        where :math:`k_N` is the Nyquist wavenumber.
 
         Returns
         -------
         sigma2_lin: float
-            Value of linear variance in the box.
+            Value of linear variance.
         """
-        return NotImplemented
+        retval, err = quad(self._var_lin_integrand, -8., np.log(self.kn))
+        return retval / 2. / np.pi**2
 
-    def var_lin(self, ) -> float:
+    def varA(self, ) -> float:
         r"""
-        Get the linear variance in the cell. 
-        """
-        return self._var_lin(np.pi / self.pixsize)
+        Get the A-variance in the cell, where :math:`A = \ln (1 + \delta)`. This uses 
+        the fit given in Repp & Szapudi (2018).
 
-    def var_A(self, ) -> float:
-        r"""
-        Get the A-variance in the cell, where :math:`A = \ln (1 + \delta)`.
-        This uses the fit given Repp & Szapudi (2018).
+        .. math::
+            \sigma_A^2 = \mu \ln \left(1 + \frac{\sigma_{\rm lin}^2}{\mu} \right)
+        
+        Both the variances are evaluated at the Nyquist wavenumber :math:`k_N` and the
+        value of :math:`\mu` is taken as 0.73 (best-fit value).
 
         Returns
         -------
@@ -273,9 +315,9 @@ class cicDistribution:
 
         """
         mu = 0.73
-        return mu * np.log(1. + self.var_lin() / mu)
+        return mu * np.log(1. + self.varLin() / mu)
 
-    def bias_A(self, ) -> float:
+    def biasA(self, ) -> float:
         r"""
         Get the A-bias factor. It is given by 
 
@@ -288,7 +330,7 @@ class cicDistribution:
             Bias value.
 
         """
-        return self.var_A() / self.var_lin()
+        return self.varA() / self.varLin()
 
     
 
