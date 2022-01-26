@@ -12,8 +12,8 @@ pk = cs.matterPowerSpectrum(k, 0.)
 cd = pycic.cicDistribution(
     np.log(np.stack([k, pk], axis = -1)),
     0., 
-    cs.Om0, cs.Ode0, cs.h, 
-    500. / 8
+    cs.Om0, cs.Ode0, cs.h, cs.n,
+    1.95
 )
 
 # k1 = np.logspace(-8, 8, 501)
@@ -26,4 +26,5 @@ cd = pycic.cicDistribution(
 # plt.loglog(k1, fk, k, pk)
 # plt.show()
 
-print(cd.varLin(), cd.varA(), cd.biasA())
+vlin = cd.varLin()
+print(vlin, cd.varA(vlin), cd.biasA(vlin))

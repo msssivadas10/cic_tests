@@ -112,13 +112,15 @@ class cicDistribution:
         Present value of the normalized dark-energy density, :math:`\Omega_{\rm de}`.
     h: float
         Presnt value of the Hubble parameter in units of 100 km/sec/Mpc.
+    n: float
+        Slope of the linear power spectrum.
     pixsize: float
         Size of a pixel (cell). Th entire space is divided into cells of this size.
 
     """
-    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", "pixsize", "kn", 
+    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", "n", "pixsize", "kn", 
 
-    def __init__(self, pk_table: Any, z: float, Om0: float, Ode0: float, h: float, pixsize: float) -> None:
+    def __init__(self, pk_table: Any, z: float, Om0: float, Ode0: float, h: float, n: float, pixsize: float) -> None:
         if z < -1.:
             raise CICError("redshift cannot be less than -1")
         self.z = z
@@ -137,6 +139,7 @@ class cicDistribution:
         if h < 0.:
             raise CICError("h cannot be neative")
         self.h = h
+        self.n = n
 
         if not isinstance(pixsize, (float, int)):
             raise CICError("pixsize should be a number")
@@ -203,7 +206,7 @@ class cicDistribution:
         Omz = self.Om0 * zp1**3
         return Omz / (Omz + self.Ok0 * zp1**2 + self.Ode0)
 
-    def power(self, lnk: Any) -> Any:
+    def powerLin(self, lnk: Any) -> Any:
         r"""
         Get the power spectrum, calculated by interpolating the values in the power
         spectrum table.
@@ -277,7 +280,7 @@ class cicDistribution:
             Value of the function.
 
         """
-        return np.exp(lnk)**3 * self.power(lnk)
+        return np.exp(lnk)**3 * self.powerLin(lnk)
 
     def varLin(self, ) -> float:
         r"""
@@ -297,7 +300,49 @@ class cicDistribution:
         retval, err = quad(self._var_lin_integrand, -8., np.log(self.kn))
         return retval / 2. / np.pi**2
 
-    def varA(self, ) -> float:
+    def biasA(self, vlin: float) -> float:
+        r"""
+        Get the A-bias factor. It is given by 
+
+        .. math::
+            b_A^2 = \frac{\sigma^2_a (k_N)}{\sigma^2_{\rm lin} (k_N)}
+
+        Parameters
+        ----------
+        vlin: float
+            Linear variance.
+        
+        Returns
+        -------
+        b: float
+            Bias value.
+
+        """
+        return np.sqrt(self.varA(vlin) / vlin)
+
+    def powerA(self, lnk: Any) -> Any:
+        r"""
+        Power spectrum of the log density. It is related to the linear power spectrum 
+        by a bias factor as :math:`P_A(k) = b_A^2 P_{\rm lin}(k)`. The bias factor is 
+        the ratio of log to linear variances.
+
+        Parameters
+        ----------
+        k: array_like
+            Natural logarith of wavenumber.
+
+        Returns
+        -------
+        Pk: array_like
+            Value of power spectrum.
+
+
+        """
+        vlin = self.varLin()           # linear variance
+        b2   = self.varA(vlin) / vlin # bias squared
+        return self.powerLin(lnk) * b2
+
+    def varA(self, vlin: float) -> float:
         r"""
         Get the A-variance in the cell, where :math:`A = \ln (1 + \delta)`. This uses 
         the fit given in Repp & Szapudi (2018).
@@ -308,6 +353,11 @@ class cicDistribution:
         Both the variances are evaluated at the Nyquist wavenumber :math:`k_N` and the
         value of :math:`\mu` is taken as 0.73 (best-fit value).
 
+        Parameters
+        ----------
+        vlin: float
+            Linear variance.
+
         Returns
         -------
         sigma: float
@@ -315,22 +365,69 @@ class cicDistribution:
 
         """
         mu = 0.73
-        return mu * np.log(1. + self.varLin() / mu)
+        return mu * np.log(1. + vlin / mu)
 
-    def biasA(self, ) -> float:
+    def meanA(self, vlin: float) -> float:
         r"""
-        Get the A-bias factor. It is given by 
+        Return the fitted value of mean of A as a function the linear variance. This 
+        uses the fit given in Repp & Szapudi (2018)
 
         .. math::
-            b_A = \frac{\sigma^2_a (k_N)}{\sigma^2_{\rm lin} (k_N)}
-        
+            <A> = - \lambda \ln \left(1 + \frac{\sigma_{\rm lin}^2}{2\lambda} \right)
+
+        where the best fitting value is :math:`\lambda = 0.65`.
+
+        Parameters
+        ----------
+        vlin: float
+            Linear variance.
+
         Returns
         -------
-        b: float
-            Bias value.
+        avA: float
+            Mean value of A.
 
         """
-        return self.varA() / self.varLin()
+        lamda = 0.65
+        return -lamda * np.log(1. + vlin / 2. / lamda)
+
+    def skewA(self, vl: float) -> float:
+        r"""
+        Return the skewness of the A distribution as a function the count-in-cells 
+        variance. The value if calculated by a fit given by Repp & Szapudi (2018),
+
+        .. math::
+            T_3 = T(n) [\sigma_A^2(l)]^{-p(n)}
+
+        where :math:`n` is the slope of the power spectrum and, 
+
+        .. math::
+            T(n) = a(n + 3) + b \quad {\rm and} \quad p(n) = d + c \ln(n + 3)
+
+        The best fit values are a = -0.70, b = 1.25, c = -0.26 and d = 0.06.
+
+        Parameters
+        ----------
+        vl: float
+            Count in cell variance. This is not the fitted value, but calculated from
+            the *measured* A power spectrum.
+
+        Returns
+        -------
+        T3: float
+            Value of skewness.
+
+        """
+        a  = -0.70
+        b  =  1.25
+        c  = -0.26
+        d  =  0.06
+
+        np3 = self.n + 3.
+        Tn  = a * np3 + b
+        pn  = d + c * np.log(np3)
+        return Tn * vl**(-pn)
 
     
+
 
