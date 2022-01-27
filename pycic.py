@@ -3,6 +3,7 @@
 from sre_constants import ANY
 import numpy as np
 from typing import Any, Tuple
+from itertools import product
 from scipy.interpolate import CubicSpline
 from scipy.integrate import quad
 from scipy.special import gamma
@@ -496,6 +497,8 @@ class cicDistribution:
         # XXX: using the cloud in cell weight function as W(k)
         p    = 2.
         nmax = 3 
+        kn   = self.kn
+
 
         def _powerA_vec(kx: Any, ky: Any, kz: Any) -> Any:
             """ A power for vector inputs """
@@ -513,16 +516,15 @@ class cicDistribution:
             """ a term in the power sum """
             return _powerA_vec(kx, ky, kz) * _weight(kx, ky, kz)
 
-        kn = self.kn
         Pk = 0.
-        for nx in range(nmax):
-            for ny in range(nmax):
-                for nz in range(nmax):
-                    Pk += _power_term(
-                                        kx + 2. * nx * kn, 
-                                        ky + 2. * ny * kn, 
-                                        kz + 2. * nz * kn
-                                     )
+        for nx, ny, nz in product(range(nmax), range(nmax), range(nmax)):
+            if nx**2 + ny**2 + nz**2 >= 9.:
+                continue # only abs(n) < 3 are needed
+            Pk += _power_term(
+                                kx + 2. * nx * kn, 
+                                ky + 2. * ny * kn, 
+                                kz + 2. * nz * kn
+                             )
         
         return Pk
 
