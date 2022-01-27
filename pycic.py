@@ -472,7 +472,7 @@ class cicDistribution:
 
         return mu, sigma, xi
 
-    def _powerA_meas(self, kx: Any, ky: Any, kz: Any) ->Any:
+    def _powerA_meas(self, kx: Any, ky: Any, kz: Any) -> Any:
         r"""
         Measured A power spectrum. This is valid only for :math:`\bf k` vectors 
         such that :math:`\sqrt{k_x^2 + k_y^2 + k_z^2} \le k_N`. No error will be
