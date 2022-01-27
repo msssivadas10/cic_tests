@@ -494,7 +494,8 @@ class cicDistribution:
 
         """
         # XXX: using the cloud in cell weight function as W(k)
-        p = 2.
+        p    = 2.
+        nmax = 3 
 
         def _powerA_vec(kx: Any, ky: Any, kz: Any) -> Any:
             """ A power for vector inputs """
@@ -514,9 +515,9 @@ class cicDistribution:
 
         kn = self.kn
         Pk = 0.
-        for nx in range(4):
-            for ny in range(4):
-                for nz in range(4):
+        for nx in range(nmax):
+            for ny in range(nmax):
+                for nz in range(nmax):
                     Pk += _power_term(
                                         kx + 2. * nx * kn, 
                                         ky + 2. * ny * kn, 
@@ -524,6 +525,35 @@ class cicDistribution:
                                      )
         
         return Pk
+
+    def powerA_meas(self, kx: Any, ky: Any, kz: Any) -> Any:
+        r"""
+        Measured power spectrum of A. It is computed as the sum
+
+        .. math::
+            P_{A, \rm meas} = \sum_{\bf n} P_A ({\bf k} + 2 k_N * {\bf n})
+                                W^2 ({\bf k} + 2 k_N * {\bf n})
+
+        where :math:`{\bf n}` is a vector of three integers with length less
+        than 3. This is valid for :math:`\vert {\bf k} \vert \le k_N`. After 
+        that limit, it is power law continued. 
+
+        Parameters
+        ----------
+        kx: array_like
+            X component of the k vectors.
+        ky: array_like
+            Y component of the k vectors.
+        kz: array_like
+            Z component of the k vectors.
+
+        Returns
+        -------
+        Pk: array_like
+            Power spectrum values.
+
+        """
+        return NotImplemented
 
 
 
