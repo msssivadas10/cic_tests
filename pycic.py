@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from sre_constants import ANY
 import numpy as np
 from typing import Any, Tuple
 from scipy.interpolate import CubicSpline
@@ -471,6 +472,58 @@ class cicDistribution:
 
         return mu, sigma, xi
 
+    def _powerA_meas(self, kx: Any, ky: Any, kz: Any) ->Any:
+        r"""
+        Measured A power spectrum. This is valid only for :math:`\bf k` vectors 
+        such that :math:`\sqrt{k_x^2 + k_y^2 + k_z^2} \le k_N`. No error will be
+        raised otherwise.
+
+        Parameters
+        ----------
+        kx: array_like
+            X component of the k vectors.
+        ky: array_like
+            Y component of the k vectors.
+        kz: array_like
+            Z component of the k vectors.
+
+        Returns
+        -------
+        Pk: array_like
+            Power spectrum values.
+
+        """
+        # XXX: using the cloud in cell weight function as W(k)
+        p = 2.
+
+        def _powerA_vec(kx: Any, ky: Any, kz: Any) -> Any:
+            """ A power for vector inputs """
+            k = np.sqrt(kx**2 + ky**2 + kz**2)
+            return self.powerA(np.log(k))
+
+        def _weight(kx: Any, ky: Any, kz: Any) -> Any:
+            """ mass assignment function (squared) """
+            wx = np.sinc(kx / kn / 2.)
+            wy = np.sinc(ky / kn / 2.)
+            wz = np.sinc(kz / kn / 2.)
+            return (wx * wy * wz)**(2.*p)
+
+        def _power_term(kx: Any, ky: Any, kz: Any) -> Any:
+            """ a term in the power sum """
+            return _powerA_vec(kx, ky, kz) * _weight(kx, ky, kz)
+
+        kn = self.kn
+        Pk = 0.
+        for nx in range(4):
+            for ny in range(4):
+                for nz in range(4):
+                    Pk += _power_term(
+                                        kx + 2. * nx * kn, 
+                                        ky + 2. * ny * kn, 
+                                        kz + 2. * nz * kn
+                                     )
+        
+        return Pk
 
 
 
