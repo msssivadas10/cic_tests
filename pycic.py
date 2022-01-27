@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-from sre_constants import ANY
 import numpy as np
 from typing import Any, Tuple
 from itertools import product, repeat
