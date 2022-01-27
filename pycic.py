@@ -3,7 +3,7 @@
 from sre_constants import ANY
 import numpy as np
 from typing import Any, Tuple
-from itertools import product
+from itertools import product, repeat
 from scipy.interpolate import CubicSpline
 from scipy.integrate import quad
 from scipy.special import gamma
@@ -517,7 +517,7 @@ class cicDistribution:
             return _powerA_vec(kx, ky, kz) * _weight(kx, ky, kz)
 
         Pk = 0.
-        for nx, ny, nz in product(range(nmax), range(nmax), range(nmax)):
+        for nx, ny, nz in product(*repeat(range(nmax), 3)):
             if nx**2 + ny**2 + nz**2 >= 9.:
                 continue # only abs(n) < 3 are needed
             Pk += _power_term(
