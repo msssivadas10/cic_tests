@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import numpy as np
+import warnings
 from typing import Any, Tuple, Union
 from itertools import product, repeat
 from scipy.interpolate import CubicSpline
@@ -128,13 +129,15 @@ class CartesianCatalog:
     Parameters
     ----------
     objx: array_like
-        Position array. An ndarray of float positions with 3 columns. Its number of rows 
-        is taken as the numbe of objects in the catalog. 
+        Position array. An ndarray of float (comoving) positions with 3 columns. Its 
+        number of rows is taken as the numbe of objects in the catalog. 
     objv: array_like, optional
         Velocity array. An ndarray of same size as the position array. Velocity means the 
         galaxy peculiar velocity in units if the Hubble parameter at that time.
     z: float, optional
         Redshift.
+    space: str, optional
+        Which space the position is given - redshift (`s`) or real (`r`, default) space.
     **attrs: key-value pairs, optional
         Additional attributes to the catalog. These attributes are of two types, object 
         attributes and catalog attributes. Object attributes are ndarrays with same shape 
@@ -157,15 +160,18 @@ class CartesianCatalog:
     <'CartesianCatalog' of 512 objects>
 
     """
-    __slots__ = 'objx', 'objv', 'objattrs', 'z', 'n', 'attrs', 
+    __slots__ = 'objx', 'objv', 'objattrs', 'z', 'n', 'attrs', 'space', '_cm', 
 
-    def __init__(self, objx: Any, objv: Any = ..., z: float = ..., **attrs) -> None:
+    def __init__(self, objx: Any, objv: Any = ..., z: float = ..., space: str = "r", **attrs) -> None:
         self.setPosition(objx)
         if objv is not ... :
             self.setVelocity(objv)
         self.z = ...
         if z is not ... :
             self.setRedshift(z)
+        if space not in ("s", "r"):
+            raise ValueError("space can be either `s` (redshift) or `r` (real)")
+        self.space = space
 
         # attributes:
         self.objattrs, self.attrs = {}, {}
@@ -245,7 +251,195 @@ class CartesianCatalog:
         elif key == "z": # get redshift
             self.setRedshift(value)
         raise CatalogError(f"cannot find object attribute `{key}`")
+
+    def real2redshift(self, ) -> None:
+        r"""
+        Transform the coordinates from real to redshift space. It is done by a plane 
+        parallel approximation along the z axis. i.e., by shifting the z-coordinate 
+        by a factor corresponding to the z-velocity (in units of Hubble parameter).
+
+        .. math::
+            s_{Z} = x_{Z} + v_{Z} (1 + z)
+
+        Notes
+        -----
+        To convert a real (cartetian) space galaxy catalog to a redshift space catalog 
+        using the plane parallel transformation,
+
+        .. math::
+            {\bf s} = {\bf x} + ({\bf v} \cdot \hat{\bf l}) \frac{(z + 1)\hat{\bf l}}{H}
+
+        where, :math:`{\bf s}` and :math:`{\bf x}` are the comoving position of the 
+        galaxies in redshift and real spaces, respectively. :math:`{\bf l}` is the 
+        line-of-sight vector.
+
+        """ 
+        if self.space == "s":
+            return # already in redshift space
+        if self.objv is ... :
+            raise CatalogError("no velocity data is available")
+        elif self.z is ... :       
+            raise CatalogError("no redshift data is available")
+        self.objx[:,2] += self.objv[:,2] * (1. + self.z)
+        self.space      = "s"
+        return
+
+    def redshift2real(self, ) -> None:
+        r"""
+        Transform the coordinates from redshift to real space.
+
+        TODO: implement redshift-real transform
+        """
+        if self.space == "r":
+            return # already in real space
+        raise NotImplementedError("function not implemented")
+
+    def createCountMatrix(self, subdiv: int, boxsize: Union[float, tuple], offset: Union[float, tuple] = 0.) -> None:
+        r"""
+        Create the count matrix. This will put the galaxies in this catalog on the 
+        region specified and divide it into a given number of cells. The count 
+        matrix stores the number of galaxies in each cell.
+
+        Parameters
+        ----------
+        subdiv: int
+            Number of subdivisions of the region. If it is :math:`n`, then there will 
+            be :math:`n^3` cells.
+        boxsize: float, tuple of 3 floats
+            Size of the box bounding the region. If it is a number, then a cubical 
+            region is assumed. Otherwise, it should be a 3-tuple of the x, y and z 
+            lengths of the box. 
+        offset: float, tuple of 3 floats, optional
+            Offset position of the region. By default, it is set to 0.
+
+
+        """
+        self._cm = CountMatrix(self.objx, subdiv, boxsize, offset)
+        return
+
+
+class CountMatrix:
+    """
+    A cell structure storing the number of galaxies in cells. This is used for count-
+    in-cell estimation, by catalog objects.
+
+    Parameters
+    ----------
+    objx: array_like 
+        Position array. An ndarray of float (comoving) positions with 3 columns. 
+    subdiv: int
+        Number of subdivisions of the region. If it is :math:`n`, then there will 
+        be :math:`n^3` cells.
+    boxsize: float, tuple of 3 floats
+        Size of the box bounding the region. If it is a number, then a cubical 
+        region is assumed. Otherwise, it should be a 3-tuple of the x, y and z 
+        lengths of the box. 
+    offset: float, tuple of 3 floats, optional
+        Offset position of the region. By default, it is set to 0.
+    
+    """
+    __slots__ = "count", "subdiv", "boxsize", "offset", "cellsize", 
+
+    def __init__(self, objx: Any, subdiv: int, boxsize: Union[float, tuple], offset: Union[float, tuple] = 0.) -> None:
+        if not isinstance(subdiv, int):
+            raise TypeError("subdiv should be 'int'")
+
+        if isinstance(boxsize, (int, float)):
+            boxsize = [float(boxsize), ] * 3
+        else:
+            boxsize = list(boxsize)
+            if len(boxsize) != 3:
+                raise TypeError("boxsize must be a 3-tuple or number")
+
+        if isinstance(offset, (int, float)):
+            offset = [float(offset), ] * 3
+        else:
+            offset = list(offset)
+            if len(offset) != 3:
+                raise TypeError("offset must be a 3-tuple or number")
         
+        boxsize, offset = np.asarray(boxsize), np.asarray(offset)
+        if any(np.min(objx, axis = 0) < offset) or any(np.max(objx, axis = 0) > offset + boxsize):
+            warnings.warn("some objects are outside the specified box", Warning)
+
+        cellsize = boxsize / subdiv
+
+        self.boxsize  = boxsize
+        self.cellsize = cellsize
+        self.subdiv   = subdiv
+        self.offset   = offset
+ 
+        i      = self._pos2index(objx)
+        i, cnt = np.unique(i, return_counts = True)
+        
+        self.count = dict(zip(i, cnt)) 
+
+    def __repr__(self) -> str:
+        """ Return the canonical string representation of the object. """
+        bs = self.boxsize
+        if all(np.abs(bs - bs[0]) < 1e-6):
+            bs = bs[0]
+        os = self.offset
+        if all(np.abs(os - os[0]) < 1e-6):
+            os = os[0]    
+        return f"<CountMatrix: subdiv = {self.subdiv}, boxsize = {bs}, offset = {os}>"
+
+    def _pos2index(self, objx: Any) -> Any:
+        i = ((objx - self.offset) // self.cellsize).astype(int)
+        return self.subdiv * (self.subdiv * i[:,0] + i[:,1]) + i[:,2]
+
+    def pos2index(self, objx: Any) -> Any:
+        """
+        Convert object positions to cell index. 
+
+        Parameters
+        ----------
+        objx: array_like
+            Position array, an ndarray of float positions with 3 columns. 
+
+        Returns
+        -------
+        i: array_like
+            Cell index corresponding to the positions.
+        """
+        objx = np.asarray(objx)
+        if objx.ndim == 1:
+            if objx.shape[0] != 3:
+                raise ValueError("position must be a 3-vector")
+            objx = objx[np.newaxis, :]
+        elif objx.ndim == 2:
+            if objx.shape[1] != 3:
+                raise ValueError("invalid shape for position array")
+        else:
+            raise ValueError("invalid shape for position array")
+        return self._pos2index(objx)
+        
+    def countof(self, i: int) -> int:
+        """ Get the count at i-th cell (flttened). """
+        cells = self.subdiv**3
+        if i < cells:
+            if i in self.count.keys():
+                return self.count[i]
+            return 0
+        raise IndexError(f"invalid index, must be in 0-{cells-1}")    
+
+    def countVector(self, ) -> Any:
+        """ Get the counts as a vector. """
+        return np.asarray(list(map(self.countof, range(self.subdiv**3))))
+
+    def countProbability(self, ) -> tuple:
+        r"""
+        Estimate the count-in-cells probability distribution.
+
+        """
+        raise NotImplementedError()
+
+    def countProbabilityError(self, ) -> tuple:
+        r"""
+        Estimate the error in count-in-cells probability distribution.
+
+        """
+        raise NotImplementedError()
 
 
 class cicDistribution:
@@ -707,7 +901,7 @@ class cicDistribution:
             Power spectrum values.
 
         """
-        return NotImplemented
+        raise NotImplementedError()
 
 
 

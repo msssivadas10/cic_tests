@@ -43,6 +43,14 @@ def test2():
     
     return
 
+def test3():
+    x = np.random.uniform(0., 500., (512, 3))
+
+    cm = pycic.CountMatrix(x, 4, 500., )
+    print(cm.countVector())
+
+    return
+
 
 if __name__ == '__main__':
-    test2()
+    test3()
