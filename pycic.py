@@ -1,18 +1,32 @@
 #!/usr/bin/python3
 
 import numpy as np
-from typing import Any, Tuple
+from typing import Any, Tuple, Union
 from itertools import product, repeat
 from scipy.interpolate import CubicSpline
 from scipy.integrate import quad
 from scipy.special import gamma
 from scipy.optimize import newton
 
+# ====================================================
+# Exceptions
+# ====================================================
+
 class CICError(Exception):
     """
     Error raised by functions and classes related to CIC computations.
     """
     ...
+
+class CatalogError(CICError):
+    """
+    Error raised by galaxy catalog objects.
+    """
+    ...
+
+# =====================================================
+# Redshift - real space conversion
+# ===================================================== 
 
 def cart2redshift(x: Any, v: Any, z: float, los: Any = ...) -> Any:
     r"""
@@ -60,7 +74,7 @@ def cart2redshift(x: Any, v: Any, z: float, los: Any = ...) -> Any:
 
     """
     if z < -1: # check redshift
-        raise CICError("redshift must not be less than -1")
+        raise ValueError("redshift must not be less than -1")
 
     # check input data:
     x, v = np.asarray(x), np.asarray(v)
@@ -85,9 +99,9 @@ def cart2redshift(x: Any, v: Any, z: float, los: Any = ...) -> Any:
     else:
         los = np.asarray(los)
         if los.ndim != 1:
-            raise CICError("los must be 1D array (vector)")
+            raise ValueError("los must be 1D array (vector)")
         elif los.shape[0] != 3:
-            raise CICError("los must be a 3-vector")
+            raise ValueError("los must be a 3-vector")
     los = los / np.sum(los**2, axis = -1) 
 
     # plane parallel transformation:
@@ -95,10 +109,149 @@ def cart2redshift(x: Any, v: Any, z: float, los: Any = ...) -> Any:
 
     return s
 
+def redshift2cart(x: Any, v: Any, z: float, los: Any = ...) -> Any:
+    r"""
+    Convert a redshift space galaxy catalog to a real (cartetian) space catalog using the plane parallel transformation.
+
+    """
+    raise NotImplementedError("function not implemented")
+
+# =====================================================
+# Main objects
+# ===================================================== 
+
+class CartesianCatalog:
+    r"""
+    A galaxy catalog in cartesian coordinates. The catalog stores the galaxy positions
+    and velocity. It also stores some extra attributes such as the mass, magnitude etc.
+
+    Parameters
+    ----------
+    objx: array_like
+        Position array. An ndarray of float positions with 3 columns. Its number of rows 
+        is taken as the numbe of objects in the catalog. 
+    objv: array_like, optional
+        Velocity array. An ndarray of same size as the position array. Velocity means the 
+        galaxy peculiar velocity in units if the Hubble parameter at that time.
+    z: float, optional
+        Redshift.
+    **attrs: key-value pairs, optional
+        Additional attributes to the catalog. These attributes are of two types, object 
+        attributes and catalog attributes. Object attributes are ndarrays with same shape 
+        as the positions. Catalog attributes are properties of the catalog and they are 
+        of scalars (i.e., int float and str). These should be specified as keyword 
+        arguments.
+        
+    Examples
+    --------
+    A catalog of 512 objects with random positions and velocities. Extra attributes used 
+    are the redshift and object mass (also random) attributes.
+
+    >>> from numpy import random
+    >>> x = random.uniform(0., 500., (512, 3)) # uniform dist. positions in 500 unit box
+    >>> v = random.uniform(-10., 10., (512, 3))# uniform dist. velocity in [-10, 10]
+    >>> m = random.normal(1.e+5, 5., (512, ))  # normally dist. mass 
+    >>> # creating the catalog:
+    >>> cat = CartesianCatalog(x, v, mass = m, redshift = 0.)
+    >>> cat
+    <'CartesianCatalog' of 512 objects>
+
+    """
+    __slots__ = 'objx', 'objv', 'objattrs', 'z', 'n', 'attrs', 
+
+    def __init__(self, objx: Any, objv: Any = ..., z: float = ..., **attrs) -> None:
+        self.setPosition(objx)
+        if objv is not ... :
+            self.setVelocity(objv)
+        self.z = ...
+        if z is not ... :
+            self.setRedshift(z)
+
+        # attributes:
+        self.objattrs, self.attrs = {}, {}
+        for key, value in attrs.items():
+            if not np.isscalar(value):
+                self.setAttr(key, value)
+            else:
+                self.attrs[key] = value
+    
+    def setPosition(self, objx: Any) -> None:
+        """ 
+        Set object positions. This will clear any velocity data if present.
+        """
+        objx, _fail = np.asarray(objx), False
+        if objx.ndim != 2:
+            _fail = True
+        elif objx.shape[1] != 3:
+            _fail = True
+        if _fail:
+            raise CatalogError("invalid shape for position array")
+        self.objx = objx
+        self.objv = ...
+        self.n    = objx.shape[0] # number of objects
+        return
+
+    def setVelocity(self, objv: Any) -> None:
+        """ Set object velocity. """
+        objv, _fail = np.asarray(objv), False
+        if objv.ndim != 2:
+            _fail = True
+        elif objv.shape[0] != self.n or objv.shape[1] != 3:
+            _fail = True
+        if _fail:
+            raise CatalogError("invalid shape for velocity array")
+        self.objv = objv
+        return
+
+    def setRedshift(self, z: float) -> None:
+        """ Set redshift. """
+        if not isinstance(z, (int, float)):
+            raise TypeError("z must be a number ('int' or 'float'")
+        self.z = z
+        return
+
+    def setAttr(self, key: str, value: Any) -> None:
+        """ Set an object attribute. """
+        value = np.asarray(value)
+        if value.shape[0] != self.n:
+            raise CatalogError(f"invalid shape for object attribute, {value.shape}")
+        self.objattrs[key] = value
+        return
+
+    def __repr__(self) -> str:
+        """ Return the canonical string representation of the object. """
+        return "<'CartesianCatalog' of {} objects>".format(self.n)
+
+    def __getitem__(self, key: str) -> Any:
+        """ Get the object attribute. """
+        if key in self.objattrs.keys():
+            return self.objattrs[key]
+        elif key == 'x': # get position
+            return self.objx
+        elif key == 'v': # get velocity
+            return self.objv
+        elif key == "z": # get redshift
+            return self.z
+        raise CatalogError(f"cannot find object attribute `{key}`")
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """ Set the object attribute. """
+        if key in self.objattrs.keys():
+            self.setAttr(key, value)
+        elif key == 'x': # get position
+            self.setPosition(value)
+        elif key == 'v': # get velocity
+            self.setVelocity(value)
+        elif key == "z": # get redshift
+            self.setRedshift(value)
+        raise CatalogError(f"cannot find object attribute `{key}`")
+        
+
+
 class cicDistribution:
     r"""
-    Implementation of the theoretical count-in-cells distribution given in Repp
-    and Szapudi (2020). 
+    Implementation of the theoretical count-in-cells distribution given in Repp and 
+    Szapudi (2020). 
 
     Parameters
     ----------
