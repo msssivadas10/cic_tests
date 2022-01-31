@@ -360,7 +360,9 @@ class CountMatrix:
         centers: array_like
             Bin centers.
         prob: array_like
-            Probability at the bin centers.
+            Probability at the bin centers. Have the same size as `centers`.
+        err: array_like
+            Error estimate for the probability. Have the same size as `centers`.
 
         """
         n = self.countVector()
@@ -388,24 +390,21 @@ class CountMatrix:
             
             # merging bins:
             raise NotImplementedError()
-            pass
         
-        # probability distr.:    
-        prob = count / self.subdiv**3 / np.diff(edges)
+        # probability distr.:  
+        cells = self.subdiv**3  
+        width = np.diff(edges)
+        prob  = count / cells / width
+
+        # error estimate:
+        err = np.sqrt(prob * (1 - prob) / cells / width)
 
         # bin centers:
         if style == 'log':
             centers = np.sqrt(edges[:-1] * edges[1:]) # geom mean
         else:
             centers = (edges[:-1] + edges[1:]) / 2.   # mean
-        return centers, prob
-
-    def countProbabilityError(self, ) -> tuple:
-        r"""
-        Estimate the error in count-in-cells probability distribution.
-
-        """
-        raise NotImplementedError()
+        return centers, prob, err
 
 
 class cicDistribution:
