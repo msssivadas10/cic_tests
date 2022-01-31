@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import matplotlib
 import numpy as np
 import warnings
 from typing import Any, Tuple, Union
@@ -335,12 +336,69 @@ class CountMatrix:
         """ Get the counts as a vector. """
         return np.asarray(list(map(self.countof, range(self.subdiv**3))))
 
-    def countProbability(self, ) -> tuple:
+    def countProbability(self, bins: int, merge: bool = False, nlow: int = ..., style: str = "lin") -> tuple:
         r"""
-        Estimate the count-in-cells probability distribution.
+        Estimate the count-in-cells probability distribution. Estimate of probability 
+        at the center of a bin :math:`B` is given by :math:`\hat{P}(N) = \frac{n}{w}`, 
+        where :math:`N` is the bin center, :math:`n` is the number of cells with count 
+        falling in the bin and :math:`w` is the bin width.
+
+        Parameters
+        ----------
+        bins: int
+            Number of bins to use.
+        merge: bool, optional
+            Wheather to merge bins with cells, less than a lower threshold. This 
+            is disabled by default (`False`).
+        nlow: int, optional
+            Lowest number of cells in a bin. Needed when merging bins is enabled.
+        style: str, optional
+            Binning style used - linear (`lin`, default) or logarithmic (`log`).
+        
+        Returns
+        -------
+        centers: array_like
+            Bin centers.
+        prob: array_like
+            Probability at the bin centers.
 
         """
-        raise NotImplementedError()
+        n = self.countVector()
+
+        # binning the n value:
+        n_min, n_max = min(n). max(n)
+        if not n_min:
+            warnings.warn("empty cells are present, but lowest bin edge will be 1", Warning)
+            n_min = 1
+
+        if style == 'lin':
+            _bins = np.linspace(n_min, n_max, bins)
+        elif style == 'log':
+            _bins = np.logspace(np.log10(n_min), np.log10(n_max), bins)
+        else:
+            raise ValueError("style can be either `lin` or `log` only")
+
+        count, edges = np.histogram(n, bins = _bins, )
+        
+        if merge:
+            if nlow is ... :
+                raise CICError("lower n cut-off should be given if merging enabled")
+            elif not isinstance(nlow, int):
+                raise ValueError("`nlow` must be 'int'")
+            
+            # merging bins:
+            raise NotImplementedError()
+            pass
+        
+        # probability distr.:    
+        prob = count / self.subdiv**3 / np.diff(edges)
+
+        # bin centers:
+        if style == 'log':
+            centers = np.sqrt(edges[:-1] * edges[1:]) # geom mean
+        else:
+            centers = (edges[:-1] + edges[1:]) / 2.   # mean
+        return centers, prob
 
     def countProbabilityError(self, ) -> tuple:
         r"""
