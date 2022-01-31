@@ -4,6 +4,7 @@ import numpy as np
 import pycic
 
 def test1():
+    """ testing `cicDistribution` """
     import lss2
 
     cs = lss2.CosmoStructure(Om0 = 0.3, Ob0 = 0.05, sigma8 = 0.8, n = 1., h = 0.7, psmodel = "eisenstein98_zb")
@@ -34,6 +35,7 @@ def test1():
     return
 
 def test2():
+    """ testing `CartesianCatalog` """
     x = np.random.uniform(0., 500., (512, 3)) # uniform dist. positions in 500 unit box
     v = np.random.uniform(-10., 10., (512, 3))# uniform dist. velocity in [-10, 10]
     m = np.random.normal(1.e+5, 5., (512, ))  # normally dist. mass 
@@ -44,6 +46,7 @@ def test2():
     return
 
 def test3():
+    """ tesing `CountMatrix` """
     x = np.random.uniform(0., 500., (512, 3))
 
     cm = pycic.CountMatrix(x, 4, 500., )
