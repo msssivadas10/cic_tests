@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-import matplotlib
 import numpy as np
 import warnings
 from typing import Any, Tuple, Union
@@ -257,6 +256,7 @@ class CartesianCatalog:
         if self._cm is ... :
             raise CatalogError("cic matrix not created")
         return self._cm.countProbability(bins, merge, nlow, style)
+
 
 class CountMatrix:
     """
