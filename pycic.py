@@ -82,6 +82,8 @@ class CartesianCatalog:
             raise ValueError("space can be either `s` (redshift) or `r` (real)")
         self.space = space
 
+        self._cm = ...
+
         # attributes:
         self.objattrs, self.attrs = {}, {}
         for key, value in attrs.items():
@@ -226,6 +228,35 @@ class CartesianCatalog:
         self._cm = CountMatrix(self.objx, subdiv, boxsize, offset)
         return
 
+    def cicProbability(self, bins: int, merge: bool = False, nlow: int = ..., style: str = "lin") -> tuple:
+        r"""
+        Estimate the count-in-cells probability distribution from the catalog.
+
+        Parameters
+        ----------
+        bins: int
+            Number of bins to use.
+        merge: bool, optional
+            Wheather to merge bins with cells, less than a lower threshold. This 
+            is disabled by default (`False`).
+        nlow: int, optional
+            Lowest number of cells in a bin. Needed when merging bins is enabled.
+        style: str, optional
+            Binning style used - linear (`lin`, default) or logarithmic (`log`).
+        
+        Returns
+        -------
+        centers: array_like
+            Bin centers.
+        prob: array_like
+            Probability at the bin centers. Have the same size as `centers`.
+        err: array_like
+            Error estimate for the probability. Have the same size as `centers`.
+
+        """
+        if self._cm is ... :
+            raise CatalogError("cic matrix not created")
+        return self._cm.countProbability(bins, merge, nlow, style)
 
 class CountMatrix:
     """
