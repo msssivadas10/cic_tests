@@ -396,6 +396,21 @@ class CountMatrix:
             Error estimate for the probability. Have the same size as `centers`.
 
         """
+        def _mergeBins(x: Any, y: Any, cutoff: int) -> Tuple[Any, Any]:
+            """  For bin merging (TODO: is there a better way?) """
+            start, stop = 0, len(y)
+            while start < stop-1:
+                for i in range(start, stop):
+                    yi, start = y[i], i
+                    if yi < cutoff:
+                        __ix, __iy = (i, i-1) if i == stop-1 else (i+1, i+1)
+                        y[__iy] += yi
+                        stop    -= 1
+
+                        y, x = np.delete(y, i), np.delete(x, __ix) 
+                        break
+            return x, y
+
         n = self.countVector()
 
         # binning the n value:
@@ -420,7 +435,7 @@ class CountMatrix:
                 raise ValueError("`nlow` must be 'int'")
             
             # merging bins:
-            raise NotImplementedError()
+            edges, count = _mergeBins(edges, count, nlow)
         
         # probability distr.:  
         cells = self.subdiv**3  
