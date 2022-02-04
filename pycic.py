@@ -7,7 +7,7 @@ from itertools import product, repeat
 from scipy.interpolate import CubicSpline
 from scipy.integrate import quad
 from scipy.special import gamma
-from scipy.optimize import newton
+from scipy.optimize import newton, curve_fit
 
 # ====================================================
 # Exceptions
@@ -478,7 +478,7 @@ class cicDistribution:
         Size of a pixel (cell). Th entire space is divided into cells of this size.
 
     """
-    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", "n", "pixsize", "kn", 
+    __slots__ = "pk_spline", "z", "Om0", "Ode0", "Ok0", "h", "n", "pixsize", "kn", "_pfit",
 
     def __init__(self, pk_table: Any, z: float, Om0: float, Ode0: float, h: float, n: float, pixsize: float) -> None:
         if z < -1.:
@@ -513,6 +513,8 @@ class cicDistribution:
             raise CICError("power table should have two columns")
         lnk, lnpk      = pk_table.T
         self.pk_spline = CubicSpline(lnk, lnpk)
+
+        self._pfit = None # long k fit to measured A power
 
     def Ez(self, z: Any) -> Any:
         r"""
@@ -851,7 +853,7 @@ class cicDistribution:
             Power spectrum values.
 
         """
-        # XXX: using the cloud in cell weight function as W(k)
+        # XXX: using the cloud-in-cell weight function as W(k)
         p    = 2.
         nmax = 3 
         kn   = self.kn
@@ -885,6 +887,24 @@ class cicDistribution:
         
         return Pk
 
+    def _computePowerLongFit(self, ) -> None:
+        """ Find a fit to A-power, for |k| ~ kn """
+        kvec = np.random.uniform(0.5*self.kn, self.kn, (1_000_000, 3))
+        k    = np.sqrt(np.sum(kvec**2, axis = 1))
+        mask = np.where((k > 0.7*self.kn) & (k <= self.kn))[0] 
+        
+        k, kvec = k[mask], kvec[mask, :]
+
+        pk = self._powerA_meas(*kvec.T)
+
+        popt, _ = curve_fit(self._powerLongFit, k, pk, )
+        self._pfit = popt
+        return
+
+    def _powerLongFit(self, k: Any, a: float, b:float, c: float) -> Any:
+        """ Power spectrum fit for long k """
+        return a + b * k**c
+
     def powerA_meas(self, kx: Any, ky: Any, kz: Any) -> Any:
         r"""
         Measured power spectrum of A. It is computed as the sum
@@ -912,7 +932,21 @@ class cicDistribution:
             Power spectrum values.
 
         """
-        raise NotImplementedError()
+        kx, ky, kz = np.asarray(kx), np.asarray(ky), np.asarray(kz)
+
+        k = np.sqrt(kx**2 + ky**2 + kz**2)
+        if np.isscalar(k):
+            return 
+        short = np.where(k < self.kn, True, False) # mask for long k (k > kn)
+
+        pk = np.empty_like(k)
+        
+        pk[short]  = self._powerA_meas(kx[short], ky[short], kz[short])
+        
+        if self._pfit is None:
+            self._computePowerLongFit()
+        pk[~short] = self._powerLongFit(k[~short], *self._pfit)
+        return pk
 
 
 
