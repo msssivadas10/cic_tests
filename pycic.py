@@ -662,7 +662,7 @@ class cicDistribution:
         retval, err = quad(self._var_lin_integrand, -8., np.log(self.kn))
         return retval / 2. / np.pi**2
 
-    def biasA(self, vlin: float) -> float:
+    def bias(self, vlin: float) -> float:
         r"""
         Get the A-bias factor. It is given by 
 
@@ -680,9 +680,9 @@ class cicDistribution:
             Bias value.
 
         """
-        return np.sqrt(self.varA(vlin) / vlin)
+        return np.sqrt(self.fvar(vlin) / vlin)
 
-    def powerA(self, lnk: Any) -> Any:
+    def power(self, lnk: Any) -> Any:
         r"""
         Power spectrum of the log density. It is related to the linear power spectrum 
         by a bias factor as :math:`P_A(k) = b_A^2 P_{\rm lin}(k)`. The bias factor is 
@@ -700,11 +700,11 @@ class cicDistribution:
 
 
         """
-        vlin = self.varLin()           # linear variance
-        b2   = self.varA(vlin) / vlin # bias squared
+        vlin = self.varLin()          # linear variance
+        b2   = self.fvar(vlin) / vlin # bias squared
         return self.powerLin(lnk) * b2
 
-    def varA(self, vlin: float) -> float:
+    def fvar(self, vlin: float) -> float:
         r"""
         Get the A-variance in the cell, where :math:`A = \ln (1 + \delta)`. This uses 
         the fit given in Repp & Szapudi (2018).
@@ -729,7 +729,7 @@ class cicDistribution:
         mu = 0.73
         return mu * np.log(1. + vlin / mu)
 
-    def meanA(self, vlin: float) -> float:
+    def fmean(self, vlin: float) -> float:
         r"""
         Return the fitted value of mean of A as a function the linear variance. This 
         uses the fit given in Repp & Szapudi (2018)
@@ -753,7 +753,7 @@ class cicDistribution:
         lamda = 0.65
         return -lamda * np.log(1. + vlin / 2. / lamda)
 
-    def skewA(self, vl: float) -> float:
+    def fskew(self, vl: float) -> float:
         r"""
         Return the skewness of the A distribution as a function the count-in-cells 
         variance. The value if calculated by a fit given by Repp & Szapudi (2018),
@@ -790,7 +790,7 @@ class cicDistribution:
         pn  = d + c * np.log(np3)
         return Tn * vl**(-pn)
 
-    def getParameters(self, vlin: float, vl: float) -> Tuple[float, float, float]:
+    def _getParameters(self, vlin: float, vl: float) -> Tuple[float, float, float]:
         r"""
         Get the location, scale and shape parameters of the probability distribution 
         corrsponding to the linear and count-in-cell variance value.
@@ -813,7 +813,7 @@ class cicDistribution:
 
         """    
         # finding for xi:
-        r1 = vl * self.skewA(vl) # Pearson’s moment coefficient (\gamma_1)
+        r1 = vl * self.fskew(vl) # Pearson’s moment coefficient (\gamma_1)
 
         def fxi(xi: float) -> float:
             """ function whose roort is xi """
@@ -828,11 +828,11 @@ class cicDistribution:
         sigma = xi * vl / np.sqrt(gamma(1 - 2*xi) - gamma(1 - xi)**2)
 
         # finding mu:
-        mu = self.meanA(vlin) - sigma * (gamma(1 - xi) - 1) / xi
+        mu = self.fmean(vlin) - sigma * (gamma(1 - xi) - 1) / xi
 
         return mu, sigma, xi
 
-    def _powerA_meas(self, kx: Any, ky: Any, kz: Any) -> Any:
+    def _power_meas(self, kx: Any, ky: Any, kz: Any) -> Any:
         r"""
         Measured A power spectrum. This is valid only for :math:`\bf k` vectors 
         such that :math:`\sqrt{k_x^2 + k_y^2 + k_z^2} \le k_N`. No error will be
@@ -859,10 +859,10 @@ class cicDistribution:
         kn   = self.kn
 
 
-        def _powerA_vec(kx: Any, ky: Any, kz: Any) -> Any:
+        def _power_vec(kx: Any, ky: Any, kz: Any) -> Any:
             """ A power for vector inputs """
             k = np.sqrt(kx**2 + ky**2 + kz**2)
-            return self.powerA(np.log(k))
+            return self.power(np.log(k))
 
         def _weight(kx: Any, ky: Any, kz: Any) -> Any:
             """ mass assignment function (squared) """
@@ -873,7 +873,7 @@ class cicDistribution:
 
         def _power_term(kx: Any, ky: Any, kz: Any) -> Any:
             """ a term in the power sum """
-            return _powerA_vec(kx, ky, kz) * _weight(kx, ky, kz)
+            return _power_vec(kx, ky, kz) * _weight(kx, ky, kz)
 
         Pk = 0.
         for nx, ny, nz in product(*repeat(range(nmax), 3)):
@@ -895,7 +895,7 @@ class cicDistribution:
         
         k, kvec = k[mask], kvec[mask, :]
 
-        pk = self._powerA_meas(*kvec.T)
+        pk = self._power_meas(*kvec.T)
 
         popt, _ = curve_fit(self._powerLongFit, k, pk, )
         self._pfit = popt
@@ -905,7 +905,7 @@ class cicDistribution:
         """ Power spectrum fit for long k """
         return a + b * k**c
 
-    def powerA_meas(self, kx: Any, ky: Any, kz: Any) -> Any:
+    def power_meas(self, kx: Any, ky: Any, kz: Any) -> Any:
         r"""
         Measured power spectrum of A. It is computed as the sum
 
@@ -941,12 +941,22 @@ class cicDistribution:
 
         pk = np.empty_like(k)
         
-        pk[short]  = self._powerA_meas(kx[short], ky[short], kz[short])
+        pk[short]  = self._power_meas(kx[short], ky[short], kz[short])
         
         if self._pfit is None:
             self._computePowerLongFit()
         pk[~short] = self._powerLongFit(k[~short], *self._pfit)
         return pk
 
+    def var_cic(self, ) -> float:
+        r"""
+        Find the CIC variance from the power spectrum. It is given by the integral
 
+        .. math::
+            \sigma_A^2(l) = \int \frac{{\rm d}k}{(2\pi)^{-3}} P_{A, meas}({\bf k})
+
+        where the region of integration is the cube in k-space extending from 
+        :math:`-k_N` to :math:`k_N`, excluding the zero vector.
+        """
+        raise NotImplementedError()
 
