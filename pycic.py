@@ -224,7 +224,7 @@ class CartesianCatalog:
 
 
         """
-        self._cm = CountMatrix(self.objx, subdiv, boxsize, offset)
+        self._cm = cicCountMatrix(self.objx, subdiv, boxsize, offset)
         return
 
     def cicProbability(self, bins: int, merge: bool = False, nlow: int = ..., style: str = "lin") -> tuple:
@@ -257,7 +257,7 @@ class CartesianCatalog:
             raise CatalogError("cic matrix not created")
         return self._cm.countProbability(bins, merge, nlow, style)
 
-class CountMatrix:
+class cicCountMatrix:
     """
     A cell structure storing the number of galaxies in cells. This is used for count-
     in-cell estimation, by catalog objects.
@@ -321,7 +321,7 @@ class CountMatrix:
         os = self.offset
         if all(np.abs(os - os[0]) < 1e-6):
             os = os[0]    
-        return f"<CountMatrix: subdiv = {self.subdiv}, boxsize = {bs}, offset = {os}>"
+        return f"<cicCountMatrix: subdiv = {self.subdiv}, boxsize = {bs}, offset = {os}>"
 
     def _pos2index(self, objx: Any) -> Any:
         i = ((objx - self.offset) // self.cellsize).astype(int)
@@ -533,10 +533,6 @@ class cicDistribution:
         Ez: array_like
             Value of the function at z.
 
-        Examples
-        --------
-        TODO
-
         """
         zp1 = 1. + np.asarray(z)
         return np.sqrt(self.Om0 * zp1**3 + self.Ok0 * zp1**2 + self.Ode0)
@@ -558,8 +554,6 @@ class cicDistribution:
         Omz: array_like
             Normalized matter density at z.
 
-        Examples
-        --------
 
         """
         zp1 = 1 + np.asarray(z)
@@ -958,7 +952,7 @@ class cicDistribution:
         """
         raise NotImplementedError()
 
-class PowerSpectrum:
+class cicPowerSpectrum:
     """
     An object storing the power spectrum as a table. 
     
@@ -1028,8 +1022,8 @@ class PowerSpectrum:
 
     def var(self, kn: float) -> float:
         r"""
-        Integrate the power spectrum on a k-sphere of radius :math:`k_N` to compute 
-        the variance :math:`sigma^2`. If linear power is used, then the computed will 
+        Compute the variance from power spectrum. The power is integrated over a sphere 
+        in k-space, with no smoothing. If linear power is used, then the computed will 
         be the linear variance.
 
         .. math::
@@ -1049,7 +1043,26 @@ class PowerSpectrum:
         retval, err = quad(self.varInteg, -8., np.log(kn))
         return retval / 2. / np.pi**2
 
-class Cosmology:
+class cicCosmology:
+    r"""
+    An object storing a specific Lambda-CDM cosmology model.
+
+    Parameters
+    ----------
+    Om0: float
+        Present value of the normalized matter density, :math:`\Omega_{\rm m}`.
+    Ode0: float
+        Present value of the normalized dark-energy density, :math:`\Omega_{\rm de}`.
+    h: float
+        Presnt value of the Hubble parameter in units of 100 km/sec/Mpc.
+    ns: float
+        Slope of the linear power spectrum.
+    pk_tab: array_like
+        Power spectrum table. This must be a 2D array with two columns - :math:`\ln k`
+        in the first and :math:`\ln P(k)` in the second. The table should have enough 
+        resolution to include the details, if present.
+
+    """
     __slots__ = 'Om0', 'Ode0', 'Ok0', 'h', 'ns', 'pk',
 
     def __init__(self, Om0: float, Ode0: float, h: float, ns: float, pk_tab: Any) -> None:
@@ -1069,8 +1082,251 @@ class Cosmology:
         if not isinstance(ns, (int, float)):
             raise TypeError("ns should be a number")
         self.ns = ns
+        
+        # create the power spectrum table
+        self.pk = cicPowerSpectrum(pk_tab)
 
-        
+    def Ez(self, z: Any) -> Any:
+        r"""
+        Evaluate the function :math:`E(z) := H(z) / H_0` as a function of the 
+        redshift :math:`z`.
 
+        .. math::
+            E(z) = \sqrt{\Omega_{\rm m} (1 + z)^3 + \Omega_{\rm k} (1 + z)^2 + 
+                         \Omega_{\rm de}}
+
+        Parameters
+        ----------
+        z: array_like
+            Redshift.
+
+        Returns
+        -------
+        Ez: array_like
+            Value of the function at z.
+
+        """
+        zp1 = 1. + np.asarray(z)
+        return np.sqrt(self.Om0 * zp1**3 + self.Ok0 * zp1**2 + self.Ode0)
+
+    def Omz(self, z: Any) -> Any:
+        r"""
+        Evaluate the normalized density of (dark) matter at redshift :math:`z`. 
         
+        .. math::
+            \Omega_{\rm m}(z) = \frac{\Omega_{\rm m} (z + 1)^3}{E^2(z)}
         
+        Parameters
+        ----------
+        z: array_like
+            Redshift
+
+        Returns
+        -------
+        Omz: array_like
+            Normalized matter density at z.
+
+
+        """
+        zp1 = 1 + np.asarray(z)
+        Omz = self.Om0 * zp1**3
+        return Omz / (Omz + self.Ok0 * zp1**2 + self.Ode0)
+
+    def fz(self, z: Any) -> Any:
+        r"""
+        Linear growth rate, given as :math:`f(z) \approx \Omega_{\rm m}(z)^{0.6}`.
+
+        Parameters
+        ----------
+        z: array_like
+            Redshift
+
+        Returns
+        -------
+        zz: array_like
+            Linear graowth rate at z.
+
+        """
+        return self.Omz(z)**0.6
+    
+    def power(self, k: Any) -> Any:
+        r"""
+        Compute the power spectrum by interpolating from the table.
+
+        Parameters
+        ----------
+        k: array_like
+            Wavenumber.
+
+        Returns
+        -------
+        pk: array_like
+            Power spectrum. Has the same shape as `k`.
+        """
+        return self.pk(np.log(k))
+    
+    def var(self, kmax: float) -> float:
+        r"""
+        Compute the variance from power spectrum. The power is integrated over a sphere 
+        in k-space, with no smoothing.
+
+        Parameters
+        ----------
+        kmax: float
+            Upper limit of integration, radius of the sphere.
+
+        Returns
+        -------
+        var: float  
+            Value of the variance.
+
+        """
+        if not np.isscalar(kmax):
+            raise TypeError("kmax should be a scalar")
+        return self.pk.var(kmax)
+
+class cicDistribution_:
+    __slots__ = 'pixsize', 'z', 'kn', '_cosmo', '_pfit', '_vlin', '_vlog', '_blog'
+
+    def __init__(self, z: float, pixsize: float, model: cicCosmology = ..., **kwargs) -> None:
+        if z < -1.:
+            raise ValueError("z cannot be less than -1")
+        self.z = z
+
+        if not isinstance(pixsize, (int, float)):
+            raise TypeError("pixsize must be a number")
+        elif pixsize <= 0.:
+            raise ValueError("pixsize must be positive")
+        self.pixsize = pixsize
+        self.kn      = np.pi / self.pixsize # nyquist wavelength
+
+        # initialise the cosmology model:
+        if model is not ... :
+            if not isinstance(model, cicCosmology):
+                raise TypeError("model must be a 'cicCosmology' object")
+            self._cosmo = model
+        else:
+            self._cosmo = cicCosmology(**kwargs)
+        
+        self._pfit = None
+
+        self._vlin = self.linvar() # linear variance in the cell
+        self._vlog = self.logvar() # log field variance in the cell
+        self._blog = self.logbias()# log field power bias (squared)
+
+    def linvar(self, ) -> float:
+        """ 
+        Compute the linear variance in the cell. 
+        """
+        return self._cosmo.var(self.kn)    
+
+    def logvar(self, ) -> float:
+        r"""
+        Compute the log field variance, calculated from a fit. This variance will 
+        corespond to the nyquist wavenumber.
+        """
+        mu = 0.73
+        return mu * np.log(1. + self._vlin / mu)
+
+    def logbias(self, ) -> float:
+        """
+        Compute the bias factor the log field power spectrum. This function computes 
+        the square of this bias, the ratio of the log to linear variance.
+        """
+        return self._vlog / self._vlin
+
+    def logpower(self, k: Any) -> Any:
+        """
+        Get the power spectrum of the log field.
+
+        Parameters
+        ---------
+        k: array_like
+            Wavenumber.
+
+        Returns
+        -------
+        pk: array_like
+            Power spectrum.  Has the same shape as `k`.
+
+        """
+        return self._blog * self._cosmo.power(k)
+    
+    def mpower_bound(self, k: Any) -> Any:
+        """
+        Compute the measured log field power spectrum in a cell. This definition is 
+        valid only when the k vector is smaller than the nyquist k vector. For other 
+        vectors, this has to be continued by a power law.
+        
+        Parameters
+        ----------
+        k: array_like
+            k vectors. This must be an ndarray of shape (..., 3) where each column is 
+            representing the vector components.
+        
+        Returns
+        -------
+        pk: array_like
+            Power spectrum, has the same shape as the first dimension of `k`.
+
+        Notes
+        -----
+        1. This uses the cloud-in-cells weight function.
+        2. This definition is valid only for :math:`k \le k_N`., but it is not checked.
+
+        """
+
+        def _pkterm(kxi: Any, kyi: Any, kzi: Any) -> Any:
+            """ to find a term in the sum to get power. """
+            k   = np.sqrt(kxi**2 + kyi**2 + kzi**2)
+            p2  = 4. # for cloud-in-cell weight function (squared)
+            pki = self.logpower(k)
+            wxi = np.sinc(kxi / self.kn / 2.)
+            wyi = np.sinc(kyi / self.kn / 2.)
+            wzi = np.sinc(kzi / self.kn / 2.)
+            return pki * (wxi * wyi * wzi)**p2
+
+        kx, ky, kz = np.asarray(k).T # k vector components
+
+        pk   = 0.
+        for nx, ny, nz in product(*repeat(range(3), 3)):
+            if nx**2 + ny**2 + nz**2 >= 9.:
+                continue # only abs(n) < 3 are needed
+            pk += _pkterm(
+                            kx + 2. * nx * self.kn, 
+                            ky + 2. * ny * self.kn, 
+                            kz + 2. * nz * self.kn
+                         )
+        return pk
+
+    def _fcont(self, k: Any, a:float, b: float, c: float) -> Any:
+        """
+        Power spectrum continuation function. A power law, :math:`P(k) = a + bk^c` 
+        is used for this, where :math:`k` is the length of the vector.
+        """
+        return a + b*k**c
+
+    def _getContinuation(self, ) -> None:
+        """
+        Get the power law continuation of the measured power outside its input range. 
+        This interpolates the power spectrum near the limit with a power law and use 
+        this to exten -d the definition.
+        """
+        # generate a lot of random k vectors with length 70-100% of the
+        # nyquist wavelength. 
+        kvec = np.random.uniform(0.5*self.kn, self.kn, (1_000_000, 3))
+        k    = np.sqrt(np.sum(kvec**2, axis = 1))
+        mask = np.where((k > 0.7*self.kn) & (k <= self.kn))[0] 
+        
+        k, kvec = k[mask], kvec[mask, :]
+
+        pk = self.mpower_bound(kvec) 
+
+        popt, _ = curve_fit(self._fcont, k, pk, )
+        self._pfit = popt # set the fit 
+        return
+
+
+
+
+
