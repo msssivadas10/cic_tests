@@ -2,7 +2,7 @@
 
 import numpy as np
 import warnings
-from typing import Any, Tuple, Union
+from typing import Any, Callable, Tuple, Union
 from itertools import product, repeat
 from scipy.interpolate import CubicSpline
 from scipy.integrate import quad
@@ -257,7 +257,6 @@ class CartesianCatalog:
             raise CatalogError("cic matrix not created")
         return self._cm.countProbability(bins, merge, nlow, style)
 
-
 class CountMatrix:
     """
     A cell structure storing the number of galaxies in cells. This is used for count-
@@ -451,7 +450,6 @@ class CountMatrix:
         else:
             centers = (edges[:-1] + edges[1:]) / 2.   # mean
         return centers, prob, err
-
 
 class cicDistribution:
     r"""
@@ -960,3 +958,119 @@ class cicDistribution:
         """
         raise NotImplementedError()
 
+class PowerSpectrum:
+    """
+    An object storing the power spectrum as a table. 
+    
+    The power table should have two columns `lnk`, logarithm of the k ang `lnpk`, 
+    logarithm of the P(k). A cubic spline is created using this spline and can be 
+    used to get interpolated power spectrum values.
+
+    Parameters
+    ----------
+    data: array_like, ndarray of floats with shape(n, 2)
+        Power spectrum table as logk vs. logp. This argument will have precedence 
+        over others.
+
+    """
+    __slots__ = 'data', '_f', '_itype'
+
+    def __init__(self, data: Any) -> None:
+        # pk table is used to create a (linear) power spectrum spline:
+        # pk table should be in log-log format: i.e., log k vs. log pk 
+        data = np.asarray(data)
+        if data.ndim != 2:
+            raise ValueError("pk table must be a 2D array")
+        elif data.shape[1] != 2:
+            raise ValueError("pk table ,ust have two columns")
+        self.data = data
+
+        # create the spline:
+        x, y = data.T # x is log k and y is log pk
+        self._f = CubicSpline(x, y, )
+
+    def __call__(self, lnk: Any) -> Any:
+        return self.power(lnk)
+
+    def power(self, lnk: Any) -> Any:
+        r""" 
+        Return the power spectrum as a function of :math:`\log k`.
+
+        Parameters
+        ----------
+        lnk: array_like
+            Input argument, natural logarithm of k.
+
+        Returns
+        -------
+        pk: array_like
+            Power spectrum (interpolated).
+
+        """
+        return np.exp(self.pk_spline(lnk))
+
+    def varInteg(self, lnk: Any) -> Any:
+        r""" 
+        Integrand used to compute linear variance. 
+        
+        Parameters
+        ----------
+        lnk: array_like
+            Input argument, natural logarithm of k.
+
+        Returns
+        -------
+        fk: array_like
+            Function values.
+
+        """
+        return np.exp(lnk)**3 * self.power(lnk)
+
+    def var(self, kn: float) -> float:
+        r"""
+        Integrate the power spectrum on a k-sphere of radius :math:`k_N` to compute 
+        the variance :math:`sigma^2`. If linear power is used, then the computed will 
+        be the linear variance.
+
+        .. math::
+            \sigma^2 = \int_0^{k_N} \frac{{\rm d}k k^2}{2 \pi^2} P(k) 
+
+        Parameters
+        ----------
+        kn: float
+            Radius of the k-sphere. For the case of cells, this correspond to the 
+            Nyquist wavenumber.
+
+        Returns
+        -------
+        var: float
+            Value of linear variance.
+        """
+        retval, err = quad(self.varInteg, -8., np.log(kn))
+        return retval / 2. / np.pi**2
+
+class Cosmology:
+    __slots__ = 'Om0', 'Ode0', 'Ok0', 'h', 'ns', 'pk',
+
+    def __init__(self, Om0: float, Ode0: float, h: float, ns: float, pk_tab: Any) -> None:
+        for o, name in zip([Om0, Ode0, h], ['Om0', 'Ode0', 'h']):
+            if not isinstance(o, (int, float)):
+                raise TypeError("{} must be a number".foramte(name))
+            elif o < 0.:
+                raise ValueError("{} must be non-negative".format(name))
+        self.Om0  = Om0
+        self.Ode0 = Ode0
+        self.h    = h
+
+        Ok0      = 1. - Om0 - Ode0
+        self.Ok0 = Ok0 if abs(Ok0) > 1.e-8 else 0.
+
+        # ns can be negative also:
+        if not isinstance(ns, (int, float)):
+            raise TypeError("ns should be a number")
+        self.ns = ns
+
+        
+
+        
+        
