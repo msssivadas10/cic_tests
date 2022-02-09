@@ -4,6 +4,7 @@ import numpy as np
 import warnings
 from typing import Any, Callable, Tuple, Union
 from itertools import product, repeat
+from collections import namedtuple
 from scipy.interpolate import CubicSpline
 from scipy.integrate import quad
 from scipy.special import gamma
@@ -1185,8 +1186,29 @@ class cicCosmology:
             raise TypeError("kmax should be a scalar")
         return self.pk.var(kmax)
 
-class cicDistribution_:
-    __slots__ = 'pixsize', 'z', 'kn', '_cosmo', '_pfit', '_vlin', '_vlog', '_blog'
+class cicDeltaDistribution:
+    r"""
+    One point dark-matter distribution. This distribution depends on the redshift and 
+    cosmology. This object can be used for the probability distribution function of 
+    :math:`\delta` in count-in-cells calculations.
+
+    Parameters
+    ----------
+    z: float
+        Redshift parameter - must be greater than -1.
+    pixsize: float
+        Size of the cell used in count-in-cell calculations.
+    model: :class:`cicCosmology`, optional
+        Lambda-CDM cosmology model to use. Alternatively, one can give the model parameters 
+        as keyword arguments instead of giving a model object. The required keywords are 
+        `Om0` (matter density), `Ode0` (dark-energy density), `h` (hubble parameter), `ns` 
+        (spectral index) and `pk_tab` (power spectrum table).
+
+    """
+    __slots__   = 'pixsize', 'z', 'kn', '_cosmo', '_pfit', '_params', 
+
+    # a namedtuple to hold distribution parameters: 
+    distrParams = namedtuple("distrParams", ['mu', 'sigma', 'xi'], )
 
     def __init__(self, z: float, pixsize: float, model: cicCosmology = ..., **kwargs) -> None:
         if z < -1.:
@@ -1208,11 +1230,10 @@ class cicDistribution_:
         else:
             self._cosmo = cicCosmology(**kwargs)
         
-        self._pfit = None
-
-        self._vlin = self.linvar() # linear variance in the cell
-        self._vlog = self.logvar() # log field variance in the cell
-        self._blog = self.logbias()# log field power bias (squared)
+        self._pfit   = ... # store power spectrum fit parameters (a, b, c)
+        self._params = ... # store distribution parameters (mu, sigma, xi)
+        self._applyContinuation()
+        self._distrParameters()
 
     def linvar(self, ) -> float:
         """ 
@@ -1220,24 +1241,9 @@ class cicDistribution_:
         """
         return self._cosmo.var(self.kn)    
 
-    def logvar(self, ) -> float:
-        r"""
-        Compute the log field variance, calculated from a fit. This variance will 
-        corespond to the nyquist wavenumber.
+    def linpower(self, k: Any) -> Any:
         """
-        mu = 0.73
-        return mu * np.log(1. + self._vlin / mu)
-
-    def logbias(self, ) -> float:
-        """
-        Compute the bias factor the log field power spectrum. This function computes 
-        the square of this bias, the ratio of the log to linear variance.
-        """
-        return self._vlog / self._vlin
-
-    def logpower(self, k: Any) -> Any:
-        """
-        Get the power spectrum of the log field.
+        Get the linear power spectrum.
 
         Parameters
         ---------
@@ -1250,7 +1256,7 @@ class cicDistribution_:
             Power spectrum.  Has the same shape as `k`.
 
         """
-        return self._blog * self._cosmo.power(k)
+        return self._cosmo.power(k)
     
     def mpower_bound(self, k: Any) -> Any:
         """
@@ -1273,6 +1279,8 @@ class cicDistribution_:
         -----
         1. This uses the cloud-in-cells weight function.
         2. This definition is valid only for :math:`k \le k_N`., but it is not checked.
+        3. **This power is expressed per bias factor for some reasons**. So, the actual 
+        value of power will be `bias * mpower_bound`.
 
         """
 
@@ -1280,7 +1288,7 @@ class cicDistribution_:
             """ to find a term in the sum to get power. """
             k   = np.sqrt(kxi**2 + kyi**2 + kzi**2)
             p2  = 4. # for cloud-in-cell weight function (squared)
-            pki = self.logpower(k)
+            pki = self.linpower(k)
             wxi = np.sinc(kxi / self.kn / 2.)
             wyi = np.sinc(kyi / self.kn / 2.)
             wzi = np.sinc(kzi / self.kn / 2.)
@@ -1306,7 +1314,7 @@ class cicDistribution_:
         """
         return a + b*k**c
 
-    def _getContinuation(self, ) -> None:
+    def _applyContinuation(self, ) -> None:
         """
         Get the power law continuation of the measured power outside its input range. 
         This interpolates the power spectrum near the limit with a power law and use 
@@ -1325,6 +1333,133 @@ class cicDistribution_:
         popt, _ = curve_fit(self._fcont, k, pk, )
         self._pfit = popt # set the fit 
         return
+
+    def mpower(self, k: Any) -> Any:
+        r"""
+        Compute the measured log field power spectrum in a cell. For k vectors with 
+        length less than nyquist wavenumber, it is calculated as the sum
+
+        .. math::
+            P_{A, meas}({\bf k}) = \sum_{\bf n} P_A({\bf k_n}) W^2({\bf k_n})
+
+        where :math:`{\bf n}` is an integer 3-vector of length less than 3 and vector 
+        :math:`{\bf k_n} = {\bf k} + 2k_N {\bf n}`. For other k vectors, a power law 
+        continuation of this is used.
+
+        This is the power per bias factor. So, the actual log field power will be given 
+        by `bias * mpower`.
+
+        Parameters
+        ----------
+        k: array_like
+            k vectors. This must be an ndarray of shape (..., 3) where each column is 
+            representing the vector components.
+        
+        Returns
+        -------
+        pk: array_like
+            Power spectrum, has the same shape as the first dimension of `k`.
+
+        """
+        k    = np.asarray(k)
+        klen = np.sqrt(np.sum(k**2, axis = -1)) # length of k vector
+
+        if np.isscalar(klen):
+            return self.mpower_bound(k) if klen < self.kn else self._fcont(klen, *self._pfit)
+
+        if k.ndim != 2:
+            raise TypeError("k must be 2 dimensional")
+        elif k.shape[1] != 3:
+            raise TypeError("k must have 3 columns")
+
+        mask = np.where(klen < self.kn, True, False)
+        pk   = np.empty_like(klen)
+
+        pk[ mask] = self.mpower_bound(k[mask, :])
+        pk[~mask] = self._fcont(klen[~mask], *self._pfit)
+        return pk
+
+    def cicvar(self, ) -> float:
+        r"""
+        Compute the count-in-cell measured variance. This is the integral of the 
+        measured log field power over the cube in k space, with side ranging from 
+        :math:`-k_N` to :math:`k_N`, excluding the 0. 
+        
+        This variance is expressed per bias factor. So, actual log field variance 
+        will be found as `bias * cicvar`.
+        """
+        raise NotImplementedError()
+
+    def _distrParameters(self, ) -> None:
+        r"""
+        Compute the location, shape and scale parameters of the distribution. These 
+        are computed using various fits and solving for the parameters.
+        """        
+        # variances and bias:
+        vlin = self.linvar()               # linear variance
+
+        mu   = 0.73
+        vlog = mu * np.log(1. + vlin / mu) # log field variance (fit)
+
+        bias = vlog / vlin                 # square of the log bias
+
+        vcic = self.cicvar() * bias        # count-in-cell variance
+
+        # mean of the log field:
+        lamda = 0.65 
+        mlog  = -lamda * np.log(1. + vlin / 2. / lamda)
+
+        # skewness of the log field:
+        a, b, c, d = -0.70, 1.25, -0.26, 0.06
+
+        nsp3 = self._cosmo.ns + 3.
+        slog = (a * nsp3 + b) * vcic**(-d - c * np.log(nsp3)) # T * vcic**-p
+
+        r1 = slog * np.sqrt(vcic)         # pearson moment coeff.
+
+        # solve for shape parameter:
+        def shapeEqn(xi: float) -> float:
+            """ relation between shape parameter and skewness. """
+            g1mx, g1m2x = gamma(1. - xi), gamma(1. - 2.*xi)
+
+            num = gamma(1. - 3.*xi) - 3.*g1mx * g1m2x + 2.*g1mx**3
+            return r1 + num / (g1m2x - g1mx**2)**1.5
+
+        # TODO: using `r1` as an initial guess - need to find a better one.
+        xi   = newton(shapeEqn, r1, )
+
+        # scale parameter:
+        g1mx  = gamma(1. - xi)
+        sigma = np.sqrt(xi**2 * vcic / (gamma(1. - 2.*xi) - g1mx**2))
+
+        # location parameter:
+        mu    = mlog - sigma * (g1mx - 1.) / xi
+
+        self._params = cicDeltaDistribution.distrParams(mu, sigma, xi)
+        return
+
+    def logDistribution(self, x: Any) -> Any:
+        r"""
+        Get the distribution for the log field.
+
+        Parameters
+        ----------
+        x: array_like
+            Value of the log field, :math:`\log (1 + \delta)`.
+
+        Returns
+        -------
+        px: array_like
+            Value of the distribution function - probability. This has the same shape 
+            as the `x` input.
+
+        """
+        mu, sigma, xi = self._params
+
+        t = (1. + (x - mu) / sigma)**(-1./xi)
+        return t**(1 + xi) * np.exp(-t) / sigma
+
+         
 
 
 
