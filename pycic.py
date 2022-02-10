@@ -452,7 +452,7 @@ class cicCountMatrix:
             centers = (edges[:-1] + edges[1:]) / 2.   # mean
         return centers, prob, err
 
-class cicDistribution:
+class cicDistribution: # will be deprcated 
     r"""
     Implementation of the theoretical count-in-cells distribution given in Repp and 
     Szapudi (2020). 
@@ -1044,6 +1044,161 @@ class cicPowerSpectrum:
         retval, err = quad(self.varInteg, -8., np.log(kn))
         return retval / 2. / np.pi**2
 
+class cicMeasPowerSpectrum:
+    r"""
+    Measured log field power spectrum object. This corresponds to a box region. It 
+    uses a functional form for power if the k vector is shorter than nyquist wavenumber 
+    and extend this as a power law after it. This functional form can be modified by 
+    changing the linear power function. Also, this power is expressed per the log field 
+    bias factor. i.e., the actual log field bias factor is found by multiplying this 
+    with the bias factor.
+
+    Parameters
+    ----------
+    f: callable
+        Function to call when linear power spectrum is needed. Must be a function of 
+        the length of the k vector.
+    kn; float
+        Nyquist wavenumber. 
+        
+    """
+    __slots__ = 'a', 'b', 'c', '_pfunc', 'kn', 
+
+    def __init__(self, f: Callable, kn: float) -> None:
+        self.a, self.b, self.c = None, None, None
+
+        self.kn = kn        # nyquist wavenumber
+        self.setFunction(f) # set the function and apply continuation
+
+    def fbound(self, k: Any) -> Any:
+        """
+        Compute the measured log field power spectrum in a cell. This definition is 
+        valid only when the k vector is smaller than the nyquist k vector. For other 
+        vectors, this has to be continued by a power law.
+
+        Notes
+        -----
+        1. This uses the cloud-in-cells weight function.
+        2. This definition is valid only for :math:`k \le k_N`., but it is not checked.
+
+        """
+
+        def _pkterm(kxi: Any, kyi: Any, kzi: Any) -> Any:
+            """ to find a term in the sum to get power. """
+            k   = np.sqrt(kxi**2 + kyi**2 + kzi**2)
+            p2  = 4. # for cloud-in-cell weight function (squared)
+            pki = self._pfunc(k)
+            wxi = np.sinc(kxi / self.kn / 2.)
+            wyi = np.sinc(kyi / self.kn / 2.)
+            wzi = np.sinc(kzi / self.kn / 2.)
+            return pki * (wxi * wyi * wzi)**p2
+
+        kx, ky, kz = np.asarray(k).T # k vector components
+
+        pk   = 0.
+        for nx, ny, nz in product(*repeat(range(3), 3)):
+            if nx**2 + ny**2 + nz**2 >= 9.:
+                continue # only abs(n) < 3 are needed
+            pk += _pkterm(
+                            kx + 2. * nx * self.kn, 
+                            ky + 2. * ny * self.kn, 
+                            kz + 2. * nz * self.kn
+                         )
+        return pk
+
+    def _fcont(self, k: Any, a: float, b: float, c: float) -> Any:
+        r"""
+        Power spectrum continuation function. A power law, :math:`P(k) = a + bk^c` 
+        is used for this, where :math:`k` is the length of the vector.
+        """
+        return a + b*np.asarray(k)**c
+    
+    def fcont(self, k: Any) -> Any:
+        """
+        Power law continuation.
+        """
+        return self._fcont(k, self.a, self.b, self.c)
+
+    def setFunction(self, f: Callable) -> None:
+        """
+        Set the linear power spectrum function.
+
+        Parameters
+        ----------
+        f: callable
+            Function or a callable used to call. It accept only one argument, `k`.
+
+        """         
+        if not callable(f):
+            raise TypeError("f must be a python callable")
+        self._pfunc = f
+        
+        # find the power law continuation of the function for longer vectors
+        self._applyContinuation()
+        return
+
+    def _applyContinuation(self, ) -> None:
+        """
+        Get the power law continuation of the measured power outside its input range. 
+        This interpolates the power spectrum near the limit with a power law and use 
+        this to extend the definition.
+        """
+        # generate a lot of random k vectors with length 70-100% of the
+        # nyquist wavelength. 
+        kvec = np.random.uniform(0.5*self.kn, self.kn, (1_000_000, 3))
+        k    = np.sqrt(np.sum(kvec**2, axis = 1))
+        mask = np.where((k > 0.7*self.kn) & (k <= self.kn))[0] 
+        
+        k, kvec = k[mask], kvec[mask, :]
+
+        pk = self.fbound(kvec) 
+
+        popt, _ = curve_fit(self._fcont, k, pk, )
+
+        self.a, self.b, self.c = popt
+        return
+
+    def power(self, k: Any) -> Any:
+        """
+        Compute the power spectrum. When the k vector is within the range, use the 
+        functional form to get the value. Outside that range, use the computed power 
+        law continuation to extend it.
+
+        Parameters
+        ----------
+        k: array_like
+            k vectors. Must be an ndarray, thacan be unpacked into three components.
+
+        Returns
+        -------
+        pk: array_like
+            Power spectrum values, has the same size as the number of raws of `k`.
+
+        """
+        k    = np.asarray(k)
+        klen = np.sqrt(np.sum(k**2, axis = -1)) # length of k vector
+
+        if np.isscalar(klen):
+            if len(k) != 3:
+                raise TypeError("k must be a 3-vector")
+            # k is a 3-vector: scalar output
+            return self.fbound(k) if klen < self.kn else self.fcont(klen)
+
+        if k.ndim != 2:
+            raise TypeError("k must be 2 dimensional")
+        elif k.shape[1] != 3:
+            raise TypeError("k must have 3 columns")
+
+        mask = np.where(klen < self.kn, True, False)
+        pk   = np.empty_like(klen)
+
+        pk[ mask] = self.fbound(k[mask, :])
+        pk[~mask] = self.fcont(klen[~mask])
+        return pk
+
+    def __call__(self, k: Any) -> Any:
+        return self.power(k)
+
 class cicCosmology:
     r"""
     An object storing a specific Lambda-CDM cosmology model.
@@ -1205,7 +1360,7 @@ class cicDeltaDistribution:
         (spectral index) and `pk_tab` (power spectrum table).
 
     """
-    __slots__   = 'pixsize', 'z', 'kn', '_cosmo', '_pfit', '_params', 
+    __slots__   = 'pixsize', 'z', 'kn', '_cosmo', '_power', '_params', 
 
     # a namedtuple to hold distribution parameters: 
     distrParams = namedtuple("distrParams", ['mu', 'sigma', 'xi'], )
@@ -1230,10 +1385,10 @@ class cicDeltaDistribution:
         else:
             self._cosmo = cicCosmology(**kwargs)
         
-        self._pfit   = ... # store power spectrum fit parameters (a, b, c)
-        self._params = ... # store distribution parameters (mu, sigma, xi)
-        self._applyContinuation()
-        self._distrParameters()
+        self._power  = ...      # store power spectrum object
+        self._params = ...      # store distribution parameters (mu, sigma, xi)
+        self.preparePower()     # initialise the measured power
+        self._distrParameters() # initialise the distribution parameters
 
     def linvar(self, ) -> float:
         """ 
@@ -1258,126 +1413,30 @@ class cicDeltaDistribution:
         """
         return self._cosmo.power(k)
     
-    def mpower_bound(self, k: Any) -> Any:
+    def measpower(self, k: Any) -> Any:
         """
-        Compute the measured log field power spectrum in a cell. This definition is 
-        valid only when the k vector is smaller than the nyquist k vector. For other 
-        vectors, this has to be continued by a power law.
-        
+        Get the log field measured power spectrum per bias factor. Multiplying by the 
+        log field bias factor will give the actual power.
+
         Parameters
         ----------
         k: array_like
-            k vectors. This must be an ndarray of shape (..., 3) where each column is 
-            representing the vector components.
-        
+            k vectors. Must be an ndarray with 3 columns or unpackable as 3.
+
         Returns
         -------
         pk: array_like
-            Power spectrum, has the same shape as the first dimension of `k`.
-
-        Notes
-        -----
-        1. This uses the cloud-in-cells weight function.
-        2. This definition is valid only for :math:`k \le k_N`., but it is not checked.
-        3. **This power is expressed per bias factor for some reasons**. So, the actual 
-        value of power will be `bias * mpower_bound`.
-
+            Power spectrum values.
         """
+        return self._power(k)
 
-        def _pkterm(kxi: Any, kyi: Any, kzi: Any) -> Any:
-            """ to find a term in the sum to get power. """
-            k   = np.sqrt(kxi**2 + kyi**2 + kzi**2)
-            p2  = 4. # for cloud-in-cell weight function (squared)
-            pki = self.linpower(k)
-            wxi = np.sinc(kxi / self.kn / 2.)
-            wyi = np.sinc(kyi / self.kn / 2.)
-            wzi = np.sinc(kzi / self.kn / 2.)
-            return pki * (wxi * wyi * wzi)**p2
-
-        kx, ky, kz = np.asarray(k).T # k vector components
-
-        pk   = 0.
-        for nx, ny, nz in product(*repeat(range(3), 3)):
-            if nx**2 + ny**2 + nz**2 >= 9.:
-                continue # only abs(n) < 3 are needed
-            pk += _pkterm(
-                            kx + 2. * nx * self.kn, 
-                            ky + 2. * ny * self.kn, 
-                            kz + 2. * nz * self.kn
-                         )
-        return pk
-
-    def _fcont(self, k: Any, a:float, b: float, c: float) -> Any:
+    def preparePower(self, ) -> None:
         """
-        Power spectrum continuation function. A power law, :math:`P(k) = a + bk^c` 
-        is used for this, where :math:`k` is the length of the vector.
+        Prepare the measured log power spectrum object.  This can be used to get the 
+        measured log field power spectrum (per the bias factor).
         """
-        return a + b*k**c
-
-    def _applyContinuation(self, ) -> None:
-        """
-        Get the power law continuation of the measured power outside its input range. 
-        This interpolates the power spectrum near the limit with a power law and use 
-        this to exten -d the definition.
-        """
-        # generate a lot of random k vectors with length 70-100% of the
-        # nyquist wavelength. 
-        kvec = np.random.uniform(0.5*self.kn, self.kn, (1_000_000, 3))
-        k    = np.sqrt(np.sum(kvec**2, axis = 1))
-        mask = np.where((k > 0.7*self.kn) & (k <= self.kn))[0] 
-        
-        k, kvec = k[mask], kvec[mask, :]
-
-        pk = self.mpower_bound(kvec) 
-
-        popt, _ = curve_fit(self._fcont, k, pk, )
-        self._pfit = popt # set the fit 
+        self._power = cicMeasPowerSpectrum(self.linpower, self.kn)
         return
-
-    def mpower(self, k: Any) -> Any:
-        r"""
-        Compute the measured log field power spectrum in a cell. For k vectors with 
-        length less than nyquist wavenumber, it is calculated as the sum
-
-        .. math::
-            P_{A, meas}({\bf k}) = \sum_{\bf n} P_A({\bf k_n}) W^2({\bf k_n})
-
-        where :math:`{\bf n}` is an integer 3-vector of length less than 3 and vector 
-        :math:`{\bf k_n} = {\bf k} + 2k_N {\bf n}`. For other k vectors, a power law 
-        continuation of this is used.
-
-        This is the power per bias factor. So, the actual log field power will be given 
-        by `bias * mpower`.
-
-        Parameters
-        ----------
-        k: array_like
-            k vectors. This must be an ndarray of shape (..., 3) where each column is 
-            representing the vector components.
-        
-        Returns
-        -------
-        pk: array_like
-            Power spectrum, has the same shape as the first dimension of `k`.
-
-        """
-        k    = np.asarray(k)
-        klen = np.sqrt(np.sum(k**2, axis = -1)) # length of k vector
-
-        if np.isscalar(klen):
-            return self.mpower_bound(k) if klen < self.kn else self._fcont(klen, *self._pfit)
-
-        if k.ndim != 2:
-            raise TypeError("k must be 2 dimensional")
-        elif k.shape[1] != 3:
-            raise TypeError("k must have 3 columns")
-
-        mask = np.where(klen < self.kn, True, False)
-        pk   = np.empty_like(klen)
-
-        pk[ mask] = self.mpower_bound(k[mask, :])
-        pk[~mask] = self._fcont(klen[~mask], *self._pfit)
-        return pk
 
     def cicvar(self, ) -> float:
         r"""
@@ -1438,14 +1497,16 @@ class cicDeltaDistribution:
         self._params = cicDeltaDistribution.distrParams(mu, sigma, xi)
         return
 
-    def logDistribution(self, x: Any) -> Any:
+    def oneDistribution(self, x: Any, log: bool = False) -> Any:
         r"""
-        Get the distribution for the log field.
+        Get the distribution for the log or linear field.
 
         Parameters
         ----------
         x: array_like
-            Value of the log field, :math:`\log (1 + \delta)`.
+            Value of the field argument.
+        log: bool, optional
+            If true, get the distribution for the log field. Default is false.
 
         Returns
         -------
@@ -1456,10 +1517,19 @@ class cicDeltaDistribution:
         """
         mu, sigma, xi = self._params
 
-        t = (1. + (x - mu) / sigma)**(-1./xi)
-        return t**(1 + xi) * np.exp(-t) / sigma
+        x = np.asarray(x)
 
-         
+        if log:
+            # log field distribution:
+            t = (1. + (x - mu) / sigma)**(-1./xi)
+            return t**(1 + xi) * np.exp(-t) / sigma
+        
+        # linear field distribution:
+        t = (1. + (np.log(x) - mu) / sigma)**(-1./xi)
+        return t**(1 + xi) * np.exp(-t) / sigma / (1. + x)
+
+    def __call__(self, x: Any, log: bool = False) -> Any:
+        return self.oneDistribution(x, log)
 
 
 
