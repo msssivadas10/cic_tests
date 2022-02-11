@@ -836,6 +836,38 @@ class cicCosmology:
         Omz = self.Om0 * zp1**3
         return Omz / (Omz + self.Ok0 * zp1**2 + self.Ode0)
 
+    def Dz(self, z: float) -> float:
+        r""" 
+        Linear growth factor, computed as the integral
+
+        .. math::
+            D_{+}(z) \propto H(z) \int_z^\infty {\rm d}z' \frac{1 + z'}{E^3(z')} 
+        
+        Parameters
+        ----------
+        z: float
+            Redshift, must be a scalar.
+        
+        Returns
+        -------
+        Dz: float
+            Normalised value of growth factor.
+        """
+        if not np.isscalar(z):
+            raise ValueError("z must be a scalar")
+
+        def growthInteg(a: float):
+            """ integrand to find growth """
+            a = np.asarray(a)
+            return a**1.5 / (self.Om0 + self.Ok0 * a + self.Ode0 * a**3)**1.5
+
+        def _Dz(z: float):
+            """ un-normalised growth. """
+            retval, err = quad(growthInteg, 0., 1. /(1. + z))
+            return retval * self.Ez(z) * self.Om0 * 2.5
+        
+        return _Dz(z) / _Dz(0.)
+
     def fz(self, z: Any) -> Any:
         r"""
         Linear growth rate, given as :math:`f(z) \approx \Omega_{\rm m}(z)^{0.6}`.
