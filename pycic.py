@@ -467,7 +467,7 @@ class cicPowerSpectrum:
         over others.
 
     """
-    __slots__ = 'data', '_f', '_itype'
+    __slots__ = 'data', '_f', '_itype', '_norm'
 
     def __init__(self, data: Any) -> None:
         # pk table is used to create a (linear) power spectrum spline:
@@ -477,16 +477,17 @@ class cicPowerSpectrum:
             raise ValueError("pk table must be a 2D array")
         elif data.shape[1] != 2:
             raise ValueError("pk table ,ust have two columns")
-        self.data = data
+        self.data  = data
+        self._norm = 1.
 
         # create the spline:
         x, y = data.T # x is log k and y is log pk
         self._f = CubicSpline(x, y, )
 
-    def __call__(self, lnk: Any) -> Any:
-        return self.power(lnk)
+    def __call__(self, lnk: Any, normalise: bool = True) -> Any:
+        return self.power(lnk, normalise)
 
-    def power(self, lnk: Any) -> Any:
+    def power(self, lnk: Any, normalise: bool = True) -> Any:
         r""" 
         Return the power spectrum as a function of :math:`\log k`.
 
@@ -494,6 +495,8 @@ class cicPowerSpectrum:
         ----------
         lnk: array_like
             Input argument, natural logarithm of k.
+        normalise: bool, optioinal
+            Whether to normalise the power spectrum. Default is true.
 
         Returns
         -------
@@ -501,26 +504,12 @@ class cicPowerSpectrum:
             Power spectrum (interpolated).
 
         """
-        return np.exp(self.pk_spline(lnk))
+        pk = np.exp(self.pk_spline(lnk))
+        if normalise:
+            return  pk * self._norm
+        return pk
 
-    def varInteg(self, lnk: Any) -> Any:
-        r""" 
-        Integrand used to compute linear variance. 
-        
-        Parameters
-        ----------
-        lnk: array_like
-            Input argument, natural logarithm of k.
-
-        Returns
-        -------
-        fk: array_like
-            Function values.
-
-        """
-        return np.exp(lnk)**3 * self.power(lnk)
-
-    def var(self, kn: float) -> float:
+    def cicvar(self, kn: float) -> float:
         r"""
         Compute the variance from power spectrum. The power is integrated over a sphere 
         in k-space, with no smoothing. If linear power is used, then the computed will 
@@ -540,8 +529,64 @@ class cicPowerSpectrum:
         var: float
             Value of linear variance.
         """
-        retval, err = quad(self.varInteg, -8., np.log(kn))
+        def varInteg(lnk: Any) -> Any:
+            """ integrand used to compute linear variance. """
+            return np.exp(lnk)**3 * self.power(lnk)
+
+        retval, err = quad(varInteg, -8., np.log(kn))
         return retval / 2. / np.pi**2
+
+    def var(self, r: float, normalise: bool = True) -> float:
+        r"""
+        Linear matter variance, smoothed with a top-hat smoothing filter.
+
+        Parameters
+        ----------
+        r: float
+            Smooting radius. Must be a scalar.
+        normalise: bool, optioinal
+            Whether to normalise the power spectrum. Default is true.
+        
+        Returns
+        -------
+        var: float
+            Value of variance.
+
+        """
+        if not np.isscalar(r):
+            raise ValueError("r should be a scaler")
+
+        def filt(x: Any) -> Any:
+            """ spherical top-hat filter in fourier space. """
+            return (np.sin(x) - x * np.cos(x)) * 3. / x**3 
+
+        def varInteg(lnk: Any) -> Any:
+            """ variance integrand. """
+            k = np.exp(lnk)
+            return k**3. * self.power(lnk, normalise = False) * filt(k*r)**2.
+        
+        retval, err = quad(varInteg, -8., 8.)
+        
+        var = retval / 2. / np.pi**2
+        if normalise:
+            return var * self._norm
+        return var
+
+    def normalise(self, sigma8: float = ...) -> None:
+        r"""
+        Normalise the power spectrum using :math:`\sigma_8`. 
+
+        Parameters
+        ----------
+        sigma8: float, optional
+            If given use this value to normalise. If not given, de-normalise the power 
+            spectrum by setting the resetting norm factor.
+        """
+        self._norm = 1.
+        if sigma8 is ... :
+            return
+        self._norm = sigma8**2 / self.var(8., )
+        return
 
 class cicMeasPowerSpectrum:
     r"""
@@ -820,10 +865,10 @@ class cicCosmology:
         """
         return self.pk(np.log(k))
     
-    def var(self, kmax: float) -> float:
+    def cicvar(self, kmax: float) -> float:
         r"""
         Compute the variance from power spectrum. The power is integrated over a sphere 
-        in k-space, with no smoothing.
+        in k-space, with no smoothing. This variance is the variance in the cell.
 
         Parameters
         ----------
@@ -839,6 +884,12 @@ class cicCosmology:
         if not np.isscalar(kmax):
             raise TypeError("kmax should be a scalar")
         return self.pk.var(kmax)
+
+    def var(self, r: float) -> float:
+        r"""
+        Linear variance smoothed using a spherical tophat function.
+        """
+        raise NotImplementedError()
 
 class cicDeltaDistribution:
     r"""
@@ -893,7 +944,7 @@ class cicDeltaDistribution:
         """ 
         Compute the linear variance in the cell. 
         """
-        return self._cosmo.var(self.kn)    
+        return self._cosmo.cicvar(self.kn)    
 
     def linpower(self, k: Any) -> Any:
         """
