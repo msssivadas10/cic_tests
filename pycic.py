@@ -885,7 +885,7 @@ class cicCosmology:
         """
         return self.Omz(z)**0.6
     
-    def power(self, k: Any, normalise: bool = True) -> Any:
+    def power(self, k: Any, z: float = 0., normalise: bool = True) -> Any:
         r"""
         Compute the power spectrum by interpolating from the table.
 
@@ -893,6 +893,8 @@ class cicCosmology:
         ----------
         k: array_like
             Wavenumber.
+        z: float, optional
+            Redshift, default is 0. 
         normalise: bool, optioinal
             Whether to normalise the power spectrum. Default is true.
 
@@ -901,7 +903,7 @@ class cicCosmology:
         pk: array_like
             Power spectrum. Has the same shape as `k`.
         """
-        return self.pk(np.log(k), normalise)
+        return self.pk(np.log(k), normalise) * self.Dz(z)**2
     
     def var(self, r: float, normalise: bool = True) -> float:
         r"""
