@@ -1027,7 +1027,7 @@ class cicDeltaDistribution:
             Power spectrum.  Has the same shape as `k`.
 
         """
-        return self._cosmo.power(k)
+        return self._cosmo.power(k, self.z)
     
     def measpower(self, k: Any) -> Any:
         """
