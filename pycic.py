@@ -454,7 +454,9 @@ class cicCountMatrix:
 
 class cicPowerSpectrum:
     """
-    An object storing the power spectrum as a table. 
+    An object storing the power spectrum as a table. The linear matter power spectrum 
+    at z = 0 is given by, without normalisation, :math:`P(k) = k^n T^2(k)`. Here T is 
+    the transfer function and :math:`n` is the spectral index.
     
     The power table should have two columns `lnk`, logarithm of the k ang `lnpk`, 
     logarithm of the P(k). A cubic spline is created using this spline and can be 
@@ -509,33 +511,6 @@ class cicPowerSpectrum:
             return  pk * self._norm
         return pk
 
-    def cicvar(self, kn: float) -> float:
-        r"""
-        Compute the variance from power spectrum. The power is integrated over a sphere 
-        in k-space, with no smoothing. If linear power is used, then the computed will 
-        be the linear variance.
-
-        .. math::
-            \sigma^2 = \int_0^{k_N} \frac{{\rm d}k k^2}{2 \pi^2} P(k) 
-
-        Parameters
-        ----------
-        kn: float
-            Radius of the k-sphere. For the case of cells, this correspond to the 
-            Nyquist wavenumber.
-
-        Returns
-        -------
-        var: float
-            Value of linear variance.
-        """
-        def varInteg(lnk: Any) -> Any:
-            """ integrand used to compute linear variance. """
-            return np.exp(lnk)**3 * self.power(lnk)
-
-        retval, err = quad(varInteg, -8., np.log(kn))
-        return retval / 2. / np.pi**2
-
     def var(self, r: float, normalise: bool = True) -> float:
         r"""
         Linear matter variance, smoothed with a top-hat smoothing filter.
@@ -571,6 +546,33 @@ class cicPowerSpectrum:
         if normalise:
             return var * self._norm
         return var
+
+    def cicvar(self, kn: float) -> float:
+        r"""
+        Compute the variance from power spectrum. The power is integrated over a sphere 
+        in k-space, with no smoothing. If linear power is used, then the computed will 
+        be the linear variance.
+
+        .. math::
+            \sigma^2 = \int_0^{k_N} \frac{{\rm d}k k^2}{2 \pi^2} P(k) 
+
+        Parameters
+        ----------
+        kn: float
+            Radius of the k-sphere. For the case of cells, this correspond to the 
+            Nyquist wavenumber.
+
+        Returns
+        -------
+        var: float
+            Value of linear variance.
+        """
+        def varInteg(lnk: Any) -> Any:
+            """ integrand used to compute linear variance. """
+            return np.exp(lnk)**3 * self.power(lnk)
+
+        retval, err = quad(varInteg, -8., np.log(kn))
+        return retval / 2. / np.pi**2
 
     def normalise(self, sigma8: float = ...) -> None:
         r"""
@@ -763,7 +765,7 @@ class cicCosmology:
         resolution to include the details, if present.
 
     """
-    __slots__ = 'Om0', 'Ode0', 'Ok0', 'h', 'ns', 'pk',
+    __slots__ = 'Om0', 'Ode0', 'Ok0', 'h', 'ns', 'pk', 'sigma8', 
 
     def __init__(self, Om0: float, Ode0: float, h: float, ns: float, pk_tab: Any) -> None:
         for o, name in zip([Om0, Ode0, h], ['Om0', 'Ode0', 'h']):
@@ -783,6 +785,8 @@ class cicCosmology:
             raise TypeError("ns should be a number")
         self.ns = ns
         
+        self.sigma8 = ... # sigma8 is set when normalising the power 
+
         # create the power spectrum table
         self.pk = cicPowerSpectrum(pk_tab)
 
@@ -849,7 +853,7 @@ class cicCosmology:
         """
         return self.Omz(z)**0.6
     
-    def power(self, k: Any) -> Any:
+    def power(self, k: Any, normalise: bool = True) -> Any:
         r"""
         Compute the power spectrum by interpolating from the table.
 
@@ -857,14 +861,35 @@ class cicCosmology:
         ----------
         k: array_like
             Wavenumber.
+        normalise: bool, optioinal
+            Whether to normalise the power spectrum. Default is true.
 
         Returns
         -------
         pk: array_like
             Power spectrum. Has the same shape as `k`.
         """
-        return self.pk(np.log(k))
+        return self.pk(np.log(k), normalise)
     
+    def var(self, r: float, normalise: bool = True) -> float:
+        r"""
+        Linear matter variance, smoothed with a top-hat smoothing filter.
+
+        Parameters
+        ----------
+        r: float
+            Smooting radius. Must be a scalar.
+        normalise: bool, optioinal
+            Whether to normalise the power spectrum. Default is true.
+        
+        Returns
+        -------
+        var: float
+            Value of variance.
+
+        """
+        return self.pk.var(r, normalise)
+
     def cicvar(self, kmax: float) -> float:
         r"""
         Compute the variance from power spectrum. The power is integrated over a sphere 
@@ -885,11 +910,18 @@ class cicCosmology:
             raise TypeError("kmax should be a scalar")
         return self.pk.var(kmax)
 
-    def var(self, r: float) -> float:
+    def normalisePower(self, sigma8: float = ... ) -> None:
         r"""
-        Linear variance smoothed using a spherical tophat function.
+        Normalise the power spectrum using :math:`\sigma_8`.
+
+        Parameters
+        ----------
+        sigma8: float, optional
+            Value to use for normalisation. If not given, set norma factor to 1.
         """
-        raise NotImplementedError()
+        self.pk.normalise(sigma8)
+        self.sigma8 = sigma8
+        return
 
 class cicDeltaDistribution:
     r"""
