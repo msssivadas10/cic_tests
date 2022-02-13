@@ -506,7 +506,7 @@ class cicPowerSpectrum:
             Power spectrum (interpolated).
 
         """
-        pk = np.exp(self.pk_spline(lnk))
+        pk = np.exp(self._f(lnk))
         if normalise:
             return  pk * self._norm
         return pk
