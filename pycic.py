@@ -571,7 +571,7 @@ class cicPowerSpectrum:
             """ integrand used to compute linear variance. """
             return np.exp(lnk)**3 * self.power(lnk)
 
-        retval, err = quad(varInteg, -8., np.log(kn))
+        retval, err = quad(varInteg, -8., np.log(kn), limit = 100)
         return retval / 2. / np.pi**2
 
     def normalise(self, sigma8: float = ...) -> None:
