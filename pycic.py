@@ -464,9 +464,9 @@ class cicPowerSpectrum:
 
     Parameters
     ----------
-    data: array_like, ndarray of floats with shape(n, 2)
-        Power spectrum table as logk vs. logp. This argument will have precedence 
-        over others.
+    data: array_like
+        Power spectrum table as logk vs. logp. Must be an ndarray of floats with 
+        shape(n, 2)
 
     """
     __slots__ = 'data', '_f', '_itype', '_norm'
