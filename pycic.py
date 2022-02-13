@@ -540,7 +540,7 @@ class cicPowerSpectrum:
             k = np.exp(lnk)
             return k**3. * self.power(lnk, normalise = False) * filt(k*r)**2.
         
-        retval, err = quad(varInteg, -8., 8.)
+        retval, err = quad(varInteg, -8., 8., limit = 100)
         
         var = retval / 2. / np.pi**2
         if normalise:
