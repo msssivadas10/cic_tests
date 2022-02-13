@@ -839,7 +839,7 @@ class cicCosmology:
         Omz = self.Om0 * zp1**3
         return Omz / (Omz + self.Ok0 * zp1**2 + self.Ode0)
 
-    def Dz(self, z: float) -> float:
+    def Dz(self, z: Any) -> float:
         r""" 
         Linear growth factor, computed as the integral
 
@@ -848,17 +848,14 @@ class cicCosmology:
         
         Parameters
         ----------
-        z: float
-            Redshift, must be a scalar.
+        z: array_like
+            Redshift, must be greater than -1.
         
         Returns
         -------
-        Dz: float
+        Dz: array_like
             Normalised value of growth factor.
         """
-        if not np.isscalar(z):
-            raise ValueError("z must be a scalar")
-
         def growthInteg(a: float):
             """ integrand to find growth """
             a = np.asarray(a)
@@ -869,6 +866,8 @@ class cicCosmology:
             retval, err = quad(growthInteg, 0., 1. /(1. + z))
             return retval * self.Ez(z) * self.Om0 * 2.5
         
+        if not np.isscalar(z):
+            return np.array(list(map(_Dz, z))) / _Dz(0.)
         return _Dz(z) / _Dz(0.)
 
     def fz(self, z: Any) -> Any:
