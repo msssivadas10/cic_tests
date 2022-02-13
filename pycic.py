@@ -1065,6 +1065,14 @@ class cicDeltaDistribution:
         This variance is expressed per bias factor. So, actual log field variance 
         will be found as `bias * cicvar`.
         """
+        
+        def varInteg(kz: float, ky: float, kx: float):
+            """ variance integrand - assuming scalar inputs """
+            if np.abs(kx) < 1.e-8 and np.abs(ky) < 1.e-8 and np.abs(kz) < 1.e-8:
+                return 0.
+            k = np.array([kx, ky, kz]).T
+            return self.measpower(k)
+            
         raise NotImplementedError()
 
     def _distrParameters(self, ) -> None:
