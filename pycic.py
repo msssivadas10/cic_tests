@@ -565,7 +565,7 @@ class cicPowerSpectrum:
         Returns
         -------
         var: float
-            Value of linear variance.
+            Value of cell variance.
         """
         def varInteg(lnk: Any) -> Any:
             """ integrand used to compute linear variance. """
