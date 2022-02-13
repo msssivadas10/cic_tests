@@ -789,6 +789,9 @@ class cicCosmology:
 
         # create the power spectrum table
         self.pk = cicPowerSpectrum(pk_tab)
+    
+    def __repr__(self) -> str:
+        return f"Cosmology(Om0 = {self.Om0}, Ode0 = {self.Ode0}, h = {self.h}, ns = {self.ns})"
 
     def Ez(self, z: Any) -> Any:
         r"""
