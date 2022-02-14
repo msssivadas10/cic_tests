@@ -6,7 +6,7 @@ from typing import Any, Callable, Tuple, Union
 from itertools import product, repeat
 from collections import namedtuple
 from scipy.interpolate import CubicSpline
-from scipy.integrate import quad
+from scipy.integrate import quad, tplquad
 from scipy.special import gamma
 from scipy.optimize import newton, curve_fit
 
@@ -604,16 +604,19 @@ class cicMeasPowerSpectrum:
     f: callable
         Function to call when linear power spectrum is needed. Must be a function of 
         the length of the k vector.
-    kn; float
-        Nyquist wavenumber. 
+    kn: float
+        Nyquist wavenumber.
+    quantize: bool, optional
+        If set, quantize the power spectrum to create a spline. This will try to expess 
+        the power as a function of the k-vector length. It is set true by default. 
         
     """
-    __slots__ = 'a', 'b', 'c', '_pfunc', 'kn', 
+    __slots__ = 'b', 'c', '_pfunc', 'kn', 
 
     def __init__(self, f: Callable, kn: float) -> None:
-        self.a, self.b, self.c = None, None, None
-
-        self.kn = kn        # nyquist wavenumber
+        self.b, self.c = None, None
+        
+        self.kn       = kn  # nyquist wavenumber
         self.setFunction(f) # set the function and apply continuation
 
     def fbound(self, k: Any) -> Any:
@@ -652,18 +655,18 @@ class cicMeasPowerSpectrum:
                          )
         return pk
 
-    def _fcont(self, k: Any, a: float, b: float, c: float) -> Any:
+    def _fcont(self, k: Any, b: float, c: float) -> Any:
         r"""
         Power spectrum continuation function. A power law, :math:`P(k) = a + bk^c` 
         is used for this, where :math:`k` is the length of the vector.
         """
-        return a + b*np.asarray(k)**c
+        return b*np.asarray(k)**c
     
     def fcont(self, k: Any) -> Any:
         """
         Power law continuation.
         """
-        return self._fcont(k, self.a, self.b, self.c)
+        return self._fcont(k, self.b, self.c)
 
     def setFunction(self, f: Callable) -> None:
         """
@@ -693,34 +696,19 @@ class cicMeasPowerSpectrum:
         # nyquist wavelength. 
         kvec = np.random.uniform(0.5*self.kn, self.kn, (1_000_000, 3))
         k    = np.sqrt(np.sum(kvec**2, axis = 1))
-        mask = np.where((k > 0.7*self.kn) & (k <= self.kn))[0] 
-        
+        mask = np.where((k > 0.9*self.kn) & (k <= self.kn))[0] 
+
         k, kvec = k[mask], kvec[mask, :]
 
         pk = self.fbound(kvec) 
 
         popt, _ = curve_fit(self._fcont, k, pk, )
 
-        self.a, self.b, self.c = popt
+        self.b, self.c = popt
         return
-
-    def power(self, k: Any) -> Any:
-        """
-        Compute the power spectrum. When the k vector is within the range, use the 
-        functional form to get the value. Outside that range, use the computed power 
-        law continuation to extend it.
-
-        Parameters
-        ----------
-        k: array_like
-            k vectors. Must be an ndarray, thacan be unpacked into three components.
-
-        Returns
-        -------
-        pk: array_like
-            Power spectrum values, has the same size as the number of raws of `k`.
-
-        """
+    
+    def _power(self, k: Any) -> Any:
+        """ Get the computed power from functional form. """
         k    = np.asarray(k)
         klen = np.sqrt(np.sum(k**2, axis = -1)) # length of k vector
 
@@ -741,6 +729,25 @@ class cicMeasPowerSpectrum:
         pk[ mask] = self.fbound(k[mask, :])
         pk[~mask] = self.fcont(klen[~mask])
         return pk
+
+    def power(self, k: Any) -> Any:
+        """
+        Compute the power spectrum. When the k vector is within the range, use the 
+        functional form to get the value. Outside that range, use the computed power 
+        law continuation to extend it.
+
+        Parameters
+        ----------
+        k: array_like
+            k vectors. Must be an ndarray, thacan be unpacked into three components.
+
+        Returns
+        -------
+        pk: array_like
+            Power spectrum values, has the same size as the number of raws of `k`.
+
+        """
+        return self._power(k)
 
     def __call__(self, k: Any) -> Any:
         return self.power(k)
@@ -1005,8 +1012,7 @@ class cicDeltaDistribution:
         
         self._power  = ...      # store power spectrum object
         self._params = ...      # store distribution parameters (mu, sigma, xi)
-        self.preparePower()     # initialise the measured power
-        self._distrParameters() # initialise the distribution parameters
+        self.preparePower()     # initialise the measured power        
 
     def linvar(self, ) -> float:
         """ 
@@ -1064,16 +1070,24 @@ class cicDeltaDistribution:
         
         This variance is expressed per bias factor. So, actual log field variance 
         will be found as `bias * cicvar`.
+
+        NOTE: this variance is computed using a naive monte-carlo approch, need to 
+        find a fast/efficient way.
         """
-        
-        def varInteg(kz: float, ky: float, kx: float):
-            """ variance integrand - assuming scalar inputs """
-            if np.abs(kx) < 1.e-8 and np.abs(ky) < 1.e-8 and np.abs(kz) < 1.e-8:
-                return 0.
-            k = np.array([kx, ky, kz]).T
-            return self.measpower(k)
-            
-        raise NotImplementedError()
+        kn  = self.kn
+        vol = (2. * kn)**3 # k space volume: cube
+
+        def mcIntegral(n: int) -> tuple:
+            kvec = np.random.uniform(-kn, kn, (n, 3)) 
+
+            # zero vectors are filtered out
+            mask = np.where(np.sqrt(np.sum(kvec**2, axis = -1)) > 1e-8)[0]
+            kvec = kvec[mask, :]
+            pk   = self.measpower(kvec)
+            return np.mean(pk) * vol, np.std(pk) * vol / np.sqrt(len(pk)) # integral and error
+
+        retval, err = mcIntegral(1000_000) # using 1M points in the cube
+        return retval / (2. * np.pi)**3
 
     def _distrParameters(self, ) -> None:
         r"""
