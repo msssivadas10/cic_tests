@@ -611,7 +611,7 @@ class LinearPowerSpectrum:
             return var * self._norm
         return var
 
-    def cicvar(self, kn: float) -> float:
+    def cellvar(self, kn: float) -> float:
         r"""
         Compute the variance from power spectrum. The power is integrated over a sphere 
         in k-space, with no smoothing. If linear power is used, then the computed will 
