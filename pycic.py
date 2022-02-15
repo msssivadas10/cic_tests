@@ -9,6 +9,7 @@ from scipy.interpolate import CubicSpline
 from scipy.integrate import quad, tplquad
 from scipy.special import gamma
 from scipy.optimize import newton, curve_fit
+from scipy.stats import binned_statistic
 
 # ====================================================
 # Exceptions
@@ -29,6 +30,69 @@ class CatalogError(CICError):
 # =====================================================
 # Objects
 # ===================================================== 
+
+class PowerLaw:
+    r"""
+    A standard power law function, :math:`y = ax^b`.
+    """
+    __slots__ = 'coef', 'expt',
+
+    def __init__(self, coef: float = ..., expt: float = ..., ) -> None:
+        self.coef, self.expt = ..., ...
+
+        if not (self.coef is ... or self.expt is ...):
+            self.setParam(coef, expt)
+
+    def setParam(self, coef: float, expt: float) -> None:
+        if not isinstance(coef, (float, int)):
+            raise TypeError("'coef must be a number")
+        elif not isinstance(expt, (float, int)):
+            raise TypeError("'expt must be a number")
+
+        self.coef, self.expt = coef, expt
+        return
+
+    def eval(self, x: Any) -> Any:
+        """ 
+        Evaluate the function. 
+        
+        Parameters
+        ----------
+        x: array_like
+            Function indepenedent variable.
+
+        Returns
+        -------
+        y: array_like
+            Function values - will have the same shape as `x`.
+        """
+        if self.coef is ... or self.expt is ... :
+            raise RuntimeError("function not initialised")
+        return PowerLaw.f(x, self.coef, self.expt)
+
+    def __call__(self, x: Any) -> Any:
+        return self.eval(x)
+
+    @staticmethod
+    def f(x: Any, coef: float, expt: float) -> Any:
+        """
+        Standard power law function. 
+
+        Parameters
+        ----------
+        x: array_like
+            Function independent variable.
+        coef: float
+            Coefficient. Must be a scalar.
+        expt: float
+            Exponent. Must be a scalar.
+
+        Returns
+        -------
+        y: array_like
+            Function values. Will have the same shape as `x`.
+        """
+        return coef * x**expt
 
 class CartesianCatalog:
     r"""
@@ -611,24 +675,30 @@ class cicMeasPowerSpectrum:
         the power as a function of the k-vector length. It is set true by default. 
         
     """
-    __slots__ = 'b', 'c', '_pfunc', 'kn', 
+    __slots__ = '_pfunc', 'kn', '_headfit', '_tailfit', '_qpower'
 
-    def __init__(self, f: Callable, kn: float) -> None:
-        self.b, self.c = None, None
+    def __init__(self, f: Callable, kn: float, quantize: bool = False) -> None:
+        self._headfit = PowerLaw()
+        self._tailfit = PowerLaw()
         
-        self.kn       = kn  # nyquist wavenumber
-        self.setFunction(f) # set the function and apply continuation
+        self.kn = kn        # nyquist wavenumber
+        self.setFunction(f, quantize) # set the function and apply continuation
 
-    def fbound(self, k: Any) -> Any:
+    def fbound(self, kx: Any, ky: Any, kz: Any) -> Any:
         """
         Compute the measured log field power spectrum in a cell. This definition is 
         valid only when the k vector is smaller than the nyquist k vector. For other 
         vectors, this has to be continued by a power law.
 
+        Parameters
+        ----------
+        kx, ky, kz: array_like
+            k-vector components. For this form to be accurate, length of the vector 
+            must be less than :math:`k_N` but it is not checked.
+
         Notes
         -----
-        1. This uses the cloud-in-cells weight function.
-        2. This definition is valid only for :math:`k \le k_N`., but it is not checked.
+        This uses the cloud-in-cells weight function.
 
         """
 
@@ -642,7 +712,7 @@ class cicMeasPowerSpectrum:
             wzi = np.sinc(kzi / self.kn / 2.)
             return pki * (wxi * wyi * wzi)**p2
 
-        kx, ky, kz = np.asarray(k).T # k vector components
+        kx, ky, kz = np.asarray(kx), np.asarray(ky), np.asarray(kz) # k vector components
 
         pk   = 0.
         for nx, ny, nz in product(*repeat(range(3), 3)):
@@ -655,20 +725,7 @@ class cicMeasPowerSpectrum:
                          )
         return pk
 
-    def _fcont(self, k: Any, b: float, c: float) -> Any:
-        r"""
-        Power spectrum continuation function. A power law, :math:`P(k) = a + bk^c` 
-        is used for this, where :math:`k` is the length of the vector.
-        """
-        return b*np.asarray(k)**c
-    
-    def fcont(self, k: Any) -> Any:
-        """
-        Power law continuation.
-        """
-        return self._fcont(k, self.b, self.c)
-
-    def setFunction(self, f: Callable) -> None:
+    def setFunction(self, f: Callable, quantize: bool = False) -> None:
         """
         Set the linear power spectrum function.
 
@@ -676,6 +733,10 @@ class cicMeasPowerSpectrum:
         ----------
         f: callable
             Function or a callable used to call. It accept only one argument, `k`.
+        quantize: bool, optional
+            If set true, quantize the power in the k-range :math:`[10^{-3}, k_N]` and 
+            use interpolated values instead of the exact values. Its default value is 
+            false. 
 
         """         
         if not callable(f):
@@ -684,6 +745,11 @@ class cicMeasPowerSpectrum:
         
         # find the power law continuation of the function for longer vectors
         self._applyContinuation()
+
+        # quantise the power if told:
+        self._qpower  = ... 
+        if quantize:
+            self._quantizePower()
         return
 
     def _applyContinuation(self, ) -> None:
@@ -692,45 +758,126 @@ class cicMeasPowerSpectrum:
         This interpolates the power spectrum near the limit with a power law and use 
         this to extend the definition.
         """
-        # generate a lot of random k vectors with length 70-100% of the
-        # nyquist wavelength. 
-        kvec = np.random.uniform(0.5*self.kn, self.kn, (1_000_000, 3))
-        k    = np.sqrt(np.sum(kvec**2, axis = 1))
-        mask = np.where((k > 0.9*self.kn) & (k <= self.kn))[0] 
+        def _getContinuation(kx: Any, ky: Any, kz: Any, k: Any) -> tuple:
+            """ get the best fitting power law parameters. """
+            pk              = self.fbound(kx, ky, kz) 
+            (coef, expt), _ = curve_fit(PowerLaw.f, k, pk )
+            return coef, expt
 
-        k, kvec = k[mask], kvec[mask, :]
+        def _headContinuation() -> tuple:
+            """ power law fit for the head part. """
+            # generate random k vetors of length < 1e-3
+            kx   = 10**np.random.uniform(-7, -3, 1_000_000)
+            ky   = 10**np.random.uniform(-7, -3, 1_000_000)
+            kz   = 10**np.random.uniform(-7, -3, 1_000_000)
+            k    = np.sqrt(kx**2 + ky**2 + kz**2)
+            mask = np.where(k < 1e-3)[0] 
+            return _getContinuation(kx[mask], ky[mask], kz[mask], k[mask])
 
-        pk = self.fbound(kvec) 
+        def _tailContinuation() -> tuple:
+            """ power law fit for the tail part. """ 
+            # generate random k vectors of length in 0.9kn - kn range
+            kx   = np.random.uniform(0.5*self.kn, self.kn, 1_000_000)
+            ky   = np.random.uniform(0.5*self.kn, self.kn, 1_000_000)
+            kz   = np.random.uniform(0.5*self.kn, self.kn, 1_000_000)
+            k    = np.sqrt(kx**2 + ky**2 + kz**2)
+            mask = np.where((k > 0.9*self.kn) & (k <= self.kn))[0] 
+            return _getContinuation(kx[mask], ky[mask], kz[mask], k[mask])
 
-        popt, _ = curve_fit(self._fcont, k, pk, )
+        # short-k (head) continuation:
+        coef_h, expt_h = _headContinuation()
+        self._headfit.setParam(coef_h, expt_h)
 
-        self.b, self.c = popt
+        # long-k (tail) continuation:
+        coef_t, expt_t = _tailContinuation()
+        self._tailfit.setParam(coef_t, expt_t)
         return
-    
-    def _power(self, k: Any) -> Any:
+
+    def _quantizePower(self, ) -> None:
+        """
+        Quantise the power in the range :math:`10^{-3} < k < k_N`. Quantization uses the 
+        binned mean power, with 100 bins. May not be accuarate.
+        """
+        kn = self.kn
+
+        kx = 10**(np.random.uniform(-6, np.log10(kn), 1000_000))
+        ky = 10**(np.random.uniform(-6, np.log10(kn), 1000_000))
+        kz = 10**(np.random.uniform(-6, np.log10(kn), 1000_000))
+
+        k  = np.sqrt(kx**2 + ky**2 + kz**2)
+        pk = self._power(kx, ky, kz, use_spline = False) # power without using the spline
+
+        # find the binned mean powers with 100 bins:
+        lnp, lnk, _ = binned_statistic(np.log(k), np.log(pk), statistic = 'mean', bins = 100, )
+        lnk         = 0.5 * (lnk[:-1] + lnk[1:]) # bin centers
+
+        # make the spline from the data
+        self._qpower = CubicSpline(lnk, lnp)
+        return
+
+    def _power_scalarIn(self, kx: float, ky: float, kz: float) -> float:
+        """ Get the power for single k-vector input. """
+        k = np.sqrt(kx**2 + ky**2 + kz**2) # length of k vector
+        if k < 1.e-3:
+            return self._headfit(k)
+        elif k > self.kn:
+            return self._tailfit(k)
+        return self.fbound(np.array([kx, ky, kz]))
+
+    def _power(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
         """ Get the computed power from functional form. """
-        k    = np.asarray(k)
-        klen = np.sqrt(np.sum(k**2, axis = -1)) # length of k vector
+        kx, ky, kz = np.asarray(kx), np.asarray(ky), np.asarray(kz)
+        
+        k = np.sqrt(kx**2 + ky**2 + kz**2) # length of k vector
 
-        if np.isscalar(klen):
-            if len(k) != 3:
-                raise TypeError("k must be a 3-vector")
-            # k is a 3-vector: scalar output
-            return self.fbound(k) if klen < self.kn else self.fcont(klen)
+        if np.isscalar(k):
+            return self._power_scalarIn(kx, ky, kz) # raise error when not a 3-vector
 
-        if k.ndim != 2:
-            raise TypeError("k must be 2 dimensional")
-        elif k.shape[1] != 3:
-            raise TypeError("k must have 3 columns")
+        pk   = np.empty_like(k)
 
-        mask = np.where(klen < self.kn, True, False)
-        pk   = np.empty_like(klen)
+        # apply continuation for k > kn:
+        mask_t     = np.where(k > self.kn, True, False) # long-k mask
+        pk[mask_t] = self._tailfit.eval(k[mask_t])
 
-        pk[ mask] = self.fbound(k[mask, :])
-        pk[~mask] = self.fcont(klen[~mask])
+        # apply continuation for k < 1e-3:
+        mask_h     = np.where(k < 1.00e-3, True, False) # short-k mask
+        pk[mask_h] = self._headfit.eval(k[mask_h])
+
+        # compute for other ks
+        mask     = ~(mask_h | mask_t) # rest-of-k mask
+        if use_spline:
+            # if quantization is not enabled, ignore it
+            if self._qpower is not ... : 
+                pk[mask] = np.exp(self._qpower(np.log(k[mask])))
+                return pk
+
+        pk[mask] = self.fbound(kx[mask], ky[mask], kz[mask])
         return pk
 
-    def power(self, k: Any) -> Any:
+    def powerk(self, k: Any) -> Any:
+        """ 
+        Get the power as a function of k, length of k-vector. This is a test function 
+        and is available only when quantization is enabled.  
+        """
+        if self._qpower is ... :
+            raise ValueError("function available only when quantization enebled")
+        k  = np.asarray(k)
+        pk = np.empty_like(k)
+
+        # apply continuation for k > kn:
+        mask_t     = np.where(k > self.kn, True, False) # long-k mask
+        pk[mask_t] = self._tailfit.eval(k[mask_t])
+
+        # apply continuation for k < 1e-3:
+        mask_h     = np.where(k < 1.00e-3, True, False) # short-k mask
+        pk[mask_h] = self._headfit.eval(k[mask_h])
+
+        # compute for other ks
+        mask     = ~(mask_h | mask_t) # rest-of-k mask
+        pk[mask] = np.exp(self._qpower(np.log(k[mask])))
+        return pk
+
+    def power(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
         """
         Compute the power spectrum. When the k vector is within the range, use the 
         functional form to get the value. Outside that range, use the computed power 
@@ -738,19 +885,23 @@ class cicMeasPowerSpectrum:
 
         Parameters
         ----------
-        k: array_like
-            k vectors. Must be an ndarray, thacan be unpacked into three components.
+        kx, ky, kz: array_like
+            k vector components, each must be an ndarray of floats.
+        use_spline: bool, optional
+            If true, use the quantised power spectrum values to get the power in the 
+            range :math:`[10^{-3}, k_N]`. If no quantization enabled, use the original 
+            form.
 
         Returns
         -------
         pk: array_like
-            Power spectrum values, has the same size as the number of raws of `k`.
+            Power spectrum values, has the same size as the largest of `ki`.
 
         """
-        return self._power(k)
+        return self._power(kx, ky, kz, use_spline)
 
-    def __call__(self, k: Any) -> Any:
-        return self.power(k)
+    def __call__(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
+        return self.power(kx, ky, kz, use_spline)
 
 class cicCosmology:
     r"""
@@ -991,6 +1142,8 @@ class cicDeltaDistribution:
     distrParams = namedtuple("distrParams", ['mu', 'sigma', 'xi'], )
 
     def __init__(self, z: float, pixsize: float, model: cicCosmology = ..., **kwargs) -> None:
+        raise DeprecationWarning("class is to be re-defined")
+
         if z < -1.:
             raise ValueError("z cannot be less than -1")
         self.z = z
@@ -1170,8 +1323,6 @@ class cicDeltaDistribution:
 
     def __call__(self, x: Any, log: bool = False) -> Any:
         return self.oneDistribution(x, log)
-
-
 
 
 
