@@ -289,7 +289,7 @@ class CartesianCatalog:
 
 
         """
-        self._cm = cicCountMatrix(self.objx, subdiv, boxsize, offset)
+        self._cm = CountMatrix(self.objx, subdiv, boxsize, offset)
         return
 
     def cicProbability(self, bins: int, merge: bool = False, nlow: int = ..., style: str = "lin") -> tuple:
@@ -322,7 +322,7 @@ class CartesianCatalog:
             raise CatalogError("cic matrix not created")
         return self._cm.countProbability(bins, merge, nlow, style)
 
-class cicCountMatrix:
+class CountMatrix:
     """
     A cell structure storing the number of galaxies in cells. This is used for count-
     in-cell estimation, by catalog objects.
@@ -386,7 +386,7 @@ class cicCountMatrix:
         os = self.offset
         if all(np.abs(os - os[0]) < 1e-6):
             os = os[0]    
-        return f"<cicCountMatrix: subdiv = {self.subdiv}, boxsize = {bs}, offset = {os}>"
+        return f"<CountMatrix: subdiv = {self.subdiv}, boxsize = {bs}, offset = {os}>"
 
     def _pos2index(self, objx: Any) -> Any:
         i = ((objx - self.offset) // self.cellsize).astype(int)
@@ -516,7 +516,7 @@ class cicCountMatrix:
             centers = (edges[:-1] + edges[1:]) / 2.   # mean
         return centers, prob, err
 
-class cicPowerSpectrum:
+class LinearPowerSpectrum:
     """
     An object storing the power spectrum as a table. The linear matter power spectrum 
     at z = 0 is given by, without normalisation, :math:`P(k) = k^n T^2(k)`. Here T is 
@@ -654,7 +654,7 @@ class cicPowerSpectrum:
         self._norm = sigma8**2 / self.var(8., )
         return
 
-class cicMeasPowerSpectrum:
+class CellPowerSpectrum:
     r"""
     Measured log field power spectrum object. This corresponds to a box region. It 
     uses a functional form for power if the k vector is shorter than nyquist wavenumber 
@@ -903,7 +903,7 @@ class cicMeasPowerSpectrum:
     def __call__(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
         return self.power(kx, ky, kz, use_spline)
 
-class cicCosmology:
+class Cosmology:
     r"""
     An object storing a specific Lambda-CDM cosmology model.
 
@@ -946,7 +946,7 @@ class cicCosmology:
         self.sigma8 = ... # sigma8 is set when normalising the power 
 
         # create the power spectrum table
-        self.pk = cicPowerSpectrum(pk_tab)
+        self.pk = LinearPowerSpectrum(pk_tab)
     
     def __repr__(self) -> str:
         return f"Cosmology(Om0 = {self.Om0}, Ode0 = {self.Ode0}, h = {self.h}, ns = {self.ns})"
@@ -1129,7 +1129,7 @@ class cicDeltaDistribution:
         Redshift parameter - must be greater than -1.
     pixsize: float
         Size of the cell used in count-in-cell calculations.
-    model: :class:`cicCosmology`, optional
+    model: :class:`Cosmology`, optional
         Lambda-CDM cosmology model to use. Alternatively, one can give the model parameters 
         as keyword arguments instead of giving a model object. The required keywords are 
         `Om0` (matter density), `Ode0` (dark-energy density), `h` (hubble parameter), `ns` 
@@ -1141,7 +1141,7 @@ class cicDeltaDistribution:
     # a namedtuple to hold distribution parameters: 
     distrParams = namedtuple("distrParams", ['mu', 'sigma', 'xi'], )
 
-    def __init__(self, z: float, pixsize: float, model: cicCosmology = ..., **kwargs) -> None:
+    def __init__(self, z: float, pixsize: float, model: Cosmology = ..., **kwargs) -> None:
         raise DeprecationWarning("class is to be re-defined")
 
         if z < -1.:
@@ -1157,11 +1157,11 @@ class cicDeltaDistribution:
 
         # initialise the cosmology model:
         if model is not ... :
-            if not isinstance(model, cicCosmology):
-                raise TypeError("model must be a 'cicCosmology' object")
+            if not isinstance(model, Cosmology):
+                raise TypeError("model must be a 'Cosmology' object")
             self._cosmo = model
         else:
-            self._cosmo = cicCosmology(**kwargs)
+            self._cosmo = Cosmology(**kwargs)
         
         self._power  = ...      # store power spectrum object
         self._params = ...      # store distribution parameters (mu, sigma, xi)
@@ -1212,7 +1212,7 @@ class cicDeltaDistribution:
         Prepare the measured log power spectrum object.  This can be used to get the 
         measured log field power spectrum (per the bias factor).
         """
-        self._power = cicMeasPowerSpectrum(self.linpower, self.kn)
+        self._power = CellPowerSpectrum(self.linpower, self.kn)
         return
 
     def cicvar(self, ) -> float:
