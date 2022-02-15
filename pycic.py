@@ -31,69 +31,6 @@ class CatalogError(CICError):
 # Objects
 # ===================================================== 
 
-class PowerLaw:
-    r"""
-    A standard power law function, :math:`y = ax^b`.
-    """
-    __slots__ = 'coef', 'expt',
-
-    def __init__(self, coef: float = ..., expt: float = ..., ) -> None:
-        self.coef, self.expt = ..., ...
-
-        if not (self.coef is ... or self.expt is ...):
-            self.setParam(coef, expt)
-
-    def setParam(self, coef: float, expt: float) -> None:
-        if not isinstance(coef, (float, int)):
-            raise TypeError("'coef must be a number")
-        elif not isinstance(expt, (float, int)):
-            raise TypeError("'expt must be a number")
-
-        self.coef, self.expt = coef, expt
-        return
-
-    def eval(self, x: Any) -> Any:
-        """ 
-        Evaluate the function. 
-        
-        Parameters
-        ----------
-        x: array_like
-            Function indepenedent variable.
-
-        Returns
-        -------
-        y: array_like
-            Function values - will have the same shape as `x`.
-        """
-        if self.coef is ... or self.expt is ... :
-            raise RuntimeError("function not initialised")
-        return PowerLaw.f(x, self.coef, self.expt)
-
-    def __call__(self, x: Any) -> Any:
-        return self.eval(x)
-
-    @staticmethod
-    def f(x: Any, coef: float, expt: float) -> Any:
-        """
-        Standard power law function. 
-
-        Parameters
-        ----------
-        x: array_like
-            Function independent variable.
-        coef: float
-            Coefficient. Must be a scalar.
-        expt: float
-            Exponent. Must be a scalar.
-
-        Returns
-        -------
-        y: array_like
-            Function values. Will have the same shape as `x`.
-        """
-        return coef * x**expt
-
 class CartesianCatalog:
     r"""
     A galaxy catalog in cartesian coordinates. The catalog stores the galaxy positions
@@ -515,6 +452,77 @@ class CountMatrix:
         else:
             centers = (edges[:-1] + edges[1:]) / 2.   # mean
         return centers, prob, err
+
+class PowerLaw:
+    r"""
+    A standard power law function, :math:`y = ax^b`.
+
+    Parameters
+    ----------
+    coef: float, optional
+        Value of the coefficient :math:`a`.
+    expt: float, optional
+        Value of the exponent :math:`b`.
+
+    """
+    __slots__ = 'coef', 'expt',
+
+    def __init__(self, coef: float = ..., expt: float = ..., ) -> None:
+        self.coef, self.expt = ..., ...
+
+        if not (self.coef is ... or self.expt is ...):
+            self.setParam(coef, expt)
+
+    def setParam(self, coef: float, expt: float) -> None:
+        if not isinstance(coef, (float, int)):
+            raise TypeError("'coef must be a number")
+        elif not isinstance(expt, (float, int)):
+            raise TypeError("'expt must be a number")
+
+        self.coef, self.expt = coef, expt
+        return
+
+    def eval(self, x: Any) -> Any:
+        """ 
+        Evaluate the function. 
+        
+        Parameters
+        ----------
+        x: array_like
+            Function indepenedent variable.
+
+        Returns
+        -------
+        y: array_like
+            Function values - will have the same shape as `x`.
+        """
+        if self.coef is ... or self.expt is ... :
+            raise RuntimeError("function not initialised")
+        return PowerLaw.f(x, self.coef, self.expt)
+
+    def __call__(self, x: Any) -> Any:
+        return self.eval(x)
+
+    @staticmethod
+    def f(x: Any, coef: float, expt: float) -> Any:
+        """
+        Standard power law function. 
+
+        Parameters
+        ----------
+        x: array_like
+            Function independent variable.
+        coef: float
+            Coefficient. Must be a scalar.
+        expt: float
+            Exponent. Must be a scalar.
+
+        Returns
+        -------
+        y: array_like
+            Function values. Will have the same shape as `x`.
+        """
+        return coef * x**expt
 
 class LinearPowerSpectrum:
     """
