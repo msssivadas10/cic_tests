@@ -575,7 +575,7 @@ class LinearPowerSpectrum:
             Input argument, natural logarithm of k.
         normalise: bool, optioinal
             Whether to normalise the power spectrum. Default is true.
-        bias: float
+        bias: float, optional
             Bias value - must be a scalar.
 
         Returns
@@ -593,7 +593,7 @@ class LinearPowerSpectrum:
             return  pk * self._norm
         return pk
 
-    def var(self, r: float, normalise: bool = True, smooth: bool = True) -> float:
+    def var(self, r: float, normalise: bool = True, smooth: bool = True, bias: float = ... ) -> float:
         r"""
         Compute linear matter variance. If smoothing is enabled, then the power is 
         smoothed with a spherical top-hat smoothing filter and integration is done 
@@ -614,6 +614,8 @@ class LinearPowerSpectrum:
             Whether to normalise the power spectrum. Default is true.
         smooth: bool, optional
             Whether to smooth the power spectrum. True by default.
+        bias: float, optional
+            Bias value - must be a scalar. If given return the biased variance.
         
         Returns
         -------
@@ -643,6 +645,8 @@ class LinearPowerSpectrum:
         retval, err    = quad(varInteg, -8., ulim, limit = 100)
         
         var = retval / 2. / np.pi**2
+        if bias is not ... :
+            var = var * bias**2
         if normalise:
             return var * self._norm
         return var
@@ -991,6 +995,9 @@ class Cosmology:
         Power spectrum table. This must be a 2D array with two columns - :math:`\ln k`
         in the first and :math:`\ln P(k)` in the second. The table should have enough 
         resolution to include the details, if present.
+    sigma8: float, optional
+        RMS variance of density fluctuations, :math:`\sigma_8` parameter. If given used 
+        to normalise the power spectrum.
 
     """
     __slots__ = 'Om0', 'Ode0', 'Ok0', 'h', 'ns', 'pk', 'sigma8', 
@@ -1012,7 +1019,7 @@ class Cosmology:
         if not isinstance(ns, (int, float)):
             raise TypeError("ns should be a number")
         self.ns = ns
-        
+
         # create the power spectrum table
         self.pk = LinearPowerSpectrum(pk_tab)
 
@@ -1141,7 +1148,7 @@ class Cosmology:
         """
         return self.pk.power(np.log(k), normalise, bias) * self.Dz(z)**2
     
-    def var(self, r: float, normalise: bool = True, smooth: bool = True) -> float:
+    def var(self, r: float, z: float = 0., normalise: bool = True, smooth: bool = True, bias: float = ... ) -> float:
         r"""
         Compute linear matter variance. If smoothing is enabled, then the power is 
         smoothed with a spherical top-hat smoothing filter and integration is done 
@@ -1155,10 +1162,14 @@ class Cosmology:
         r: float
             Used as the smooting radius in case of smoothing enabled, otherwise the 
             upper (k_m) limit of integration. Must be a scalar.
+        z: float, optional
+            Redshift, default is 0. 
         normalise: bool, optioinal
             Whether to normalise the power spectrum. Default is true.
         smooth: bool, optional
             Whether to smooth the power spectrum. True by default.
+        bias: float, optional
+            Bias value - must be a scalar. If given return the biased variance.
 
         Returns
         -------
@@ -1166,7 +1177,7 @@ class Cosmology:
             Value of variance.
 
         """
-        return self.pk.var(r, normalise, smooth)
+        return self.pk.var(r, normalise, smooth, bias) * self.Dz(z)**2
 
     def normalisePower(self, sigma8: float = ... ) -> None:
         r"""
@@ -1181,7 +1192,7 @@ class Cosmology:
         self.sigma8 = sigma8
         return
 
-class cicDeltaDistribution:
+class DeltaDistribution:
     r"""
     One point dark-matter distribution. This distribution depends on the redshift and 
     cosmology. This object can be used for the probability distribution function of 
@@ -1206,8 +1217,6 @@ class cicDeltaDistribution:
     distrParams = namedtuple("distrParams", ['mu', 'sigma', 'xi'], )
 
     def __init__(self, z: float, pixsize: float, model: Cosmology = ..., **kwargs) -> None:
-        raise DeprecationWarning("class is to be re-defined")
-
         if z < -1.:
             raise ValueError("z cannot be less than -1")
         self.z = z
@@ -1227,19 +1236,31 @@ class cicDeltaDistribution:
         else:
             self._cosmo = Cosmology(**kwargs)
         
-        self._power  = ...      # store power spectrum object
+        self._power  = ...      # store power spectrum object (measured cic power)
         self._params = ...      # store distribution parameters (mu, sigma, xi)
         self.preparePower()     # initialise the measured power        
 
-    def linvar(self, ) -> float:
-        """ 
-        Compute the linear variance in the cell. 
+    def preparePower(self, ) -> None:
         """
-        return self._cosmo.cicvar(self.kn)    
+        Prepare the measured log power spectrum object.  This can be used to get the 
+        measured log field power spectrum (per the bias factor).
+        """
+        self._power = CellPowerSpectrum(self.linpower, self.kn, quantize = False)
+        return
+
+    def linvar(self, ) -> float:
+        r""" 
+        Compute the linear variance in the cell.
+
+        .. math::
+            \sigma_{\rm lin}^2 = \frac{1}{2\pi^2} \int_0^{k_N} {\rm d}k k^2 P_{\rm lin}(k)
+
+        """
+        return self._cosmo.var(self.kn, z = self.z, smooth = False)   
 
     def linpower(self, k: Any) -> Any:
         """
-        Get the linear power spectrum.
+        Get the linear power spectrum at the given redshift.
 
         Parameters
         ---------
@@ -1249,35 +1270,27 @@ class cicDeltaDistribution:
         Returns
         -------
         pk: array_like
-            Power spectrum.  Has the same shape as `k`.
+            Power spectrum. Has the same shape as `k`.
 
         """
-        return self._cosmo.power(k, self.z)
+        return self._cosmo.power(k, z = self.z, normalise = True, bias = ...)
     
-    def measpower(self, k: Any) -> Any:
+    def measpower(self, kx: Any, ky: Any, kz: Any) -> Any:
         """
-        Get the log field measured power spectrum per bias factor. Multiplying by the 
-        log field bias factor will give the actual power.
+        Get the measured power spectrum in the cell. Multiplying this by the log field 
+        bias factor will give the power for the log field.
 
         Parameters
         ----------
-        k: array_like
-            k vectors. Must be an ndarray with 3 columns or unpackable as 3.
+        kx, ky, kz: array_like
+            k vector components. 
 
         Returns
         -------
         pk: array_like
             Power spectrum values.
         """
-        return self._power(k)
-
-    def preparePower(self, ) -> None:
-        """
-        Prepare the measured log power spectrum object.  This can be used to get the 
-        measured log field power spectrum (per the bias factor).
-        """
-        self._power = CellPowerSpectrum(self.linpower, self.kn)
-        return
+        return self._power.power(kx, ky, kz, use_spline = False)
 
     def cicvar(self, ) -> float:
         r"""
@@ -1287,24 +1300,8 @@ class cicDeltaDistribution:
         
         This variance is expressed per bias factor. So, actual log field variance 
         will be found as `bias * cicvar`.
-
-        NOTE: this variance is computed using a naive monte-carlo approch, need to 
-        find a fast/efficient way.
         """
-        kn  = self.kn
-        vol = (2. * kn)**3 # k space volume: cube
-
-        def mcIntegral(n: int) -> tuple:
-            kvec = np.random.uniform(-kn, kn, (n, 3)) 
-
-            # zero vectors are filtered out
-            mask = np.where(np.sqrt(np.sum(kvec**2, axis = -1)) > 1e-8)[0]
-            kvec = kvec[mask, :]
-            pk   = self.measpower(kvec)
-            return np.mean(pk) * vol, np.std(pk) * vol / np.sqrt(len(pk)) # integral and error
-
-        retval, err = mcIntegral(1000_000) # using 1M points in the cube
-        return retval / (2. * np.pi)**3
+        return self._power.var()
 
     def _distrParameters(self, ) -> None:
         r"""
@@ -1351,7 +1348,7 @@ class cicDeltaDistribution:
         # location parameter:
         mu    = mlog - sigma * (g1mx - 1.) / xi
 
-        self._params = cicDeltaDistribution.distrParams(mu, sigma, xi)
+        self._params = DeltaDistribution.distrParams(mu, sigma, xi)
         return
 
     def oneDistribution(self, x: Any, log: bool = False) -> Any:
@@ -1372,6 +1369,8 @@ class cicDeltaDistribution:
             as the `x` input.
 
         """
+        if self._params is ... :
+            raise RuntimeError("distribution parameters are not found")
         mu, sigma, xi = self._params
 
         x = np.asarray(x)
