@@ -558,8 +558,8 @@ class LinearPowerSpectrum:
         x, y = data.T # x is log k and y is log pk
         self._f = CubicSpline(x, y, )
 
-    def __call__(self, lnk: Any, normalise: bool = True) -> Any:
-        return self.power(lnk, normalise)
+    def __call__(self, lnk: Any, normalise: bool = True, bias: float = ... ) -> Any:
+        return self.power(lnk, normalise, bias)
 
     def power(self, lnk: Any, normalise: bool = True, bias: float = ... ) -> Any:
         r""" 
@@ -635,7 +635,7 @@ class LinearPowerSpectrum:
 
         def varInteg_noSmooth(lnk: Any) -> Any:
             """ variance integrand - not smoothed. """
-            return np.exp(lnk)**3 * self.power(lnk)
+            return np.exp(lnk)**3 * self.power(lnk, normalise = False)
 
         # integration is done in log space
         # lower k limit is 1e-8 and default upper limit is 1e+8
@@ -692,6 +692,9 @@ class CellPowerSpectrum:
         
         self.kn = kn        # nyquist wavenumber
         self.setFunction(f, quantize) # set the function and apply continuation
+
+    def __call__(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
+        return self.power(kx, ky, kz, use_spline)
 
     def fbound(self, kx: Any, ky: Any, kz: Any) -> Any:
         """
@@ -814,7 +817,7 @@ class CellPowerSpectrum:
         kz = 10**(np.random.uniform(-6, np.log10(kn), 1000_000))
 
         k  = np.sqrt(kx**2 + ky**2 + kz**2)
-        pk = self._power(kx, ky, kz, use_spline = False) # power without using the spline
+        pk = self.power(kx, ky, kz, use_spline = False) # power without using the spline
 
         # find the binned mean powers with 100 bins:
         lnp, lnk, _ = binned_statistic(np.log(k), np.log(pk), statistic = 'mean', bins = 100, )
@@ -833,16 +836,31 @@ class CellPowerSpectrum:
             return self._tailfit(k)
         return self.fbound(np.array([kx, ky, kz]))
 
-    def _power(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
-        """ Get the computed power from functional form. """
+    def power(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
+        """
+        Compute the power spectrum. When the k vector is within the range, use the 
+        functional form to get the value. Outside that range, use the computed power 
+        law continuation to extend it.
+
+        Parameters
+        ----------
+        kx, ky, kz: array_like
+            k vector components, each must be an ndarray of floats.
+        use_spline: bool, optional
+            If true, use the quantised power spectrum values to get the power in the 
+            range :math:`[10^{-3}, k_N]`. If no quantization enabled, use the original 
+            form.
+
+        Returns
+        -------
+        pk: array_like
+            Power spectrum values, has the same size as the largest of `ki`.
+
+        """
         kx, ky, kz = np.asarray(kx), np.asarray(ky), np.asarray(kz)
         
-        k = np.sqrt(kx**2 + ky**2 + kz**2) # length of k vector
-
-        if np.isscalar(k):
-            return self._power_scalarIn(kx, ky, kz) # raise error when not a 3-vector
-
-        pk   = np.empty_like(k)
+        k  = np.sqrt(kx**2 + ky**2 + kz**2) # length of k vector
+        pk = np.empty_like(k)
 
         # apply continuation for k > kn:
         mask_t     = np.where(k > self.kn, True, False) # long-k mask
@@ -886,31 +904,74 @@ class CellPowerSpectrum:
         pk[mask] = np.exp(self._qpower(np.log(k[mask])))
         return pk
 
-    def power(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
+    def var(self, method: str = 'mc', use_spline: bool = False) -> Any:
         """
-        Compute the power spectrum. When the k vector is within the range, use the 
-        functional form to get the value. Outside that range, use the computed power 
-        law continuation to extend it.
+        Integrate the power over a cube to find the variance. The integration vaolume 
+        used is a cube with one side from :math:`-k_N` to :math:`k_N`.
 
         Parameters
         ----------
-        kx, ky, kz: array_like
-            k vector components, each must be an ndarray of floats.
+        method: str, optional
+            Which integration technique to use. Available methods are monte-carlo (`mc`, 
+            default) and `quad` (using `scipy.integrate.tplquad`).
         use_spline: bool, optional
-            If true, use the quantised power spectrum values to get the power in the 
-            range :math:`[10^{-3}, k_N]`. If no quantization enabled, use the original 
-            form.
+            If true, use the quantised power spectrum values to get the power in the range 
+            [10^{-3}, k_N]. If no quantization enabled, use the original form.
 
         Returns
         -------
-        pk: array_like
-            Power spectrum values, has the same size as the largest of `ki`.
+        var: float
+            Value of the variance.
 
         """
-        return self._power(kx, ky, kz, use_spline)
+        kn = self.kn
 
-    def __call__(self, kx: Any, ky: Any, kz: Any, use_spline: bool = False) -> Any:
-        return self.power(kx, ky, kz, use_spline)
+        def _varMonteCarlo(n: int) -> tuple:
+            """ variance using monte-carlo integration. """
+            log_kn = np.log10(kn)
+            volume = kn**3        # space volume (cube)
+
+            # generate a set of n k-vectors, excluding (near) zero-vector(s)
+            kx = 10**np.random.uniform(-6, log_kn, size = n)
+            ky = 10**np.random.uniform(-6, log_kn, size = n)
+            kz = 10**np.random.uniform(-6, log_kn, size = n)
+
+            # randomize the signs - distribute the vectors to all 8 quadrants
+            kx = kx * np.random.choice([-1, 1], size = n)
+            ky = ky * np.random.choice([-1, 1], size = n)
+            kz = kz * np.random.choice([-1, 1], size = n)
+
+            pk = self.power(kx, ky, kz, use_spline)
+
+            retval = np.mean(pk) * volume              # integral
+            err    = np.std(pk)  * volume / np.sqrt(n) # error estimate
+            return retval, err
+
+        def _varInteg(kz: Any, ky: Any, kx: Any) -> Any:
+            """ variance integrand. """
+            fk = self.power(kx, ky, kz, use_spline)
+
+            fk[np.abs(fk) < 1.e-8] = 0. # zero vector is excluded.
+            return fk
+
+        def _varQuad() -> tuple:
+            """ variance using scipy `tplquad`. """
+            retval, err = tplquad(
+                                    _varInteg, 
+                                    -kn, kn, 
+                                    lambda kx: -kn, lambda kx: kn, 
+                                    lambda kx, ky: -kn, lambda kx, ky: kn
+                                )
+            return retval, err
+
+        if method == 'mc':
+            # use 1,000,000 samples
+            retval, err = _varMonteCarlo(n = 1_000_000) 
+        elif method == 'quad':
+            retval, err = _varQuad()
+        else:
+            raise ValueError(f'invalid method for integration, `{method}`')
+        return retval / (2. * np.pi)**3
 
 class Cosmology:
     r"""
@@ -934,7 +995,7 @@ class Cosmology:
     """
     __slots__ = 'Om0', 'Ode0', 'Ok0', 'h', 'ns', 'pk', 'sigma8', 
 
-    def __init__(self, Om0: float, Ode0: float, h: float, ns: float, pk_tab: Any) -> None:
+    def __init__(self, Om0: float, Ode0: float, h: float, ns: float, pk_tab: Any, sigma8: float = ...) -> None:
         for o, name in zip([Om0, Ode0, h], ['Om0', 'Ode0', 'h']):
             if not isinstance(o, (int, float)):
                 raise TypeError("{} must be a number".foramte(name))
@@ -952,10 +1013,13 @@ class Cosmology:
             raise TypeError("ns should be a number")
         self.ns = ns
         
-        self.sigma8 = ... # sigma8 is set when normalising the power 
-
         # create the power spectrum table
         self.pk = LinearPowerSpectrum(pk_tab)
+
+        self.sigma8 = ... 
+        # if sigma8 is given, normalise the power using that
+        if sigma8 is not ... :
+            self.normalisePower(sigma8)
     
     def __repr__(self) -> str:
         return f"Cosmology(Om0 = {self.Om0}, Ode0 = {self.Ode0}, h = {self.h}, ns = {self.ns})"
@@ -1054,9 +1118,10 @@ class Cosmology:
         """
         return self.Omz(z)**0.6
     
-    def power(self, k: Any, z: float = 0., normalise: bool = True) -> Any:
+    def power(self, k: Any, z: float = 0., normalise: bool = True, bias: float = ... ) -> Any:
         r"""
-        Compute the power spectrum by interpolating from the table.
+        Compute the power spectrum by interpolating from the table. If a bias is given, 
+        then the biased power is returned.
 
         Parameters
         ----------
@@ -1066,52 +1131,42 @@ class Cosmology:
             Redshift, default is 0. 
         normalise: bool, optioinal
             Whether to normalise the power spectrum. Default is true.
+        bias: float
+            Bias value - must be a scalar.
 
         Returns
         -------
         pk: array_like
             Power spectrum. Has the same shape as `k`.
         """
-        return self.pk(np.log(k), normalise) * self.Dz(z)**2
+        return self.pk.power(np.log(k), normalise, bias) * self.Dz(z)**2
     
-    def var(self, r: float, normalise: bool = True) -> float:
+    def var(self, r: float, normalise: bool = True, smooth: bool = True) -> float:
         r"""
-        Linear matter variance, smoothed with a top-hat smoothing filter.
+        Compute linear matter variance. If smoothing is enabled, then the power is 
+        smoothed with a spherical top-hat smoothing filter and integration is done 
+        over the entire line (in k-space). If no smoothing is used, then an upper 
+        limit should be provided.
+
+        The variance is calculated as
 
         Parameters
         ----------
         r: float
-            Smooting radius. Must be a scalar.
+            Used as the smooting radius in case of smoothing enabled, otherwise the 
+            upper (k_m) limit of integration. Must be a scalar.
         normalise: bool, optioinal
             Whether to normalise the power spectrum. Default is true.
-        
+        smooth: bool, optional
+            Whether to smooth the power spectrum. True by default.
+
         Returns
         -------
         var: float
             Value of variance.
 
         """
-        return self.pk.var(r, normalise)
-
-    def cicvar(self, kmax: float) -> float:
-        r"""
-        Compute the variance from power spectrum. The power is integrated over a sphere 
-        in k-space, with no smoothing. This variance is the variance in the cell.
-
-        Parameters
-        ----------
-        kmax: float
-            Upper limit of integration, radius of the sphere.
-
-        Returns
-        -------
-        var: float  
-            Value of the variance.
-
-        """
-        if not np.isscalar(kmax):
-            raise TypeError("kmax should be a scalar")
-        return self.pk.var(kmax)
+        return self.pk.var(r, normalise, smooth)
 
     def normalisePower(self, sigma8: float = ... ) -> None:
         r"""
