@@ -561,9 +561,13 @@ class LinearPowerSpectrum:
     def __call__(self, lnk: Any, normalise: bool = True) -> Any:
         return self.power(lnk, normalise)
 
-    def power(self, lnk: Any, normalise: bool = True) -> Any:
+    def power(self, lnk: Any, normalise: bool = True, bias: float = ... ) -> Any:
         r""" 
-        Return the power spectrum as a function of :math:`\log k`.
+        Return the power spectrum as a function of :math:`\log k`. This can also 
+        give the biased power if a scalar bias factor is specified. If :math:`b` is 
+        the bias factor, then the biased power is given by :math:`P_b(k) = b^2 P(k)`.
+        This can be used to get the galaxy power spectrum, log field power spectrum 
+        etc. based on the bias parameter value.
 
         Parameters
         ----------
@@ -571,6 +575,8 @@ class LinearPowerSpectrum:
             Input argument, natural logarithm of k.
         normalise: bool, optioinal
             Whether to normalise the power spectrum. Default is true.
+        bias: float
+            Bias value - must be a scalar.
 
         Returns
         -------
@@ -579,20 +585,35 @@ class LinearPowerSpectrum:
 
         """
         pk = np.exp(self._f(lnk))
+        if bias is not ... :
+            if not np.isscalar(bias):
+                raise ValueError("bias must be a scalar")
+            pk = bias**2 * pk
         if normalise:
             return  pk * self._norm
         return pk
 
-    def var(self, r: float, normalise: bool = True) -> float:
+    def var(self, r: float, normalise: bool = True, smooth: bool = True) -> float:
         r"""
-        Linear matter variance, smoothed with a top-hat smoothing filter.
+        Compute linear matter variance. If smoothing is enabled, then the power is 
+        smoothed with a spherical top-hat smoothing filter and integration is done 
+        over the entire real line (in k-space). If no smoothing is used, then an 
+        upper limit should be provided.
+
+        The variance is calculated as
+
+        .. math::
+            \sigma^2 = \frac{1}{2 \pi^2} \int_0^{k_m}  {\rm d}k k^2 P(k) W^2(kr)
 
         Parameters
         ----------
         r: float
-            Smooting radius. Must be a scalar.
+            Used as the smooting radius in case of smoothing enabled, otherwise the 
+            upper (:math:`k_m`) limit of integration. Must be a scalar.
         normalise: bool, optioinal
             Whether to normalise the power spectrum. Default is true.
+        smooth: bool, optional
+            Whether to smooth the power spectrum. True by default.
         
         Returns
         -------
@@ -607,44 +628,24 @@ class LinearPowerSpectrum:
             """ spherical top-hat filter in fourier space. """
             return (np.sin(x) - x * np.cos(x)) * 3. / x**3 
 
-        def varInteg(lnk: Any) -> Any:
-            """ variance integrand. """
+        def varInteg_smooth(lnk: Any) -> Any:
+            """ variance integrand - smoothed with a top-hat. """
             k = np.exp(lnk)
             return k**3. * self.power(lnk, normalise = False) * filt(k*r)**2.
-        
-        retval, err = quad(varInteg, -8., 8., limit = 100)
+
+        def varInteg_noSmooth(lnk: Any) -> Any:
+            """ variance integrand - not smoothed. """
+            return np.exp(lnk)**3 * self.power(lnk)
+
+        # integration is done in log space
+        # lower k limit is 1e-8 and default upper limit is 1e+8
+        ulim, varInteg = (8., varInteg_smooth) if smooth else (np.log(r), varInteg_noSmooth)
+        retval, err    = quad(varInteg, -8., ulim, limit = 100)
         
         var = retval / 2. / np.pi**2
         if normalise:
             return var * self._norm
         return var
-
-    def cellvar(self, kn: float) -> float:
-        r"""
-        Compute the variance from power spectrum. The power is integrated over a sphere 
-        in k-space, with no smoothing. If linear power is used, then the computed will 
-        be the linear variance.
-
-        .. math::
-            \sigma^2 = \int_0^{k_N} \frac{{\rm d}k k^2}{2 \pi^2} P(k) 
-
-        Parameters
-        ----------
-        kn: float
-            Radius of the k-sphere. For the case of cells, this correspond to the 
-            Nyquist wavenumber.
-
-        Returns
-        -------
-        var: float
-            Value of cell variance.
-        """
-        def varInteg(lnk: Any) -> Any:
-            """ integrand used to compute linear variance. """
-            return np.exp(lnk)**3 * self.power(lnk)
-
-        retval, err = quad(varInteg, -8., np.log(kn), limit = 100)
-        return retval / 2. / np.pi**2
 
     def normalise(self, sigma8: float = ...) -> None:
         r"""
@@ -659,7 +660,7 @@ class LinearPowerSpectrum:
         self._norm = 1.
         if sigma8 is ... :
             return
-        self._norm = sigma8**2 / self.var(8., )
+        self._norm = sigma8**2 / self.var(8., smooth = True)
         return
 
 class CellPowerSpectrum:
@@ -1331,6 +1332,7 @@ class cicDeltaDistribution:
 
     def __call__(self, x: Any, log: bool = False) -> Any:
         return self.oneDistribution(x, log)
+
 
 
 
