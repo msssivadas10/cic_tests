@@ -9,7 +9,7 @@ from scipy.interpolate import CubicSpline
 from scipy.integrate import quad, tplquad
 from scipy.special import gamma
 from scipy.optimize import newton, curve_fit
-from scipy.stats import binned_statistic
+from scipy.stats import binned_statistic, linregress
 
 # ====================================================
 # Exceptions
@@ -777,8 +777,11 @@ class CellPowerSpectrum:
         def _getContinuation(kx: Any, ky: Any, kz: Any, k: Any) -> tuple:
             """ get the best fitting power law parameters. """
             pk              = self.fbound(kx, ky, kz) 
-            (coef, expt), _ = curve_fit(PowerLaw.f, k, pk )
-            return coef, expt
+            # (coef, expt), _ = curve_fit(PowerLaw.f, k, pk )
+            # return coef, expt
+            logpk, logk = np.log(pk), np.log(k)
+            expt, coef, r_value, p_value, std_err = linregress(logk, logpk)
+            return np.exp(coef), expt
 
         def _headContinuation() -> tuple:
             """ power law fit for the head part. """
@@ -1318,6 +1321,9 @@ class DeltaDistribution:
 
         vcic = self.cicvar() * bias        # count-in-cell variance
 
+        # print(vlin, vlog, vcic)
+        # return
+
         # mean of the log field:
         lamda = 0.65 
         mlog  = -lamda * np.log(1. + vlin / 2. / lamda)
@@ -1370,6 +1376,7 @@ class DeltaDistribution:
 
         """
         if self._params is ... :
+            # self._distrParameters()
             raise RuntimeError("distribution parameters are not found")
         mu, sigma, xi = self._params
 
