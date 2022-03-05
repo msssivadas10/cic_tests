@@ -44,7 +44,7 @@ class GEVLogDistribution(Distribution):
     """
     __slots__ = 'kn', '_a', '_b', '_kcont', '_settings',
 
-    Settings  = namedtuple('settings', ['ka', 'kb', 'n', 'n3']) 
+    Settings  = namedtuple('settings', ['ka', 'kb', 'n', 'n3d']) 
 
     def __init__(self, cellsize: float, cosmo: Cosmology, z: float = 0) -> None:
         super().__init__(cellsize, cosmo, z)
@@ -53,19 +53,30 @@ class GEVLogDistribution(Distribution):
         
         self._a, self._b = 0.0, 0.0     # power law parameters 
         self._kcont      = ...
-        self._settings   = self.Settings(1e-8, 1e+8, 1001, 101)
+        self._settings   = self.Settings(ka = 1e-8, kb = 1e+8, n = 1001, n3d = 101)
 
     def set(self, *, ka: float = ..., kb: float = ..., n: int = ..., n3d: int = ..., z: float = 0) -> None:
+        """ Set values for the settings attributes. """
         if n is not ... :
             if n < 3 or not n%2:
                 raise ValueError("n must be and odd number greater than 2")
-            self._settings['n'] = n
+            self._settings._replace(n = n)
+        if n3d is not ... :
+            if n3d < 3 or not n3d%2:
+                raise ValueError("n3d must be and odd number greater than 2")
+            self._settings._replace(n3d = n3d)
         if ka is not ... :
             if ka < 0:
                 raise ValueError("ka must be positive")
             elif self.kn <= ka:
                 raise ValueError("ka must be less than the nyquist wavenumber")
-            self._settings['ka'] = ka
+            self._settings._replace(ka = ka)
+        if kb is not ... :
+            if kb < 0:
+                raise ValueError("kb must be positive")
+            elif self.kn > kb:
+                raise ValueError("kb must be greater than the nyquist wavenumber")
+            self._settings._replace(kb = kb)
         return
 
     def linearCellVariance(self) -> float:
