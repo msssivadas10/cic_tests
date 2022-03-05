@@ -1,4 +1,21 @@
 #!\usr\bin\python3
+r"""
+Transfer Functions
+==================
+
+This module contains some of the transfer function models. Models by Bardeen et al (1986) 
+or BBKS with Sugiyama (1995) correction [1]_ and Eisentein-Hu models (with and without 
+BAO [2]_, and mixed dark-matter model [3]_) are the available ones.
+
+References
+----------
+.. [1] A. Meiksin, matrin White and J. A. Peacock. Baryonic signatures in large-scale structure, 
+       Mon. Not. R. Astron. Soc. 304, 851-864, 1999.
+.. [2] Daniel J. Eisenstein and Wayne Hu. Baryonic Features in the Matter Transfer Function, 
+       `arXive:astro-ph/9709112v1, <http://arXiv.org/abs/astro-ph/9709112v1>`_, 1997.
+.. [3] Daniel J. Eisenstein and Wayne Hu. Power Spectra for Cold Dark Matter and its Variants, 
+       `arXive:astro-ph/9710252v1, <http://arXiv.org/abs/astro-ph/9710252v1>`_, 1997.
+"""
 
 from typing import Any
 import numpy as np
@@ -349,3 +366,11 @@ def modelEisenstein98(k: float, *, h: float, Om0: float, Ob0: float, Tcmb0: floa
 
     return fb * tb + fc * tc # full transfer function : eqn. 16
 
+
+# a dictionary of all available models:
+available = {
+                'sugiyama95'      : modelSugiyama95,
+                'eisenstein98'    : modelEisenstein98,
+                'eisenstein98_zb' : modelEisenstein98_zeroBaryon,
+                'eisenstein98_mdm': modelEisenstein98_mixedDarkmatter,
+            }
