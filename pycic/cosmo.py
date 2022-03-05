@@ -13,9 +13,8 @@ class Cosmology:
     A flat, Lambda-CDM cosmology class. 
     """
     __slots__ = (
-                    'Om0', 'Ob0', 'Ode0', 'Onu0', 'h', 'ns', 
-                    'sigma8', 'Tcmb0', 'Nnu', 'Mnu', '_pknorm', 
-                    'psmodel', '_transfer', 
+                    'Om0', 'Ob0', 'Ode0', 'Onu0', 'h', 'ns', 'sigma8', 'Tcmb0', 'Nnu', 
+                    'Mnu', '_pknorm', 'psmodel', '_transfer', 
                 )
 
     def __init__(self, Om0: float, Ob0: float, h: float, sigma8: float = ..., ns: float = 1.0, Tcmb0: float = 2.725, Nnu: float = ..., Mnu: float = ..., psmodel: str = 'eisenstein98_zb') -> None:
@@ -58,9 +57,8 @@ class Cosmology:
         self._transfer     = transfer.available[psmodel]
         self.ns            = ns 
         self._pknorm       = 1.0 # power spectrum normalization factor 
-        self.sigma8        = sigma8
 
-        self.normalize()   # normalize the power spectrum
+        self.normalize(sigma8)   # normalize the power spectrum
 
     @property
     def H0(self) -> float:
@@ -179,7 +177,7 @@ class Cosmology:
         """
         if not np.ndim(z):
             raise TypeError("z must be a scalar")
-        pk = self.Dz(z) * self._unn_matterPowerSpectrum(k, z)
+        pk = self._unn_matterPowerSpectrum(k, z) * self.Dz(z)**2
         if normalize:
             return pk * self._pknorm
         return pk
@@ -190,7 +188,7 @@ class Cosmology:
         """
         if not np.ndim(z):
             raise TypeError("z must be a scalar")
-        var = self._unn_variance(r, z, ka, kb, n) * self.Dz(z)
+        var = self._unn_variance(r, z, ka, kb, n) * self.Dz(z)**2
         if normalize:
             return var * self._pknorm
         return var
@@ -201,13 +199,12 @@ class Cosmology:
         """
         sigma8 = self.sigma8 if sigma8 is ... else sigma8
         if sigma8 is ... :
-            raise CosmologyError("sigma8 is not set")
+            # raise CosmologyError("sigma8 is not set")
+            self._pknorm = 1.0
+            return
+        elif sigma8 < 0:
+            raise CosmologyError("sigma8 must be postive")
         self._pknorm = sigma8**2 / self._unn_variance(8, 0, ka, kb, n)
         self.sigma8  = sigma8
         
 
-
-
-
-c=Cosmology(0.3, 0.05, 0.7, 0.8)
-print(c)

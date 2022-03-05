@@ -5,7 +5,7 @@ Transfer Functions
 
 This module contains some of the transfer function models. Models by Bardeen et al (1986) 
 or BBKS with Sugiyama (1995) correction [1]_ and Eisentein-Hu models (with and without 
-BAO [2]_, and mixed dark-matter model [3]_) are the available ones.
+BAO [2]_, and mixed dark-matter model [3]_) are currently available.
 
 References
 ----------
