@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from typing import Any
-import transfer
+from . import transfer
 import numpy as np
 
 class CosmologyError(Exception):
@@ -57,6 +57,7 @@ class Cosmology:
         self._transfer     = transfer.available[psmodel]
         self.ns            = ns 
         self._pknorm       = 1.0 # power spectrum normalization factor 
+        self.sigma8        = ...
 
         self.normalize(sigma8)   # normalize the power spectrum
 
@@ -99,7 +100,7 @@ class Cosmology:
             zp1  = np.asarray(z) + 1
             Omz  = self.Om0 * zp1**3
             Odez = Omz + self.Ode0   # E^2(z), will be overwritten by Ode(z)
-            Om   = Omz / Odez
+            Omz  = Omz / Odez
             Odez = self.Ode0 / Odez
 
             # growth factor using the approximation be carroll et al (1992)
@@ -120,7 +121,6 @@ class Cosmology:
         r"""
         Linear transfer function.
         """
-        # k: Any, *, h: float, Om0: float, Ob0: float, Ode0: float, Onu0: float, Nnu: float, Tcmb0: float, z: float = ..., Dz: float = ..., out: str = 'cb'
         Dz = ...
         if self.psmodel == 'eisenstein98_mdm':
             Dz = self.Dz(z)
@@ -175,7 +175,7 @@ class Cosmology:
         r""" 
         Linear matter power spectrum.
         """
-        if not np.ndim(z):
+        if np.ndim(z):
             raise TypeError("z must be a scalar")
         pk = self._unn_matterPowerSpectrum(k, z) * self.Dz(z)**2
         if normalize:
@@ -186,7 +186,7 @@ class Cosmology:
         r""" 
         Linear variance of density perturbations.
         """
-        if not np.ndim(z):
+        if np.ndim(z):
             raise TypeError("z must be a scalar")
         var = self._unn_variance(r, z, ka, kb, n) * self.Dz(z)**2
         if normalize:

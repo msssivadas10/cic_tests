@@ -2,7 +2,7 @@
 
 import numpy as np
 from typing import Any 
-from cosmo import Cosmology
+from .cosmo import Cosmology
 from itertools import product, repeat
 from collections import namedtuple
 from scipy.special import gamma
@@ -44,7 +44,7 @@ class GEVLogDistribution(Distribution):
     """
     __slots__ = 'kn', '_a', '_b', '_kcont', '_settings',
 
-    Settings  = namedtuple('settings', ['ka', 'kb', 'n', 'n3d']) 
+    Settings  = namedtuple('settings', ['ka', 'kb', 'n', 'n3d', 'n4cont', 'krange', 'ksplit']) 
 
     def __init__(self, cellsize: float, cosmo: Cosmology, z: float = 0) -> None:
         super().__init__(cellsize, cosmo, z)
@@ -52,32 +52,69 @@ class GEVLogDistribution(Distribution):
         self.kn = np.pi / self.cellsize # nyquist wavenumber
         
         self._a, self._b = 0.0, 0.0     # power law parameters 
-        self._kcont      = ...
-        self._settings   = self.Settings(ka = 1e-8, kb = 1e+8, n = 1001, n3d = 101)
+        self._settings   = self.Settings(
+                                            ka     = 1e-8, 
+                                            kb     = 1e+8, 
+                                            n      = 1001, 
+                                            n3d    = 101,
+                                            n4cont = 100_000,
+                                            krange = slice(0.5, 0.7),
+                                            ksplit = 0.6,
+                                        )
 
-    def set(self, *, ka: float = ..., kb: float = ..., n: int = ..., n3d: int = ..., z: float = 0) -> None:
+        self.makeContinuation()
+
+    def set(self, **kwargs) -> None:
         """ Set values for the settings attributes. """
-        if n is not ... :
-            if n < 3 or not n%2:
-                raise ValueError("n must be and odd number greater than 2")
-            self._settings._replace(n = n)
-        if n3d is not ... :
-            if n3d < 3 or not n3d%2:
-                raise ValueError("n3d must be and odd number greater than 2")
-            self._settings._replace(n3d = n3d)
-        if ka is not ... :
-            if ka < 0:
-                raise ValueError("ka must be positive")
-            elif self.kn <= ka:
-                raise ValueError("ka must be less than the nyquist wavenumber")
-            self._settings._replace(ka = ka)
-        if kb is not ... :
-            if kb < 0:
-                raise ValueError("kb must be positive")
-            elif self.kn > kb:
-                raise ValueError("kb must be greater than the nyquist wavenumber")
-            self._settings._replace(kb = kb)
-        return
+
+        for key, value in kwargs.items():
+            if key == 'n':
+                # number of nodes for 1d k-integration (simpson rule)
+                if value < 3 or not value%2:
+                    raise ValueError("n must be and odd number greater than 2")
+                self._settings._replace(n = value)
+            elif key == 'n3d':
+                # number of nodes for 2d k-integration (simpson rule)
+                if value < 3 or not value%2:
+                    raise ValueError("n3d must be and odd number greater than 2")
+                self._settings._replace(n3d = value)
+            elif key == 'n4cont':
+                # number of values used for continuation
+                self._settings._replace(n4cont = value)
+            elif key == 'krange':
+                # range of values to use for continuation
+                if not isinstance(value, slice):
+                    raise TypeError("krange must be a slice")
+                if not ( 0 <= value.start <= 1 and 0 <= value.stop <= 1):
+                    raise ValueError("krange values must be in range [0,1]")
+                self._settings._replace(krange = value)
+            elif key == 'ksplit':
+                # point after which continuation is used
+                if not 0 <= value <= 1:
+                    raise ValueError("ksplit must be in range [0,1]")
+                self._settings._replace(ksplit = value)
+            elif key == 'ka':
+                # lower limit for k integration
+                if value < 0:
+                    raise ValueError("ka must be positive")
+                elif 1e-4 <= value:
+                    raise ValueError("ka must be less than the 1e-4")
+                self._settings._replace(ka = value)
+            elif key == 'kb':
+                # upper limit for k integration
+                if value < 0:
+                    raise ValueError("kb must be positive")
+                elif 1e+4 > value:
+                    raise ValueError("kb must be greater than 1e+4")
+                self._settings._replace(kb = value)
+            elif key == 'z':
+                # redshift
+                if value < -1:
+                    raise ValueError("z must be greater than -1")
+                self.z = value
+            else:
+                raise TypeError(f"invalid keyword argument '{key}'")
+            self.makeContinuation()
 
     def linearCellVariance(self) -> float:
         r"""
@@ -107,7 +144,7 @@ class GEVLogDistribution(Distribution):
         def _power(__kx: Any, __ky: Any, __kz: Any) -> Any:
             """ matter power spectrum. """
             k = np.sqrt(__kx**2 + __ky**2 + __kz**2)
-            return self.cosmo.matterPowerSpectrum(k, self.z)
+            return self.cosmo.matterPowerSpectrum(k, self.z, False)
 
         def _weight(__kx: Any, __ky: Any, __kz: Any) -> Any:
             """ weight function """
@@ -135,16 +172,14 @@ class GEVLogDistribution(Distribution):
         """
         return self._a * np.asarray(k)**self._b
 
-    def makeContinuation(self, npts: int = 100_000, krange: slice = slice(0.5, 0.7)) -> None:
+    def makeContinuation(self) -> None:
         """
         Get the power law continuation of the power spectrum.
         """
-        if not isinstance(krange, slice):
-            raise TypeError("krange must be a slice")
-        ka, kb, kn = krange.start, krange.stop, self.kn
+        npts, krange = self._settings.n4cont, self._settings.krange
+        ka, kb, kn   = krange.start, krange.stop, self.kn
         if not (0.0 <= ka <= kb <= 1.0):
             raise ValueError("kb must be greater than ka and both in range [0, 1]")
-        self._kcont = ka
 
         # generate random k vectors with length in the k-range
         lnk   = np.random.uniform(np.log(ka), np.log(kb), npts) + np.log(kn)
@@ -164,23 +199,24 @@ class GEVLogDistribution(Distribution):
 
         self._a, self._b = np.exp(lna), b
 
-    def measuredPowerSpectrum(self, kx: Any, ky: Any, kz: Any, kcont: float = 0.6) -> Any:
+    def measuredPowerSpectrum(self, kx: Any, ky: Any, kz: Any) -> Any:
         r"""
         Measured power spectrum from the cell.
         """
-        if not self._kcont <= kcont <= 1.0:
-            raise ValueError(f'kcont must be in the range [{self._kcont}, 1]')
+        frac = self._settings.ksplit # mark the point to use continuation 
+
         kx, ky, kz = np.asarray(kx), np.asarray(ky), np.asarray(kz)
         out        = np.sqrt(kx**2 + ky**2 + kz**2) # k, overtwritten by pk
-        mask       = (out <= self.kn * kcont)
+        mask       = (out <= self.kn * frac)
         out[~mask] = self._measuredPowerOutsideSphere(out[~mask])
         out[mask]  = self._measuredPowerInsideSphere(kx[mask], ky[mask], kz[mask])
-        return out
+        return out * self.cosmo._pknorm
         
-    def measuredVariance(self, n: int = 101, ka: float = 1e-8) -> float:
+    def measuredVariance(self) -> float:
         """
         Measure count-in-cell variance in the cell.
         """
+        ka, n = self._settings.ka, self._settings.n3d
         if n < 3 or not n%2:
             raise ValueError("n must be and odd number greater than 2")
         elif ka < 0:
@@ -217,7 +253,7 @@ class GEVLogDistribution(Distribution):
 
         # calculate the measured cic varaince:
         blog = vlog / vlin                       # log field bias^2
-        vcic = self.measuredVariance(self._settings.n3, ka) * blog
+        vcic = self.measuredVariance() * blog
 
         # log field mean value (fit):
         lamda = 0.65
