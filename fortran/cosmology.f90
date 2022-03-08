@@ -194,9 +194,14 @@ module cosmology
     end interface Dz
 
     !! matter density evolution
-    interface Om
+    interface Omz
         module procedure Om_scalarz, Om_arrayz
-    end interface Om
+    end interface Omz
+
+    !! matter power spectrum
+    interface matterPowerSpectrum
+        module procedure matterPowerSpectrum_scalerk, matterPowerSpectrum_arrayk
+    end interface matterPowerSpectrum
 
 contains
     !! initialise a flat lambda-cdm cosmology model
@@ -340,7 +345,7 @@ contains
     !! for array z
     subroutine Dz_arrayz(z)
         implicit none
-        real(kind = 8),intent(inout) :: z(:) ! redshift
+        real(kind = 8), intent(inout) :: z(:) ! redshift
         real(kind = 8), dimension(size(z)) :: Om, Ode 
 
         z   = z + 1.0
@@ -354,9 +359,110 @@ contains
         
     end subroutine Dz_arrayz
     
+    !! ==========================================================
+
+    !! linear matter power spectrum
+    !! for scalar k
+    subroutine matterPowerSpectrum_scalerk(k, z, normalize)
+        implicit none
+        real(kind = 8), intent(inout)        :: k
+        real(kind = 8), intent(in), optional :: z 
+        logical, intent(in), optional        :: normalize
+        real(kind = 8)                       :: tk
+        real(kind = 8)                       :: dplus
+
+        !! get the transfer function
+        tk = k
+        if (G_psmodel == SUGIYAMA95) then
+            call modelSugiyama95(tk, G_h, G_Om0, G_Ob0)
+        else if (G_psmodel == EISENSTEIN95) then
+            print *, "power spectrum model not implemented"
+            call exit(0)
+        else if (G_psmodel == EISENSTEIN95_ZB) then
+            call modelEisenstein98_zeroBaryon(tk, G_h, G_Om0, G_Ob0, G_Tcmb0)
+        else if (G_psmodel == EISENSTEIN95_MDM) then
+            print *, "power spectrum model not implemented"
+            call exit(0)
+        end if
+
+        !! matter power spectrum
+        k = tk**2 * k**G_ns ! un-normalised power
+
+        !! interpolate power to the given redshift, if given
+        if ( present(z) ) then
+            
+            dplus  = z
+            call Dz(dplus)
+
+            k = k * dplus**2
+            
+            ! normalise the growth factor so that its present value is 1
+            dplus = 0.0d0
+            call Dz(dplus)
+            
+            k = k / dplus**2 ! effectively, pk = pk0 * (dplus / dplus0)^2
+        end if 
+
+        !! normalise the power if asked
+        if ( present(normalize) ) then
+            if (normalize) then
+                k = k * G_PKNORM ! normalised power
+            end if
+        end if
+
+    end subroutine matterPowerSpectrum_scalerk
+
+    !! for array k
+    subroutine matterPowerSpectrum_arrayk(k, z, normalize)
+        implicit none
+        real(kind = 8), intent(inout)        :: k(:)
+        real(kind = 8), intent(in), optional :: z 
+        logical, intent(in), optional        :: normalize
+        real(kind = 8), dimension(size(k))   :: tk
+        real(kind = 8)                       :: dplus
+
+        !! get the transfer function
+        tk = k
+        if (G_psmodel == SUGIYAMA95) then
+            call modelSugiyama95(tk, G_h, G_Om0, G_Ob0)
+        else if (G_psmodel == EISENSTEIN95) then
+            print *, "power spectrum model not implemented"
+            call exit(0)
+        else if (G_psmodel == EISENSTEIN95_ZB) then
+            call modelEisenstein98_zeroBaryon(tk, G_h, G_Om0, G_Ob0, G_Tcmb0)
+        else if (G_psmodel == EISENSTEIN95_MDM) then
+            print *, "power spectrum model not implemented"
+            call exit(0)
+        end if
+
+        !! matter power spectrum
+        k = tk**2 * k**G_ns ! un-normalised power
+
+        !! interpolate power to the given redshift, if given
+        if ( present(z) ) then
+            
+            dplus  = z
+            call Dz(dplus)
+
+            k = k * dplus**2
+            
+            ! normalise the growth factor so that its present value is 1
+            dplus = 0.0d0
+            call Dz(dplus)
+            
+            k = k / dplus**2 ! effectively, pk = pk0 * (dplus / dplus0)^2
+        end if 
+
+        !! normalise the power if asked
+        if ( present(normalize) ) then
+            if (normalize) then
+                k = k * G_PKNORM ! normalised power
+            end if
+        end if
+
+    end subroutine matterPowerSpectrum_arrayk
+
 end module cosmology
-
-
 
 program main
     use cosmology
@@ -368,7 +474,7 @@ program main
     
     z = (/ 0.0d0, 0.1d0, 0.2d0 /)
     dplus = z
-    call Om(dplus)
+    call Omz(dplus)
 
     write(*,*) "growth factor, D(", z, ") = ", dplus 
     
