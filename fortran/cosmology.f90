@@ -165,6 +165,7 @@ contains
 end module power
 
 module cosmology
+    use power
     implicit none
     public
 
