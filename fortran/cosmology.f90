@@ -101,7 +101,7 @@ contains
         s = 44.5*log(9.83 / Omh2) / sqrt(1 + 10*Obh2**0.75)
         
         geff = 1 - 0.328*log(431*Omh2)*fb + 0.38*log(22.3*Omh2)*fb**2 ! alpha_gamma (eqn. 31)
-        geff = Om0*h*(geff + (1-geff) / (1 + (0.43*k*s)**4)) ! gamma_eff (eqn. 30)
+        geff = Om0*h*(geff + (1-geff) / (1 + (0.43*k*s)**4))          ! gamma_eff (eqn. 30)
 
         k = k * (theta*theta / geff) ! q (eqn. 28)
 
@@ -183,7 +183,96 @@ module cosmology
     real(kind = 8) :: G_Onu0, G_Nnu, G_Mnu ! neutrino parameters
     integer        :: G_psmodel            ! power spectrum model
 
+    ! others
+    real(kind = 8) :: G_PKNORM = 1.0       ! power spectrum normalisation
+    logical        :: READY    = .false.   ! model is ready to use
+
 contains
+    subroutine initCosmology(h, Om0, Ob0, ns, Tcmb0, Nnu, Mnu, psmodel)
+    implicit none
+    
+    ! cosmology model parameters
+    real(kind = 8), intent(in) :: Om0, Ob0, h, ns
+    
+    ! optional arguments
+    real(kind = 8), intent(in), optional :: Tcmb0, Nnu, Mnu
+    integer, intent(in), optional        :: psmodel
+
+    ! initialise model:
+    if (h <= 0) then
+        print *, "h must be positive"
+        call exit(1)
+    else if (Om0 < 0) then
+        print *, "matter density Om0 must be positive"
+        call exit(1)
+    else if ((Ob0 < 0) .or. (Om0 < Ob0)) then
+        print *, "baryon density Ob0 must be in the range [0, Om0]"
+        call exit(1)
+    end if
+
+    G_Om0 = Om0  ! matter density
+    G_Ob0 = Ob0  ! baryon density
+    G_h   = h    ! hubble parameter
+    G_ns  = ns   ! power spectrum index
+
+    ! calculate the dark-energy density:
+    G_Ode0 = 1.0 - Om0 ! assuming flat cosmology
+    if (G_Ode0 < 0) then
+        print *, "dark-energy density Ode0 is negative, adjust matter density"
+        call exit(1)
+    end if
+
+    ! initialise optional parameters:
+    if ( present(Tcmb0) ) then
+        if (Tcmb0 <= 0) then
+            print *, "Tcmb0 must be positive"
+            call exit(1)
+        end if
+        G_Tcmb0 = Tcmb0 ! cmb temperature
+    else
+        G_Tcmb0 = 2.275 ! default 
+    end if
+
+    if ( present(Nnu) ) then
+        if (Nnu < 0) then
+            print *, "Nnu must be positive"
+            call exit(1)
+        end if
+        
+        ! now, neutrino mass is required
+        if ( .not. present(Mnu) ) then
+            print *, "Mnu is required if heavy neutrino is present"
+            call exit(1)
+        else if (Mnu < 0) then
+            print *, "neutrino mass must be positive"
+            call exit(1)
+        end if
+
+        G_Nnu = Nnu ! number of heavy neutrinos
+        G_Mnu = Mnu ! total mass of heavy neutrinos
+
+    else
+        G_Nnu = 0.0   ! default, no haevy neutrino
+        G_Mnu = 0.0
+    end if
+
+    ! power spectrum model
+    if ( present(psmodel) ) then
+        if ((psmodel < 0) .or. (psmodel > 3)) then
+            print *, "invalid power spectrum model"
+            call exit(1)
+        else if ((G_Nnu == 0.0) .and. psmodel == 3) then
+            print *, "cannot use mixed dark-matter model without neutrinos"
+            call exit(1)
+        end if
+        G_psmodel = psmodel ! power spectrum model
+    else
+        G_psmodel = 2       ! default (eisenstein & hu without bao)
+    end if
+
+    READY    = .true.
+    
+    end subroutine initCosmology
     
 end module cosmology
 
