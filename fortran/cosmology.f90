@@ -1,98 +1,51 @@
 !! useful constants
 module constants
+    use iso_c_binding
     implicit none
     
-    real(kind = 8), parameter :: M_E  = 2.718281828459045
-    real(kind = 8), parameter :: M_PI = 3.141592653589793
+    real(c_double), parameter :: M_E  = 2.718281828459045
+    real(c_double), parameter :: M_PI = 3.141592653589793
     
 end module constants
 
 !! transfer function/power spectrum models
 module power
     use constants
+    use iso_c_binding
     implicit none
-    public
-
-    !! transfer function by bardeen et al, with sugiyama correction.
-    interface modelSugiyama95
-        module procedure modelSuiyama95_scalark, modelSugiyama95_arrayk
-    end interface modelSugiyama95
-
-    !! transfer function by eisenstien & hu, without baryon oscillations
-    interface modelEisenstein98_zeroBaryon
-        module procedure modelEisenstein98_zb_scalark, modelEisenstein98_zb_arrayk
-    end interface modelEisenstein98_zeroBaryon
 contains
     !! transfer function by bardeen et al, with sugiyama correction.
     !! for scalar k arguments
-    subroutine modelSuiyama95_scalark(k, h, Om0, Ob0, Tcmb0) 
+    subroutine modelSuiyama95(x, h, Om0, Ob0) 
         implicit none
         
-        ! wavenumber - overwritten as tk
-        real(kind = 8), intent(inout) :: k  
         
-        ! cosmology parameters         
-        real(kind = 8), intent(in)           :: h, Om0, Ob0  
-        real(kind = 8), intent(in), optional :: Tcmb0 
+        real(c_double), intent(inout) :: x  ! wavenumber, k - overwritten as T(k)
+        real(c_double), intent(in)    :: h, Om0, Ob0  ! cosmology parameters       
 
-        if (k < 1e-8) then
-            k = 1.0 ! for smaller k, transfer function is 1
+        if (x < 1e-8) then
+            x = 1.0 ! for smaller k, transfer function is 1
         else
-            k = k / Om0 / h * exp(Ob0 + sqrt(2.0*h) * Ob0 / Om0)
+            x = x / Om0 / h * exp(Ob0 + sqrt(2.0*h) * Ob0 / Om0)
 
             !! transfer function
-            k = log(1 + 2.34*k) / (2.34*k) * (1 + 3.89*k + (16.1*k)**2 + (5.46*k)**3 + (6.71*k)**4)**(-0.25)
+            x = log(1 + 2.34*x) / (2.34*x) * (1 + 3.89*x + (16.1*x)**2 + (5.46*x)**3 + (6.71*x)**4)**(-0.25)
         end if
 
-    end subroutine modelSuiyama95_scalark
-
-    !! for array k arguments
-    subroutine modelSugiyama95_arrayk(k, h, Om0, Ob0, Tcmb0)
-        implicit none
-
-        ! wavenumber - overwritten as tk
-        real(kind = 8), intent(inout) :: k(:)        
-
-        ! cosmology parameters
-        real(kind = 8), intent(in)           :: h, Om0, Ob0 
-        real(kind = 8), intent(in), optional :: Tcmb0 
-
-        where (k < 1e-8)
-            k = 1.0 ! for smaller k, transfer function is 1
-        elsewhere
-            k = k / Om0 / h * exp(Ob0 + sqrt(2.0*h) * Ob0 / Om0)
-
-            !! transfer function
-            k = log(1 + 2.34*k) / (2.34*k) * (1 + 3.89*k + (16.1*k)**2 + (5.46*k)**3 + (6.71*k)**4)**(-0.25)
-        end where
-    
-    end subroutine modelSugiyama95_arrayk
-
-    !! ====================================================================
+    end subroutine modelSuiyama95
 
     !! transfer function by eisentein & hu, without baryon oscillations
-    !! for scalar k arguments
-    subroutine modelEisenstein98_zb_scalark(k, h, Om0, Ob0, Tcmb0)
+    subroutine modelEisenstein98_zb(x, h, Om0, Ob0, Tcmb0)
         implicit none
         
-        ! wavenumber - overwritten as tk
-        real(kind = 8), intent(inout) :: k  
-        
-        ! cosmology parameters         
-        real(kind = 8), intent(in)           :: h, Om0, Ob0  
-        real(kind = 8), intent(in), optional :: Tcmb0 
+        real(c_double), intent(inout) :: x ! wavenumber, k - overwritten as T(k)
+        real(c_double), intent(in)    :: h, Om0, Ob0, Tcmb0 ! cosmology parameters        
+        real(c_double) :: theta      ! Tcmb in units of 2.7 K
+        real(c_double) :: Omh2, Obh2 ! density parameters
+        real(c_double) :: fb         ! fraction of baryon
+        real(c_double) :: s, geff, L
 
-        real(kind = 8) :: theta      ! Tcmb in units of 2.7 K
-        real(kind = 8) :: Omh2, Obh2 ! density parameters
-        real(kind = 8) :: fb         ! fraction of baryon
-        real(kind = 8) :: s, geff, L
-
-        if (present(Tcmb0)) then
-            theta = Tcmb0
-        else
-            theta = 2.725
-        end if
-        theta = theta / 2.7
+        theta = Tcmb0 / 2.7
         Omh2  = Om0 * h**2
         Obh2  = Ob0 * h**2
         fb    = Ob0 / Om0
@@ -101,63 +54,20 @@ contains
         s = 44.5*log(9.83 / Omh2) / sqrt(1 + 10*Obh2**0.75)
         
         geff = 1 - 0.328*log(431*Omh2)*fb + 0.38*log(22.3*Omh2)*fb**2 ! alpha_gamma (eqn. 31)
-        geff = Om0*h*(geff + (1-geff) / (1 + (0.43*k*s)**4))          ! gamma_eff (eqn. 30)
+        geff = Om0*h*(geff + (1-geff) / (1 + (0.43*x*s)**4))          ! gamma_eff (eqn. 30)
 
-        k = k * (theta*theta / geff) ! q (eqn. 28)
-
-        !! transfer function
-        L = log(2*M_E + 1.8*k) 
-        k = L / (L + (14.2 + 731.0 / (1 + 62.5*k))*k**2)
-
-    end subroutine modelEisenstein98_zb_scalark
-
-    !! for array k arguments
-    subroutine modelEisenstein98_zb_arrayk(k, h, Om0, Ob0, Tcmb0)
-        implicit none
-        
-        ! wavenumber - overwritten as tk
-        real(kind = 8), intent(inout) :: k(:)  
-        
-        ! cosmology parameters         
-        real(kind = 8), intent(in)           :: h, Om0, Ob0  
-        real(kind = 8), intent(in), optional :: Tcmb0 
-
-        real(kind = 8) :: theta      ! Tcmb in units of 2.7 K
-        real(kind = 8) :: Omh2, Obh2 ! density parameters
-        real(kind = 8) :: fb         ! fraction of baryon
-
-        real(kind = 8), dimension(size(k)) :: s, geff, L
-
-        if (present(Tcmb0)) then
-            theta = Tcmb0
-        else
-            theta = 2.725
-        end if
-        theta = theta / 2.7
-        Omh2  = Om0 * h**2
-        Obh2  = Ob0 * h**2
-        fb    = Ob0 / Om0
-
-        ! sound horizon, s (eqn. 26)
-        s = 44.5*log(9.83 / Omh2) / sqrt(1 + 10*Obh2**0.75)
-        
-        geff = 1 - 0.328*log(431*Omh2)*fb + 0.38*log(22.3*Omh2)*fb**2 ! alpha_gamma (eqn. 31)
-        geff = Om0*h*(geff + (1-geff) / (1 + (0.43*k*s)**4)) ! gamma_eff (eqn. 30)
-
-        k = k * (theta*theta / geff) ! q (eqn. 28)
+        x = x * (theta*theta / geff) ! q (eqn. 28)
 
         !! transfer function
-        L = log(2*M_E + 1.8*k) 
-        k = L / (L + (14.2 + 731.0 / (1 + 62.5*k))*k**2)
+        L = log(2*M_E + 1.8*x) 
+        x = L / (L + (14.2 + 731.0 / (1 + 62.5*x))*x**2)
 
-    end subroutine modelEisenstein98_zb_arrayk
+    end subroutine modelEisenstein98_zb
 
-    !! ====================================================================
 
     !! transfer function by eisentein & hu, with baryon oscillations
     !! to do.
 
-    !! ====================================================================
 
     !! transfer function by eisentein & hu, with mixed dark-matter
     !! to do.
@@ -165,317 +75,260 @@ contains
 end module power
 
 module cosmology
-    use power
+    use iso_c_binding
     implicit none
-    public
 
-    !! power spectrum model indicators:
-    integer, parameter :: SUGIYAMA95       = 0
-    integer, parameter :: EISENSTEIN95     = 1
-    integer, parameter :: EISENSTEIN95_ZB  = 2
-    integer, parameter :: EISENSTEIN95_MDM = 3
+    private
+        !! integration settings
+        real(c_double) :: integ_kmin = 1.e-8 ! lower limit
+        real(c_double) :: integ_kmax = 1.e+8 ! upper limit
+        integer(c_int) :: integ_n    = 1001  ! order of integration (simpson rule)
 
-    !! global (flat) cosmology model parameters:
-    real(kind = 8) :: G_Om0, G_Ob0, G_Ode0 ! density parametrs
-    real(kind = 8) :: G_Tcmb0              ! cmb temperature
-    real(kind = 8) :: G_h                  ! hubble parameter
-    real(kind = 8) :: G_ns                 ! power spectrum slope
-    real(kind = 8) :: G_sigma8             ! rms variance of density fluctuations at 8 Mpc/h
-    real(kind = 8) :: G_Onu0, G_Nnu, G_Mnu ! neutrino parameters
-    integer        :: G_psmodel            ! power spectrum model
+        !! cosmology models
+        real(c_double) :: Om0, Ob0, Ode0 ! dark-matter, baryon and dark-energy density
+        real(c_double) :: h              ! hubble parameter
+        real(c_double) :: ns             ! power spectrum slope 
+        real(c_double) :: Tcmb0  = 2.275 ! cmb temperature
+        real(c_double) :: sigma8 = 0.8d0 ! rms variance at 8 Mpc/h scale 
+        real(c_double) :: pknorm = 1.d0  ! power spectrum normalization factor
+        integer(c_int) :: pid    = 1     ! power spectrum model
 
-    ! others
-    real(kind = 8) :: G_PKNORM = 1.0       ! power spectrum normalisation
-    logical        :: READY    = .false.   ! model is ready to use
+    !! public functions
+    public :: setCosmology, printCosmology                  ! cosmology model setup
+    public :: printIntegrationSettings, configIntegration   ! integration setup
+    public :: Dz, Om, Ode                                   ! cosmology functions
+    public :: unn0_matterPowerSpectrum, matterPowerSpectrum ! power spectrum
 
-    !! (unnormalised) growth factor
-    interface Dz
-        module procedure Dz_scalarz, Dz_arrayz
-    end interface Dz
-
-    !! matter density evolution
-    interface Omz
-        module procedure Om_scalarz, Om_arrayz
-    end interface Omz
-
-    !! matter power spectrum
-    interface matterPowerSpectrum
-        module procedure matterPowerSpectrum_scalerk, matterPowerSpectrum_arrayk
-    end interface matterPowerSpectrum
 
 contains
-    !! initialise a flat lambda-cdm cosmology model
-    subroutine initCosmology(h, Om0, Ob0, ns, Tcmb0, Nnu, Mnu, psmodel)
+    !! configure integration settings
+    subroutine configIntegration(user_ka, user_kb, user_n)
         implicit none
-        
-        ! cosmology model parameters
-        real(kind = 8), intent(in) :: Om0, Ob0, h, ns
-        
-        ! optional arguments
-        real(kind = 8), intent(in), optional :: Tcmb0, Nnu, Mnu
-        integer, intent(in), optional        :: psmodel
+        real(c_double), intent(in), value, optional :: user_ka, user_kb ! limits
+        integer(c_int), intent(in), value, optional :: user_n ! function eveluations
 
-        ! initialise model:
-        if (h <= 0) then
-            print *, "h must be positive"
-            call exit(1)
-        else if (Om0 < 0) then
-            print *, "matter density Om0 must be positive"
-            call exit(1)
-        else if ((Ob0 < 0) .or. (Om0 < Ob0)) then
-            print *, "baryon density Ob0 must be in the range [0, Om0]"
-            call exit(1)
+        if ( present(user_ka) ) then
+            integ_kmin = user_ka
         end if
 
-        G_Om0 = Om0  ! matter density
-        G_Ob0 = Ob0  ! baryon density
-        G_h   = h    ! hubble parameter
-        G_ns  = ns   ! power spectrum index
-
-        ! calculate the dark-energy density:
-        G_Ode0 = 1.0 - Om0 ! assuming flat cosmology
-        if (G_Ode0 < 0) then
-            print *, "dark-energy density Ode0 is negative, adjust matter density"
-            call exit(1)
+        if ( present(user_kb) ) then
+            integ_kmax = user_kb
         end if
 
-        ! initialise optional parameters:
-        if ( present(Tcmb0) ) then
-            if (Tcmb0 <= 0) then
-                print *, "Tcmb0 must be positive"
+        if ( present(user_n) ) then
+            ! n must be an odd integer, greater than 2
+            if ( (mod(user_n, 2) == 0) .or. (user_n < 3)) then
+                print *, "n must be an odd integer, greater than 2"
                 call exit(1)
             end if
-            G_Tcmb0 = Tcmb0 ! cmb temperature
-        else
-            G_Tcmb0 = 2.275 ! default 
+            integ_n = user_n
         end if
 
-        if ( present(Nnu) ) then
-            if (Nnu < 0) then
-                print *, "Nnu must be positive"
-                call exit(1)
-            end if
-            
-            ! now, neutrino mass is required
-            if ( .not. present(Mnu) ) then
-                print *, "Mnu is required if heavy neutrino is present"
-                call exit(1)
-            else if (Mnu < 0) then
-                print *, "neutrino mass must be positive"
-                call exit(1)
-            end if
+    end subroutine configIntegration
 
-            G_Nnu = Nnu ! number of heavy neutrinos
-            G_Mnu = Mnu ! total mass of heavy neutrinos
-
-        else
-            G_Nnu = 0.0   ! default, no haevy neutrino
-            G_Mnu = 0.0
-        end if
-
-        ! power spectrum model
-        if ( present(psmodel) ) then
-            if ((psmodel < 0) .or. (psmodel > 3)) then
-                print *, "invalid power spectrum model"
-                call exit(1)
-            else if ((G_Nnu == 0.0) .and. psmodel == 3) then
-                print *, "cannot use mixed dark-matter model without neutrinos"
-                call exit(1)
-            end if
-            G_psmodel = psmodel ! power spectrum model
-        else
-            G_psmodel = 2       ! default (eisenstein & hu without bao)
-        end if
-
-        READY    = .true.
-        
-    end subroutine initCosmology
-
-    !! E(z) function
-
-    !! dark-matter density evolution
-    !! for scalar z
-    subroutine Om_scalarz(z)
+    !! print current integration setup
+    subroutine printIntegrationSettings()
         implicit none
-        real(kind = 8),intent(inout) :: z ! redshift
-        
-        z = z + 1.0
-        z = G_Om0 * z**3
+        print *, "krange = (", integ_kmin, integ_kmax, ")"
+        print *, "order  = ", integ_n    
+    end subroutine printIntegrationSettings
 
-        !! matter density 
-        z = z / (z + G_Ode0)
-
-    end subroutine Om_scalarz
-
-    !! for array z
-    subroutine Om_arrayz(z)
+    !! set current cosmology model
+    subroutine setCosmology(user_Om0, user_Ob0, user_h, user_ns, user_Tcmb0, user_psmodel)
         implicit none
-        real(kind = 8),intent(inout) :: z(:) ! redshift
+        real(c_double), intent(in), value :: user_Om0, user_Ob0, user_h, user_ns, user_Tcmb0
+        integer(c_int), intent(in), value :: user_psmodel
+
+        !! check values
+        if ( (user_Om0 < 0.d0) .or. (user_Om0 > 1.d0) ) then
+            print *, "parameter Om0 Om0 must be in range [0, 1]"
+            goto 1
+        else if ( (user_Ob0 < 0.d0) .or. (user_Ob0 > user_Om0) ) then
+            print *, "parameter Ob0 must be in range [0, Om0]"
+            go to 1
+        else if ( user_h < 0.d0 ) then
+            print *, "parameters h must be positive"
+            goto 1
+        else if ( user_Tcmb0 < 0.d0 ) then
+            print *, "parameters Tcmb0 must be positive"
+            goto 1
+        else if ( (user_psmodel < 0) .or. (user_psmodel > 1) ) then
+            print *, "invalid power spectrum model, ", user_psmodel
+            goto 1
+        end if
+
+        !! initialise cosmology
+        Om0   = user_Om0     ! matter density
+        Ob0   = user_Ob0     ! baryon density
+        Ode0  = 1.d0 - Om0   ! dark-energy density (flat space)
+        h     = user_h       ! hubble parameter in 100 Mpc/h
+        Tcmb0 = user_Tcmb0   ! cmb temperature
+        ns    = user_ns      ! power spectrum slope
+        pid   = user_psmodel ! power spectrum model
+
+        goto 2 ! successfully set cosmology
+
+1       print *, "failed to set cosmology model"
+        call exit(1)
+
+2   end subroutine setCosmology
+
+    subroutine printCosmology()
+        implicit none
+        print *, "cosmology( Om0 = ", Om0, ", Ob0 = ", Ob0, ", Ode0 = ", Ode0, &
+                 ", h = ", h, ", ns   = ", ns, ", Tcmb0 = ", Tcmb0, ")"
+    end subroutine printCosmology
+
+
+    !! TODO: E(z) function
+
+    !! dark-matter density evolution in a flat cosmology
+    real(c_double) function Om(z) result(retval)
+        implicit none
+        real(c_double),intent(in) :: z
+
+        !! eqn: Om(z) = Om0 * (z+1)^3 / (Ode0 + Om0 * (z+1)^3)
         
-        z = z + 1.0
-        z = G_Om0 * z**3
+        retval = z + 1.d0
+        retval = Om0 * retval**3
+        retval = retval / (retval + Ode0) ! matter density at redshift z
 
-        !! matter density 
-        z = z / (z + G_Ode0)
-
-    end subroutine Om_arrayz
+    end function Om
 
     !! dark-energy density evolution
+    real(c_double) function Ode(z) result(retval)
+        implicit none
+        real(c_double), intent(in) :: z
 
-    !! ==========================================================
+        !! eqn: Ode(z) = Ode0 / (Ode0 + Om0 * (z+1)^3)
+
+        retval = Ode0 / (Ode0 + Om0 * (z + 1.d0)**3) ! dark-energy density at redshift z
+
+    end function Ode
 
     !! linear growth factor (approx. by carroll et al 1992)
-    !! for scalar z
-    subroutine Dz_scalarz(z)
+    real(c_double) function Dz(z) result(retval)
         implicit none
-        real(kind = 8),intent(inout) :: z ! redshift
-        real(kind = 8) :: Om, Ode 
+        real(c_double),intent(in) :: z
+        real(c_double)            :: Omz, Odez, gz
 
-        z   = z + 1.0
-        Om  = G_Om0 * z**3 
-        Ode = G_Ode0 + Om  ! now, E^2 = Om0 * (z+1)^3 + Ode0
-        Om  = Om / Ode     ! Om(z)    = Om0 * (z+1)^3 / E^2(z)
-        Ode = G_Ode0 / Ode ! Ode(z)   = Ode0 / E^2(z)
+        retval = z + 1.d0
+        Omz    = Om0 * retval**3 
+        gz     = Ode0 + Omz       ! g(z)   = Om0 * (z+1)^3 + Ode0 = E^2(z)
+        Omz    = Omz / gz         ! matter density evolution, Om(z)  = Om0 * (z+1)^3 / g(z)
+        Odez   = Ode0 / gz        ! dark-energy density evolution, Ode(z) = Ode0 / g(z)
 
         !! growth factor
-        z = 2.5 * Om / z / (Om**(4.0/7.0) - Ode + (1 + Om / 2.0) * (1 + Ode / 70.0))
+        retval = 2.5 * Omz / retval / (Omz**(4.0/7.0) - Odez + (1 + Omz / 2.0) * (1 + Odez / 70.0))
         
-    end subroutine Dz_scalarz
+    end function Dz
 
-    !! for array z
-    subroutine Dz_arrayz(z)
+    !! un-normalised present matter power spectrum
+    subroutine unn0_matterPowerSpectrum(x)
+        use power
         implicit none
-        real(kind = 8), intent(inout) :: z(:) ! redshift
-        real(kind = 8), dimension(size(z)) :: Om, Ode 
 
-        z   = z + 1.0
-        Om  = G_Om0 * z**3 
-        Ode = G_Ode0 + Om  ! now, E^2 = Om0 * (z+1)^3 + Ode0
-        Om  = Om / Ode     ! Om(z)    = Om0 * (z+1)^3 / E^2(z)
-        Ode = G_Ode0 / Ode ! Ode(z)   = Ode0 / E^2(z)
+        real(c_double), intent(inout) :: x ! wavenumber, k - overwritten as P(k)
+        real(c_double)                :: tk ! transfer function value
 
-        !! growth factor
-        z = 2.5 * Om / z / (Om**(4.0/7.0) - Ode + (1 + Om / 2.0) * (1 + Ode / 70.0))
-        
-    end subroutine Dz_arrayz
+
+        ! compute the transfer function
+        tk = x
+        if ( pid == 0 ) then
+            call modelSuiyama95(tk, h, Om0, Ob0)    ! bbks with sugiyama correction
+        else if ( pid == 1 ) then
+            call modelEisenstein98_zb(tk, h, Om0, Ob0, Tcmb0) ! eisenstein & hu without baryon oscillations 
+        else
+            print *, "invalid value for power spectrum model, ", pid
+            call exit(0)
+        end if
+
+        x = tk**2 * x**ns ! un-normalised power spectrum at z = 0
     
-    !! ==========================================================
+    end subroutine unn0_matterPowerSpectrum
 
-    !! linear matter power spectrum
-    !! for scalar k
-    subroutine matterPowerSpectrum_scalerk(k, z, normalize)
+    !! spherical top-hat filter
+    real(c_double) function filt(x) result(retval)
         implicit none
-        real(kind = 8), intent(inout)        :: k
-        real(kind = 8), intent(in), optional :: z 
-        logical, intent(in), optional        :: normalize
-        real(kind = 8)                       :: tk
-        real(kind = 8)                       :: dplus
+        real(c_double), intent(in) :: x 
 
-        !! get the transfer function
-        tk = k
-        if (G_psmodel == SUGIYAMA95) then
-            call modelSugiyama95(tk, G_h, G_Om0, G_Ob0)
-        else if (G_psmodel == EISENSTEIN95) then
-            print *, "power spectrum model not implemented"
-            call exit(0)
-        else if (G_psmodel == EISENSTEIN95_ZB) then
-            call modelEisenstein98_zeroBaryon(tk, G_h, G_Om0, G_Ob0, G_Tcmb0)
-        else if (G_psmodel == EISENSTEIN95_MDM) then
-            print *, "power spectrum model not implemented"
-            call exit(0)
-        end if
+        retval = 3 * (sin(x) - x * cos(x)) / x**3
 
-        !! matter power spectrum
-        k = tk**2 * k**G_ns ! un-normalised power
+    end function
 
-        !! interpolate power to the given redshift, if given
-        if ( present(z) ) then
-            
-            dplus  = z
-            call Dz(dplus)
-
-            k = k * dplus**2
-            
-            ! normalise the growth factor so that its present value is 1
-            dplus = 0.0d0
-            call Dz(dplus)
-            
-            k = k / dplus**2 ! effectively, pk = pk0 * (dplus / dplus0)^2
-        end if 
-
-        !! normalise the power if asked
-        if ( present(normalize) ) then
-            if (normalize) then
-                k = k * G_PKNORM ! normalised power
-            end if
-        end if
-
-    end subroutine matterPowerSpectrum_scalerk
-
-    !! for array k
-    subroutine matterPowerSpectrum_arrayk(k, z, normalize)
+    !! unnormalised present linear matter variance (rms)
+    subroutine unn0_variance(x)
         implicit none
-        real(kind = 8), intent(inout)        :: k(:)
-        real(kind = 8), intent(in), optional :: z 
-        logical, intent(in), optional        :: normalize
-        real(kind = 8), dimension(size(k))   :: tk
-        real(kind = 8)                       :: dplus
+        real(c_double), intent(inout) :: x ! smoothing radius, r - overwritten to var(r)
 
-        !! get the transfer function
-        tk = k
-        if (G_psmodel == SUGIYAMA95) then
-            call modelSugiyama95(tk, G_h, G_Om0, G_Ob0)
-        else if (G_psmodel == EISENSTEIN95) then
-            print *, "power spectrum model not implemented"
-            call exit(0)
-        else if (G_psmodel == EISENSTEIN95_ZB) then
-            call modelEisenstein98_zeroBaryon(tk, G_h, G_Om0, G_Ob0, G_Tcmb0)
-        else if (G_psmodel == EISENSTEIN95_MDM) then
-            print *, "power spectrum model not implemented"
-            call exit(0)
-        end if
+        ! create the 
+    
+    end subroutine unn0_variance
 
-        !! matter power spectrum
-        k = tk**2 * k**G_ns ! un-normalised power
+    !! normalised matter power spectrum
+    subroutine matterPowerSpectrum(x, z)
+        implicit none
 
-        !! interpolate power to the given redshift, if given
-        if ( present(z) ) then
-            
-            dplus  = z
-            call Dz(dplus)
+        real(c_double), intent(inout) :: x ! wavenumber, k - overwritten as P(k)
+        real(c_double), intent(in)    :: z ! redshift
+        
+        call unn0_matterPowerSpectrum(x) ! get the un-normalised power
 
-            k = k * dplus**2
-            
-            ! normalise the growth factor so that its present value is 1
-            dplus = 0.0d0
-            call Dz(dplus)
-            
-            k = k / dplus**2 ! effectively, pk = pk0 * (dplus / dplus0)^2
-        end if 
-
-        !! normalise the power if asked
-        if ( present(normalize) ) then
-            if (normalize) then
-                k = k * G_PKNORM ! normalised power
-            end if
-        end if
-
-    end subroutine matterPowerSpectrum_arrayk
+        x = pknorm * x * (Dz(z) / Dz(0.d0))**2
+    
+    end subroutine matterPowerSpectrum
 
 end module cosmology
 
-program main
+!! ===========================================================
+!! wrapper modules 
+!! ===========================================================
+
+module wrapper
+    use iso_c_binding
     use cosmology
     implicit none
+contains
+    !! set cosmology
+    subroutine setCosmology_wrapper(user_Om0, user_Ob0, user_h, user_ns, user_Tcmb0, user_psmodel) &
+            bind(c, name = 'setCosmology')
+        implicit none
+        real(c_double), intent(in), value :: user_Om0, user_Ob0, user_h, user_ns, user_Tcmb0
+        integer(c_int), intent(in), value :: user_psmodel
 
-    real(kind = 8), dimension(3) :: z, dplus
-
-    call initCosmology(0.7d0, 0.3d0, 0.05d0, 1.0d0)  
+        call setCosmology(user_Om0, user_Ob0, user_h, user_ns, user_Tcmb0, user_psmodel)
     
-    z = (/ 0.0d0, 0.1d0, 0.2d0 /)
-    dplus = z
-    call Omz(dplus)
+    end subroutine setCosmology_wrapper
 
-    write(*,*) "growth factor, D(", z, ") = ", dplus 
+    !! growth factor function (array inputs only)
+    subroutine Dz_wrapper(z, dplus, n) bind(c, name = 'Dz')
+        implicit none
+        integer(c_int), intent(in), value :: n
+        real(c_double), intent(in)        :: z(n)
+        real(c_double), intent(out)       :: dplus(n)
+        
+        integer(c_int) :: i
+        
+        do i = 1, n
+            dplus(i) = Dz(z(i))
+        end do
+        
+    end subroutine Dz_wrapper
     
-end program main
+end module wrapper
+
+! program main
+!     use cosmology
+!     use iso_c_binding
+!     implicit none
+
+
+
+!     call setCosmology(0.3d0, 0.05d0, 0.7d0, 1.d0, 2.275d0, 1)
+
+!     call printCosmology()
+    
+    
+! end program main
+
+! gfortran -shared cosmology.f90 -o c.so
