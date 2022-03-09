@@ -42,16 +42,17 @@ class GEVLogDistribution(Distribution):
     r""" 
     One point GEV distribution for the density perturbations.
     """
-    __slots__ = 'kn', '_a', '_b', '_kcont', '_settings',
+    __slots__ = 'kn', '_a', '_b', '_kcont', '_settings', '_mod'
 
     Settings  = namedtuple('settings', ['ka', 'kb', 'n', 'n3d', 'n4cont', 'krange', 'ksplit']) 
 
-    def __init__(self, cellsize: float, cosmo: Cosmology, z: float = 0) -> None:
+    def __init__(self, cellsize: float, cosmo: Cosmology, z: float = 0, modulate: bool = True) -> None:
         super().__init__(cellsize, cosmo, z)
 
         self.kn = np.pi / self.cellsize # nyquist wavenumber
         
         self._a, self._b = 0.0, 0.0     # power law parameters 
+        self._mod        = modulate     # non-linear region modulation
         self._settings   = self.Settings(
                                             ka     = 1e-8, 
                                             kb     = 1e+8, 
@@ -116,6 +117,12 @@ class GEVLogDistribution(Distribution):
                 raise TypeError(f"invalid keyword argument '{key}'")
             self.makeContinuation()
 
+    def matterPowerSpectrum(self, k: Any, z: float, normalize: bool = True) -> Any:
+        """
+        Linear matter power spectrum
+        """
+        return super().matterPowerSpectrum(k, z, normalize)
+
     def linearCellVariance(self) -> float:
         r"""
         Linear variance in a cell.
@@ -127,7 +134,7 @@ class GEVLogDistribution(Distribution):
         k          = np.exp(np.linspace(lnka, lnkb, n)) # nodes
 
         # integration done in log(k) variable
-        y   = k**3 * self.cosmo.matterPowerSpectrum(k, self.z)
+        y   = k**3 * self.matterPowerSpectrum(k, self.z)
         var = (y[:-1:2].sum(-1) + 4 * y[1::2].sum(-1) + y[2::2].sum(-1)) * dlnk / 3
 
         return var / 2. / np.pi**2 
@@ -144,7 +151,7 @@ class GEVLogDistribution(Distribution):
         def _power(__kx: Any, __ky: Any, __kz: Any) -> Any:
             """ matter power spectrum. """
             k = np.sqrt(__kx**2 + __ky**2 + __kz**2)
-            return self.cosmo.matterPowerSpectrum(k, self.z, False)
+            return self.matterPowerSpectrum(k, self.z, False)
 
         def _weight(__kx: Any, __ky: Any, __kz: Any) -> Any:
             """ weight function """
