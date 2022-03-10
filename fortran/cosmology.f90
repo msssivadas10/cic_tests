@@ -74,7 +74,7 @@ contains
 
 end module power
 
-module cosmology
+module GEVLogDistribution
     use iso_c_binding
     implicit none
 
@@ -97,6 +97,7 @@ module cosmology
     public :: setCosmology, printCosmology                  ! cosmology model setup
     public :: printIntegrationSettings, configIntegration   ! integration setup
     public :: Dz, Om, Ode                                   ! cosmology functions
+    public :: transferFunction                              ! transfer function
     public :: unn0_matterPowerSpectrum, matterPowerSpectrum ! power spectrum
 
 
@@ -223,9 +224,26 @@ contains
         
     end function Dz
 
+    !! transfer function model
+    subroutine transferFunction(x)
+        use power
+        implicit none
+        real(c_double), intent(inout) :: x ! wavenumber k - overwritten as T(k)
+
+        !! get the trancfer function
+        select case( pid )
+            case(0)
+                call modelSuiyama95(x, h, Om0, Ob0)    ! bbks with sugiyama correction
+            case(1)
+                call modelEisenstein98_zb(x, h, Om0, Ob0, Tcmb0) ! eisenstein & hu without baryon oscillations 
+            case default
+                stop
+        end select
+
+    end subroutine transferFunction
+
     !! un-normalised present matter power spectrum
     subroutine unn0_matterPowerSpectrum(x)
-        use power
         implicit none
 
         real(c_double), intent(inout) :: x ! wavenumber, k - overwritten as P(k)
@@ -234,14 +252,7 @@ contains
 
         ! compute the transfer function
         tk = x
-        if ( pid == 0 ) then
-            call modelSuiyama95(tk, h, Om0, Ob0)    ! bbks with sugiyama correction
-        else if ( pid == 1 ) then
-            call modelEisenstein98_zb(tk, h, Om0, Ob0, Tcmb0) ! eisenstein & hu without baryon oscillations 
-        else
-            print *, "invalid value for power spectrum model, ", pid
-            call exit(0)
-        end if
+        call transferFunction(tk)
 
         x = tk**2 * x**ns ! un-normalised power spectrum at z = 0
     
@@ -278,57 +289,20 @@ contains
     
     end subroutine matterPowerSpectrum
 
-end module cosmology
+end module GEVLogDistribution
 
-!! ===========================================================
-!! wrapper modules 
-!! ===========================================================
-
-module wrapper
+program main
+    use GEVLogDistribution
     use iso_c_binding
-    use cosmology
     implicit none
-contains
-    !! set cosmology
-    subroutine setCosmology_wrapper(user_Om0, user_Ob0, user_h, user_ns, user_Tcmb0, user_psmodel) &
-            bind(c, name = 'setCosmology')
-        implicit none
-        real(c_double), intent(in), value :: user_Om0, user_Ob0, user_h, user_ns, user_Tcmb0
-        integer(c_int), intent(in), value :: user_psmodel
-
-        call setCosmology(user_Om0, user_Ob0, user_h, user_ns, user_Tcmb0, user_psmodel)
-    
-    end subroutine setCosmology_wrapper
-
-    !! growth factor function (array inputs only)
-    subroutine Dz_wrapper(z, dplus, n) bind(c, name = 'Dz')
-        implicit none
-        integer(c_int), intent(in), value :: n
-        real(c_double), intent(in)        :: z(n)
-        real(c_double), intent(out)       :: dplus(n)
-        
-        integer(c_int) :: i
-        
-        do i = 1, n
-            dplus(i) = Dz(z(i))
-        end do
-        
-    end subroutine Dz_wrapper
-    
-end module wrapper
-
-! program main
-!     use cosmology
-!     use iso_c_binding
-!     implicit none
 
 
 
-!     call setCosmology(0.3d0, 0.05d0, 0.7d0, 1.d0, 2.275d0, 1)
+    call setCosmology(0.3d0, 0.05d0, 0.7d0, 1.d0, 2.275d0, 1)
 
-!     call printCosmology()
+    call printCosmology()
     
     
-! end program main
+end program main
 
 ! gfortran -shared cosmology.f90 -o c.so
