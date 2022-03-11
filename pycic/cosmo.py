@@ -1,4 +1,11 @@
 #!/usr/bin/python3
+r"""
+`cosmo.py`: Cosmology
+=====================
+
+Cosmology models and related computations.
+
+"""
 
 from typing import Any
 from . import transfer
