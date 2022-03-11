@@ -1,4 +1,12 @@
 #!/usr/bin/python3
+r"""
+Distributions
+=============
+
+One point probability distribution functions for density fluctuation 
+fields.
+
+"""
 
 import numpy as np
 from typing import Any 
