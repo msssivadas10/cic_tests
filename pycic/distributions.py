@@ -16,7 +16,7 @@ class Distribution:
     """ One point distribution of density perturbations. """
     __slots__ = 'cellsize', 'cosmo', 'z', 
 
-    def __init__(self, cellsize: float, cosmo: Cosmology, z: float = 0) -> None:
+    def __init__(self, cellsize: float, cosmo: Cosmology, z: float) -> None:
         if not isinstance(cosmo, Cosmology):
             raise TypeError("cosmo should be a 'Cosmology' object")
         self.cosmo = cosmo
@@ -25,6 +25,8 @@ class Distribution:
             raise ValueError("cellsize must be positive")
         self.cellsize = cellsize
 
+        if z < -1:
+            raise ValueError("z must be greater than -1")
         self.z = z
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
@@ -38,21 +40,29 @@ class Distribution:
         return self.cosmo.matterPowerSpectrum(k, z, normalize)
 
 
-class GEVLogDistribution(Distribution):
+class GEVDistribution(Distribution):
     r""" 
     One point GEV distribution for the density perturbations.
     """
-    __slots__ = 'kn', '_a', '_b', '_kcont', '_settings', '_mod'
+    __slots__  = 'kn', '_a', '_b', '_kcont', '_settings', '_params'
 
-    Settings  = namedtuple('settings', ['ka', 'kb', 'n', 'n3d', 'n4cont', 'krange', 'ksplit']) 
+    Settings   = namedtuple(
+                                'settings', 
+                                ['ka', 'kb', 'n', 'n3d', 'n4cont', 'krange', 'ksplit'],
+                            )
 
-    def __init__(self, cellsize: float, cosmo: Cosmology, z: float = 0, modulate: bool = True) -> None:
+    Parameters = namedtuple(
+                                'Parameters', 
+                                ['mu', 'sigma', 'xi', 'sigma8', 'bias']
+                           )  
+
+    def __init__(self, cellsize: float, cosmo: Cosmology, z: float) -> None:
         super().__init__(cellsize, cosmo, z)
 
         self.kn = np.pi / self.cellsize # nyquist wavenumber
         
         self._a, self._b = 0.0, 0.0     # power law parameters 
-        self._mod        = modulate     # non-linear region modulation
+        self._params     = None
         self._settings   = self.Settings(
                                             ka     = 1e-8, 
                                             kb     = 1e+8, 
@@ -248,7 +258,7 @@ class GEVLogDistribution(Distribution):
         
         return 8 * f * (dlnk / 3 / 2 / np.pi)**3
 
-    def _getParameters(self, sigma8: float) -> tuple:
+    def parametrize(self, sigma8: float, bias: float = ...) -> tuple:
         """ Compute distribution parameters. """
         ka, kb = self._settings.ka, self._settings.kb
 
@@ -289,35 +299,38 @@ class GEVLogDistribution(Distribution):
         # location parameter:
         mu = mlog - sigma * (g1mx - 1) / xi
 
-        return mu, sigma, xi
+        # return mu, sigma, xi
+        self._params = self.Parameters(mu, sigma, xi, sigma8, bias)
 
-    def func(self, x: Any, sigma8: float) -> Any:
-        """ Value of the distribution function. """
-        x = np.asarray(x)
-        y = np.empty_like(x)
+    @property
+    def xmax(self) -> float:
+        r""" Maximum value for :math:`\ln(\delta+1)` """
+        # get parameters:
+        mu, sigma, xi, _, _ = self._params
+        return mu - sigma / xi
+
+    def pdf_log(self, x: Any) -> Any:
+        r""" Value of the distribution function, :math:`P(A)`. """
+        x = np.asarray(x) # log field, ln(a+delta)
+        y = np.zeros_like(x)
 
         # get parameters:
-        mu, sigma, xi = self._getParameters(sigma8)
+        mu, sigma, xi, _, _ = self._params
 
-        mask = (x <= mu - sigma / xi) # x has upper limit
-
-        y[~mask] = 0.0
-
+        mask    = (x <= self.xmax) # x has upper limit
         t       = (1 + (x[mask] + mu) * xi / sigma)**(-1/xi)
         y[mask] = t**(1 + xi) * np.exp(-t) / sigma
         return y
+
+    def pdf(self, x: Any) -> Any:
+        r""" Value of the distribution function, :math:`P(\delta)` """
+        x = np.asarray(x)
+        return self.pdf_log(np.log(x+1)) / (x+1)
+
+    def __call__(self, x: Any, log: bool = False) -> Any:
+        return self.pdf_log(x) if log else self.pdf(x)
         
-class GEVDistribution(GEVLogDistribution):
-    r""" 
-    One point GEV distribution for the density perturbations.
-    """
 
-    def __init__(self, cellsize: float, cosmo: Cosmology, z: float = 0) -> None:
-        super().__init__(cellsize, cosmo, z)
-
-    def func(self, x: Any, sigma8: float) -> Any:
-        return NotImplemented
-        return super().func(x, sigma8)
 
         
 
