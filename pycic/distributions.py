@@ -41,12 +41,23 @@ class Distribution:
         """ Value of distribution function. """
         return NotImplemented
 
+    def set(self, **kwargs) -> None:
+        """ Set values for the settings attributes. """
+        ...
+
     def matterPowerSpectrum(self, k: Any, z: float, normalize: bool = True) -> Any:
         r""" 
         Linear matter power spectrum.
         """
         return self.cosmo.matterPowerSpectrum(k, z, normalize)
 
+    def parametrize(self, *args, **kwargs) -> tuple:
+        """ Compute distribution parameters. """
+        ...
+
+    def parameters(self) -> dict:
+        """ Get the free parameters. """
+        ...
 
 class GEVDistribution(Distribution):
     r""" 
@@ -266,7 +277,7 @@ class GEVDistribution(Distribution):
         
         return 8 * f * (dlnk / 3 / 2 / np.pi)**3
 
-    def parametrize(self, sigma8: float, bias: float = ...) -> tuple:
+    def parametrize(self, sigma8: float, bias: float = ..., **kwargs) -> None:
         """ Compute distribution parameters. """
         ka, kb = self._settings.ka, self._settings.kb
 
@@ -310,6 +321,12 @@ class GEVDistribution(Distribution):
         # return mu, sigma, xi
         self._params = self.Parameters(mu, sigma, xi, sigma8, bias)
 
+    def parameters(self) -> dict:
+        return {
+                    'sigma8': self._params.sigma8,
+                    'bias'  : self._params.bias, 
+               }
+
     @property
     def xmax(self) -> float:
         r""" Maximum value for :math:`\ln(\delta+1)` """
@@ -339,7 +356,58 @@ class GEVDistribution(Distribution):
         return self.pdf_log(x) if log else self.pdf(x)
         
 
+class CICDistribution:
+    """
+    Count-in-cells distribution.
+    """
+    __slots__    = 'pdf1pt', 'bias', 'sigma8', 
+    _all_models  = {
+                        "gev" : GEVDistribution, 
+                   }
 
+    def __init__(self, model: str, cellsize: float, cosmo: Cosmology, z: float) -> None:
+        if model not in self._all_models:
+            raise TypeError(f"invalid value for model_1pt, '{model}'")
+        
+        self.pdf1pt = self._all_models[model](cellsize, cosmo, z)
+        
+        self.bias: float   = ...
+        self.sigma8: float = ...
+
+    @property
+    def cosmo(self) -> Cosmology:
+        """ Get the curent cosmology model. """
+        return self.pdf1pt.cosmo
+    
+    @property
+    def z(self) -> float:
+        """ Get the redshift. """
+        return self.pdf1pt.z
+    
+    @property
+    def cellsize(self) -> float:
+        """ Get the cellsize. """
+        return self.pdf1pt.cellsize
+
+    def set(self, **kwargs) -> None:
+        """ Set values for the settings attributes. """
+        return self.pdf1pt.set(**kwargs)
+
+    def parametrize(self, **kwargs) -> None:
+        """ Parameterize the model. """
+        if 'bias' not in kwargs.keys():
+            raise TypeError("'bias' is a required argument")
+        self.bias = kwargs['bias']
+        if 'sigma8' in kwargs.keys():
+            self.sigma8 = kwargs['sigma8']
+        return self.pdf1pt.parametrize(**kwargs)
+
+    def pdf(self, n: Any) -> Any:
+        """ Distribution function. """
+        return NotImplemented
         
 
+    
+
+    
 
