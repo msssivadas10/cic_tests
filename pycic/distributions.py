@@ -9,8 +9,11 @@ fields.
 """
 
 import numpy as np
-from typing import Any 
-from .cosmo import Cosmology
+from typing import Any
+try: 
+    from .cosmo import Cosmology
+except Exception:
+    from cosmo import Cosmology
 from itertools import product, repeat
 from collections import namedtuple
 from scipy.special import gamma
@@ -57,6 +60,14 @@ class Distribution:
 
     def parameters(self) -> dict:
         """ Get the free parameters. """
+        ...
+
+    def onepdf(self, x: Any, *args, **kwargs) -> Any:
+        """ Get the one-point distribution function. """
+        ...
+
+    def cicpdf(self, n: Any, nbar: float) -> Any:
+        """ Get the count-in-cells distribution function. """
         ...
 
 class GEVDistribution(Distribution):
@@ -277,7 +288,7 @@ class GEVDistribution(Distribution):
         
         return 8 * f * (dlnk / 3 / 2 / np.pi)**3
 
-    def parametrize(self, sigma8: float, bias: float = ..., **kwargs) -> None:
+    def parametrize(self, sigma8: float, bias: float, **kwargs) -> None:
         """ Compute distribution parameters. """
         ka, kb = self._settings.ka, self._settings.kb
 
@@ -334,7 +345,7 @@ class GEVDistribution(Distribution):
         mu, sigma, xi, _, _ = self._params
         return mu - sigma / xi
 
-    def pdf_log(self, x: Any) -> Any:
+    def onepdfLogfield(self, x: Any) -> Any:
         r""" Value of the distribution function, :math:`P(A)`. """
         x = np.asarray(x) # log field, ln(a+delta)
         y = np.zeros_like(x)
@@ -347,67 +358,32 @@ class GEVDistribution(Distribution):
         y[mask] = t**(1 + xi) * np.exp(-t) / sigma
         return y
 
-    def pdf(self, x: Any) -> Any:
+    def onepdfLinfield(self, x: Any) -> Any:
         r""" Value of the distribution function, :math:`P(\delta)` """
         x = np.asarray(x)
-        return self.pdf_log(np.log(x+1)) / (x+1)
+        return self.onepdfLogfield(np.log(x+1)) / (x+1)
 
-    def __call__(self, x: Any, log: bool = False) -> Any:
-        return self.pdf_log(x) if log else self.pdf(x)
+    def onepdf(self, x: Any, log: bool = False) -> Any:
+        return self.onepdfLogfield(x) if log else self.onepdfLinfield(x)
+
+    def cicpdf(self, N: Any, Nbar: float) -> Any:
+        N = np.asarray(N)
+        n = self._settings.n # integration settings
+        b = self._params.bias
+
+        deltaMax = np.exp(self.xmax) - 1
+        delta    = np.linspace(-1.0+1e-8, deltaMax, n)
+        ddelta   = delta[1] - delta[0]
+        avN      = Nbar * (b * delta + 1)
         
+        # y        = np.empty_like(N)
+        # mask     = (y > 10.0)
+        # y[~mask] = gamma(N[~mask]+1) 
+        # y[mask]  = np.sqrt(2 * np.pi * N[mask]) * N[mask]**N[mask] * np.exp(-N[mask])
 
-class CICDistribution:
-    """
-    Count-in-cells distribution.
-    """
-    __slots__    = 'pdf1pt', 'bias', 'sigma8', 
-    _all_models  = {
-                        "gev" : GEVDistribution, 
-                   }
-
-    def __init__(self, model: str, cellsize: float, cosmo: Cosmology, z: float) -> None:
-        if model not in self._all_models:
-            raise TypeError(f"invalid value for model_1pt, '{model}'")
+        y        = np.exp(-avN) * avN**N[:,None] / gamma(N[:,None]+1) # poisson distribution
+        y        = y * self.onepdfLinfield(delta)
+        integ    = (y[:,:-1:2].sum(-1) + 4 * y[:,1::2].sum(-1) + y[:,2::2].sum(-1)) * ddelta / 3
+        return integ
         
-        self.pdf1pt = self._all_models[model](cellsize, cosmo, z)
-        
-        self.bias: float   = ...
-        self.sigma8: float = ...
-
-    @property
-    def cosmo(self) -> Cosmology:
-        """ Get the curent cosmology model. """
-        return self.pdf1pt.cosmo
-    
-    @property
-    def z(self) -> float:
-        """ Get the redshift. """
-        return self.pdf1pt.z
-    
-    @property
-    def cellsize(self) -> float:
-        """ Get the cellsize. """
-        return self.pdf1pt.cellsize
-
-    def set(self, **kwargs) -> None:
-        """ Set values for the settings attributes. """
-        return self.pdf1pt.set(**kwargs)
-
-    def parametrize(self, **kwargs) -> None:
-        """ Parameterize the model. """
-        if 'bias' not in kwargs.keys():
-            raise TypeError("'bias' is a required argument")
-        self.bias = kwargs['bias']
-        if 'sigma8' in kwargs.keys():
-            self.sigma8 = kwargs['sigma8']
-        return self.pdf1pt.parametrize(**kwargs)
-
-    def pdf(self, n: Any) -> Any:
-        """ Distribution function. """
-        return NotImplemented
-        
-
-    
-
-    
 

@@ -8,7 +8,10 @@ Cosmology models and related computations.
 """
 
 from typing import Any
-from . import transfer
+try:
+    from . import transfer
+except Exception:
+    import transfer
 import numpy as np
 
 class CosmologyError(Exception):
