@@ -8,6 +8,7 @@ fields.
 
 """
 
+import warnings
 import numpy as np
 from typing import Any
 try: 
@@ -387,3 +388,48 @@ class GEVDistribution(Distribution):
         return integ
         
 
+# =============================================================================
+
+class Distribution2:
+    """ One-point distribution and CIC distrubtion. """
+    __slots__ = 'cellsize', 'cm', 'z', 'param', '_settings', 
+
+    def __init__(self, cellsize: float, z: float, cm: Cosmology = None, parameters: list = ['sigma8', 'bias']) -> None:
+        if cellsize <= 0.0:
+            raise ValueError("cellsize must be positive")
+        self.cellsize = cellsize
+
+        if z < -1:
+            raise ValueError("z must be greater than -1")
+        self.z = z
+
+        self.cm = None
+        if cm is not None:
+            if not isinstance(cm, Cosmology):
+                raise TypeError("cm must be a 'Cosmology' object")
+            self.cm = cm
+
+        self.param = dict(zip(parameters, [None,] * len(parameters)))
+
+        self._settings = {}
+
+    def setCosmology(self, **kwargs) -> None:
+        """ Set the cosmology model parameters. """
+        if self.cm is not None:
+            raise DistributionError("cannot change cosmology model")
+        self.cm = Cosmology(**kwargs)
+
+    def setup(self, **kwargs) -> None:
+        """ Change settings attributes. """
+        for key, value in kwargs.items():
+            if key in self._settings.keys():
+                self._settings[key] = value
+            else:
+                warnings.warn("no property `{}` in settings".format(key))
+        self.update()
+
+    def update(self) -> None:
+        """ Update the object. """
+        ...
+
+    
