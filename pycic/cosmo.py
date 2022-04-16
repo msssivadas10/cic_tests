@@ -8,10 +8,7 @@ Cosmology models and related computations.
 """
 
 from typing import Any
-try:
-    from . import transfer
-except Exception:
-    import transfer
+import pycic.transfer as transfer
 import numpy as np
 
 class CosmologyError(Exception):
