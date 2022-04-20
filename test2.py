@@ -203,12 +203,13 @@ def sugiyama96(cm: 'Cosmology', k: Any, z: float = None) -> Any:
                 * theta**2 
                 / ( Om0*h ) * np.exp( Ob0 + np.sqrt( 2*h ) * Ob0 / Om0 )
         )
-    return (
-                np.log( 1 + 2.34*q ) / ( 2.34*q )
-                    * (
-                            1 + 3.89*q + ( 16.1*q )**2 + ( 5.46*q )**3 + ( 6.71*q )**4
-                      )**-0.25
-           )
+    tk = (
+            np.log( 1 + 2.34*q ) / ( 2.34*q )
+                * (
+                        1 + 3.89*q + ( 16.1*q )**2 + ( 5.46*q )**3 + ( 6.71*q )**4
+                    )**-0.25 \
+         )
+    return tk
 
 class Cosmology:
     """
