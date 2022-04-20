@@ -8,10 +8,10 @@ One point probability distribution functions for density fluctuation fields.
 """
 import numpy as np
 import numpy.random as rnd
-from pycic.cosmo import Cosmology
+from pycic.cosmo import Cosmology, Constants
 from itertools import product, repeat
 from typing import Any, Tuple, Union 
-from scipy.special import gamma, gammaln, zeta
+from scipy.special import gamma, gammaln, zeta, erf
 from scipy.optimize import newton
 
 
@@ -113,9 +113,21 @@ class Distribution:
     """
     Base class for distribution function objects.
     """
-    __slots__ = 'attrs', 'b', 'z', 'cm', 'kn'
+    __slots__ = 'attrs', 'b', 'z', 'cm', 'kn', 'zspace', 
 
-    def __init__(self, b: float, z: float, cm: Cosmology, params: Union[list, dict]) -> None:
+    def pdf(x: Any, *args, **kwargs) -> Any:
+        """
+        Probability distribution function.
+        """
+        return NotImplemented
+    
+    def cdf(x: Any, *args, **kwargs) -> Any:
+        """
+        Cumulative density function.
+        """
+        return NotImplemented
+
+    def __init__(self, b: float, z: float, cm: Cosmology, params: Union[list, dict], zspace: bool = False) -> None:
         self.attrs = {}
 
         if np.ndim( b ):
@@ -132,6 +144,7 @@ class Distribution:
             raise TypeError("'cm' must be a 'Cosmology' object")
 
         self.b, self.z, self.cm = b, z, cm
+        self.zspace             = bool( zspace )
 
         self.kn = np.pi / self.b  # nyquist wavenumber
 
@@ -149,6 +162,18 @@ class Distribution:
             self.attrs = { **params }
         else:
             raise TypeError("params must be a 'list' or 'dict'")
+
+    def zcfactor(self) -> float:
+        """
+        Redshift space correction factor.
+        """
+        bias = self.param( 'bias' )
+        if bias is None:
+            raise DistributionError("distribution is not parametrised")
+        if self.zspace:
+            beta = self.cm.fz( self.z ) / bias
+            return ( 1 + beta * 2.0 / 3.0 + beta**2 / 5.0 ) * bias**2
+        return 1.0
 
     def support(self) -> Interval:
         """
@@ -198,7 +223,7 @@ class Distribution:
                 raise DistributionError("invalid parameter key: '{}'".format( key ))
             self.attrs[ key ] = value
         
-    def f(self, x: Any) -> Any:
+    def f(self, x: Any, log: bool = False) -> Any:
         """
         Distribution function.
         """
@@ -210,7 +235,7 @@ class Distribution:
         """
         return NotImplemented
     
-    def fcount(self, n: Any, delta_g: Any, mu: float) -> Any:
+    def fcount(self, n: Any, lamda: Any) -> Any:
         r"""
         Distribution function for the galaxy counts. By default, a Poisson 
         distribution is used with :math:`\lambda = (1+\delta_g) \mu`.
@@ -219,10 +244,8 @@ class Distribution:
         ----------
         n: array_like
             Value of counts.
-        delta_g: array_like
-            Value of galaxy over-density, :math:`\delta_g`.
-        mu: float
-            Average count. Must be a scalar.
+        lamda: array_like
+            Rate parameter, :math:`\lambda`.
 
         Returns
         -------
@@ -230,17 +253,11 @@ class Distribution:
             Value of the distribution function, :math:`f(n; \delta_g, \mu)`.
             
         """
-        n       = np.asarray(n)
-        delta_g = np.asfarray(delta_g)#[:, None]
-
-        if np.ndim( mu ):
-            raise DistributionError("mu must be a scalar")
-        lamda = mu * (1 + delta_g)
         return np.exp(
                         n * np.log( lamda ) - lamda - gammaln( n + 1 )
                      ) 
 
-    def fcic(self, n: Any, bias: float, mu: float) -> Any:
+    def fcic(self, n: Any, mu: float, xa: float = -50.0, xb: float = 50.0, pts: int = 10001) -> Any:
         """
         Distribution function for galaxy count-in-cells.
 
@@ -252,27 +269,29 @@ class Distribution:
             Galaxy bias (linear).
         mu: float
             Average count.
+        xa, xb: float
+            Integration limits
+        pts: int
+            Number of points for integration.
         
         Returns
         -------
         y: array_like
             Value of count-in-cells distribution function.
         """
-        delta_a, delta_b = np.exp( self.support().astuple() ) - 1.0
+        if self.bias is None:
+            raise DistributionError("distribution is not parametrised")
 
-        delta, h = np.linspace( 
-                                delta_a, delta_b,  
-                                qsettings[ 'n' ],
-                                retstep = True,
-                              )
-        
-        fdelta = self.f( delta )
-        fcount = self.fcount( n, bias * delta[ :, None ], mu )
+        x, h = np.linspace( -1.0 + 1.0E-08, xb, pts, retstep = True ) # delta_g
 
-        y = fdelta[ :, None ] * fcount
+        lamda = mu * ( 1 + x )
+
+        fx    = self.f( x / self.bias, log = False ) 
+        fnx   = self.fcount( n, lamda[:,None] ) 
+        y     = fx[:, None] * fnx
         y = ( 
                 y[ :-1:2,: ].sum(0) + 4*y[ 1::2,: ].sum(0) + y[ 2::2,: ].sum(0) 
-            ) * h / 3.0 
+            ) * h / 3.0 / self.bias
         return y
 
     def __call__(self, x: Any) -> Any:
@@ -308,7 +327,7 @@ class GEV(Distribution):
     """
     Generalized extreem value distribution.
     """
-    __slots__ = '_powerlaw', 'zspace', 'csettings', 
+    __slots__ = '_powerlaw', 'zspace', 'csettings', 'sigma8', 'bias'
 
     def pdf(x: Any, xi: float, mu: float = 0.0, sigma: float = 1.0) -> Any:
         """
@@ -352,10 +371,11 @@ class GEV(Distribution):
         return y
     
     def __init__(self, b: float, z: float, cm: Cosmology, zspace: bool = False) -> None:
-        super().__init__(b, z, cm, [ 'sigma8', 'bias', 'xi', 'mu', 'sigma' ])
+        super().__init__(b, z, cm, [ 'xi', 'mu', 'sigma' ], zspace)
+
+        self.sigma8, self.bias = None, None
 
         self._powerlaw = ( None, None )
-        self.zspace    = bool( zspace )
 
         self.csettings = {
                             'start'  : 0.6,
@@ -365,18 +385,6 @@ class GEV(Distribution):
                          }
         
         self.getContinuation() # get power spectrum continuation
-    
-    def zcfactor(self) -> float:
-        """
-        Redshift space correction factor.
-        """
-        bias = self.param( 'bias' )
-        if bias is None:
-            raise DistributionError("distribution is not parametrised")
-        if self.zspace:
-            beta = self.cm.fz( self.z ) / bias
-            return ( 1 + beta * 2.0 / 3.0 + beta**2 / 5.0 ) * bias**2
-        return 1.0
 
     def mean(self) -> float:
         p = self.param( 'xi' ), self.param( 'mu' ), self.param( 'sigma' )
@@ -463,9 +471,9 @@ class GEV(Distribution):
 
         mu     = mlog - sigma * g1 / xi
 
+        self.sigma8, self.bias = sigma8, bias
+
         return super().parametrize(
-                                    sigma8 = sigma8,
-                                    bias   = bias,
                                     xi     = xi,
                                     mu     = mu,
                                     sigma  = sigma,
@@ -615,7 +623,7 @@ class GEV(Distribution):
         xi, mu, sigma = p
 
         if log:
-            return GEV.pdf( x, xi, mu, sigma ) # input is x := log( 1 + delta ) GEV.pdf( x, xi, mu, sigma )
+            return GEV.pdf( x, xi, mu, sigma ) # input is x := log( 1 + delta )
 
         x      = 1 + np.asfarray( x ) 
         y      = np.zeros_like( x )
@@ -623,16 +631,94 @@ class GEV(Distribution):
         y[ m ] = GEV.pdf( np.log( x[ m ] ), xi, mu, sigma ) / x[ m ]
         return y
     
-    def fcic(self, n: Any, mu: float) -> Any:
-        bias = self.param( 'bias' )
-        if bias is None:
+    def fcic(self, n: Any, mu: float, xa: float = -50, xb: float = 50, pts: int = 10001) -> Any:
+        return super().fcic(n, mu, xa, self.support().b, pts)
+
+class Lognormal(Distribution):
+    """
+    Lognormal distribution.
+    """        
+    __slots__ = 'sigma8', 'bias' 
+
+    def pdf(x: Any, mu: float = 0.0, sigma: float = 1.0) -> Any:
+        """
+        Lognormal probability density function.
+        """
+        if sigma <= 0.0:
+            raise DistributionError("sigma must be positive")
+        x = np.asfarray( x )
+        y = np.zeros_like( x )
+
+        support      = ( x > 0.0 )
+        s            = ( np.log( x[ support ] ) - mu ) / sigma
+        y[ support ] = np.exp( -0.5 * s**2 ) / x[ support ] / np.sqrt( 2 * np.pi ) / sigma
+        return y
+
+    def cdf(x: Any, mu: float = 0.0, sigma: float = 1.0) -> Any:
+        """ 
+        Lognormal cumulative distribution function.
+        """
+        if sigma <= 0.0:
+            raise DistributionError("sigma must be positive")
+        x = np.asfarray( x )
+        y = np.zeros_like( x )
+
+        support      = ( x > 0.0 )
+        s            = ( np.log( x[ support ] ) - mu ) / sigma
+        y[ support ] = 0.5 + 0.5 * erf( s / np.sqrt( 2 ) )
+        return y
+
+    def __init__(self, b: float, z: float, cm: Cosmology, zspace: bool = False) -> None:
+        super().__init__(b, z, cm, [ 's' ], zspace)
+
+        self.sigma8, self.bias = None, None
+
+    def support(self) -> Interval:
+        return NotImplemented
+    
+    def parametrize(self, sigma8: float, bias: float) -> None:
+        if sigma8 <= 0 or bias <= 0:
+            raise DistributionError("parameter should be positive")
+
+        self.cm.normalize( sigma8 )
+
+        delta_c = Constants.DELTA_C
+        var     = delta_c**2 / ( ( bias - 1 ) * delta_c + 1 ) # get variance corresponding to bias
+
+        # get radius correspond to this variance
+        def f(x: float) -> float:
+            return self.cm.nonlinearVariance( x, self.z ) - var
+
+        r   = newton( f, 1 )    
+
+        var = self.cm.nonlinearVariance(r, self.z)
+
+        self.sigma8, self.bias = sigma8, bias
+        return super().parametrize( 
+                                        s = np.log( 1 + var )
+                                  )
+
+    def f(self, x: Any, log: bool = False) -> Any:
+        s = self.param( 's' )
+        if s is None:
             raise DistributionError("distribution is not parametrised")
-        return super().fcic(n, bias, mu)
+
+        x = np.asfarray( x ) # x is log( delta + 1 )
+        if log:
+            y = np.exp( -0.5 * ( x / s + 0.5 * s )**2 ) / np.exp( x ) / s / np.sqrt( 2*np.pi )
+            return y
+        
+        # x is delta
+        x = x + 1
+        m = ( x > 0 )
+        y = np.zeros_like( x )
+        
+        y[ m ] = np.log( x[ m ] ) 
+        y[ m ] = np.exp( -0.5 * ( y[ m ] / s + 0.5 * s )**2 ) / x[ m ] / s / np.sqrt( 2*np.pi )
+        return y
+
+    
 
         
 
-
     
-
-    
-
