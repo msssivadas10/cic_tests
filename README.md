@@ -1,2 +1,2 @@
-# `cic_tests`: Module for Count-in-Cells Estimations
-`cic_tests` is a simple Python module containing tools for estimation the count in cells probility, from a galaxy distribution and theoretically. 
+# `cic_tests`: Count-in-Cells Tests
+Testing the count-in-cells (CIC) based cosmology parameter estimation.
