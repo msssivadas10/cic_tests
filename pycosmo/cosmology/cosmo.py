@@ -1,9 +1,28 @@
 #!\usr\bin\python3
 
-from typing import Any
 import numpy as np
 import pycosmo.cosmology.power as pm
 import pycosmo.constants as const
+from pycosmo.utils import simps
+from typing import Any
+
+class settings:
+    """
+    Settings for cosmology calculations.
+    """
+    # end-points for integration on half-real line [a, b], a --> 0 and b --> inf
+    a, b = 1E-08, 1E+08
+
+    # number of points used for integration
+    pts  = 10001
+
+    # step-size used for numerical differentiation
+    step = 0.01
+
+    # whether to use exact (integral) form for growth factor/rate
+    exactGrowth = False
+
+######################################################################################################
 
 class Cosmology:
     """
@@ -11,10 +30,10 @@ class Cosmology:
     """
     __slots__ = (
                     'h', 'Om0', 'Ob0', 'Ode0', 'Ok0', 'Onu0', 'Nnu', 'mnu', 'ns', 'Tcmb0', 
-                    'A', 'sigma8', 'psmodel', 'flat'
+                    'A', 'sigma8', 'psmodel', 'flat', 'pspline'
                 )
 
-    def __init__(self, flat: bool, h: float, Om0: float, Ob0: float, ns: float, Ode0: float = None, sigma8: float = None, Nnu: float = 0.0, Onu0: float = 0.0, psmodel: str = 'eisenstein98_zb', Tcmb0: float = 2.725) -> None:
+    def __init__(self, flat: bool, h: float, Om0: float, Ob0: float, ns: float, Ode0: float = None, sigma8: float = None, Nnu: float = 0.0, Onu0: float = 0.0, psmodel: str = 'eisenstein98_zb', Tcmb0: float = 2.725, ptab: Any = None) -> None:
         if h <= 0:
             raise ValueError("parameter 'h' must be positive")
         self.h = h
@@ -62,7 +81,21 @@ class Cosmology:
             raise ValueError("parameter 'Tcmb0' must be a positive value")
         self.Tcmb0 = Tcmb0
 
-        if not pm.available( psmodel ):
+        self.pspline = None
+        if psmodel == 'raw':
+            if ptab is None:
+                raise ValueError("'ptab' is required when raw power spectrum is used")
+            ptab = np.asfarray( ptab )
+            if np.ndim( ptab ) != 2:
+                raise TypeError("'ptab' must be a 2D array")
+            elif ptab.shape[1] != 2:
+                raise TypeError("'ptab' should be a 2-column array: 'ln(k)' and 'ln(P)'")
+
+            from scipy.interpolate import CubicSpline
+
+            self.pspline = CubicSpline( ptab[:,0], ptab[:,1] ) 
+
+        elif not pm.available( psmodel ):
             raise ValueError("model not available: '{}'".format( psmodel ))
         self.psmodel = psmodel
 
@@ -125,6 +158,22 @@ class Cosmology:
             y += self.Ok0 * zp1**2
         return self.Ode0 / y
 
+    def lagrangianR(self, m: Any) -> Any:
+        """
+        Lagrangian radius (in Mpc/h) corresponding to a mass (in Msun/h).
+        """
+        m    = np.asfarray( m )                 # Msun/h
+        rho0 = self.Om0 * const.RHO_CRIT0_ASTRO # h^2 Msun/Mpc^3
+        return np.cbrt( 0.75*m / ( np.pi * rho0 ) )
+
+    def lagrangianM(self, r: Any) -> Any:
+        """
+        Lagrangian mass (in Msun/h) corresponding to a radius (in Mpc/h)
+        """
+        r    = np.asfarray( r )                 # Mpc/h
+        rho0 = self.Om0 * const.RHO_CRIT0_ASTRO # h^2 Msun/Mpc^3
+        return ( 4*np.pi / 3.0 ) * r**3 * rho0
+
     def gz(self, z: Any) -> Any:
         """
         Fitting function for linear growth factor.
@@ -143,15 +192,17 @@ class Cosmology:
                                 + ( 1 + Om / 2.0 ) * ( 1 + Ode / 70.0 )
                           )**( -1 )
 
-    def Dz(self, z: Any, fac: float = None, exact: bool = False, zb: float = 1.0E+8, pts: int = 10001) -> Any:
+    def Dz(self, z: Any, fac: float = None, exact: bool = None) -> Any:
         """
         Linear growth factor.
         """
-        def _Dz(z: Any, exact: bool, zb: float, pts: int) -> Any:
+        def _Dz(z: Any, exact: bool) -> Any:
             zp1 = z + 1
 
             if not exact:
                 return self.gz( z ) / zp1
+
+            zb, pts = settings.b, settings.pts
 
             if zb < -1:
                 raise ValueError("redshift 'zb' cannot be less than -1")
@@ -167,9 +218,7 @@ class Cosmology:
             if not self.flat:
                 y += self.Ok0 * xp1**2
             y   = xp1**2 / y**1.5
-            y   = ( 
-                        y[ :-1:2,... ].sum(0) + 4 * y[ 1::2,... ].sum(0) + y[ 2::2,... ].sum(0)
-                    ) * dlnxp1 / 3
+            y   = simps( y, dlnxp1, 0 )
 
             w   = self.Om0 * zp1**3 + self.Ode0
             if not self.flat:
@@ -183,14 +232,20 @@ class Cosmology:
         if np.any( z < -1 ):
             raise ValueError("redshift 'z' cannot be less than -1")
 
-        if fac is None:
-            fac = 1.0 / _Dz( 0.0, exact, zb, pts )
-        return _Dz( z, exact, zb, pts ) * fac 
+        if exact is None:
+            exact = settings.exactGrowth
 
-    def fz(self, z: Any, exact: bool = False, zb: float = 1.0E+8, pts: int = 10001) -> Any:
+        if fac is None:
+            fac = 1.0 / _Dz( 0.0, exact )
+        return _Dz( z, exact ) * fac 
+
+    def fz(self, z: Any, exact: bool = None) -> Any:
         """
         Linear growth rate.
         """
+        if exact is None:
+            exact = settings.exactGrowth
+            
         if not exact:
             return self.Omz( z )**0.6
 
@@ -202,7 +257,7 @@ class Cosmology:
             y2 = self.Ok0*zp1**2
             y += y2
         
-        y1 = y1 * ( 2.5 / ( zp1*self.Dz( z, 1.0, exact, zb, pts ) ) - 1.5 )
+        y1 = y1 * ( 2.5 / ( zp1*self.Dz( z, 1.0, exact ) ) - 1.5 )
         if y2 is not None:
             y1 += y2
         return ( y1 / y )
@@ -233,6 +288,12 @@ class Cosmology:
         """
         if model is None:
             model = self.psmodel
+        if model == 'raw':
+            if self.pspline is None:
+                raise ValueError("cannot use model: 'raw'")
+            k  = np.asfarray( k )
+            pk = np.exp( self.pspline( np.log( k ) ) )
+            return np.sqrt( pk / k**self.ns )
         return pm.transfer( model, self, k, z )
 
     def matterPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True, model: str = None) -> Any:
@@ -245,22 +306,24 @@ class Cosmology:
             return pk
         return pk * k**3 / ( 2*np.pi**2 )
 
-    def variance(self, r: Any, z: float = 0, ka: float = 1.0E-08, kb: float = 1.0E+08, pts: int = 10001, model: str = None) -> Any:
+    def variance(self, r: Any, z: float = 0, model: str = None) -> Any:
         """ 
         Compute the linear matter variance.
         """
         if np.ndim( r ) > 1:
             raise TypeError("array dimension should be less than 2")
 
-        if pts < 3:
-            raise ValueError("'pts' must be greater than 2")
-        elif ( pts % 2 ):
-            pts = pts + 1
+        ka, kb, pts = settings.a, settings.b, settings.pts
         
-        if ka < 0.0 or kb < 0.0:
-            raise ValueError("'ka' and 'kb' should be positive")
+        if ka <= 0.0 or kb <= 0.0:
+            raise ValueError("'ka' and 'kb' must be positive") 
         elif kb <= ka:
             raise ValueError("'ka' should be less than 'kb'")
+
+        if pts < 3:
+                raise ValueError("'pts' must be greater than 2")
+        elif not ( pts % 2 ):
+            pts = pts + 1
 
         def filt(x: Any) -> Any:
             return ( np.sin( x ) - x * np.cos( x )) * 3. / x**3 
@@ -270,29 +333,49 @@ class Cosmology:
 
         # integration done in log(k) variable
         kr  = np.outer(r, k)
-        y   = self.matterPowerSpectrum( k, z, dim = False, model = model ) * filt( kr )**2 
-        var = ( 
-                    y[ ...,:-1:2 ].sum(-1) + 4 * y[ ...,1::2 ].sum(-1) + y[ ...,2::2 ].sum(-1)
-              ) * dlnk / 3
+        var = simps( 
+                        self.matterPowerSpectrum( k, z, dim = False, model = model ) * filt( kr )**2 , 
+                        dlnk
+                   )
 
         return var if np.ndim(r) else var[0] 
+    
+    def radius(self, sigma: Any, z: float = 0.0, model: str = None) -> Any:
+        """
+        Invert the variance equation to get the value of radius.
+        """        
+        from scipy.optimize import toms748
 
-    def dlnsdlnr(self, r: Any, z: float = 0, ka: float = 1.0E-08, kb: float = 1.0E+08, pts: int = 10001, model: str = None) -> Any:
+        def f(r: Any, z: float, model: str, var: Any) -> Any:
+            return self.variance( r, z, model ) - var
+
+        def _radius(var: Any) -> Any:
+            return toms748( f, 1.0E-05, 1.0E+05, args = ( z, model, var ) )
+
+        return np.asfarray( 
+                            list( 
+                                    map( _radius, np.asfarray( sigma )**2 ) 
+                                ) 
+                          )
+
+    def dlnsdlnr(self, r: Any, z: float = 0, model: str = None) -> Any:
         """ 
         Compute the logarithmic derivative of linear matter variance.
         """
         if np.ndim( r ) > 1:
             raise TypeError("array dimension should be less than 2")
 
-        if pts < 3:
-            raise ValueError("'pts' must be greater than 2")
-        elif ( pts % 2 ):
-            pts = pts + 1
+        ka, kb, pts = settings.a, settings.b, settings.pts
         
-        if ka < 0.0 or kb < 0.0:
-            raise ValueError("'ka' and 'kb' should be positive")
+        if ka <= 0.0 or kb <= 0.0:
+            raise ValueError("'ka' and 'kb' must be positive") 
         elif kb <= ka:
             raise ValueError("'ka' should be less than 'kb'")
+            
+        if pts < 3:
+                raise ValueError("'pts' must be greater than 2")
+        elif not ( pts % 2 ):
+            pts = pts + 1
 
         def filt(x: Any) -> Any:
             return ( np.sin( x ) - x * np.cos( x ) ) * 3.0 / x**3 
@@ -304,38 +387,39 @@ class Cosmology:
         k       = np.exp( k )    
 
         # integration done in log(k) variable
-        kr = np.outer(r, k)
-        y1 = self.matterPowerSpectrum( k, z, dim = False, model = model ) * filt( kr )
-        y2 = y1 * k * dfilt( kr )
-        y1 = y1 * filt( kr )
+        kr  = np.outer(r, k)
 
-        q1 = y1[ ..., :-1:2 ].sum(-1) + 4 * y1[ ..., 1::2 ].sum(-1) + y1[ ..., 2::2 ].sum(-1)
-        q2 = y2[ ..., :-1:2 ].sum(-1) + 4 * y2[ ..., 1::2 ].sum(-1) + y2[ ..., 2::2 ].sum(-1)        
+        y1  = self.matterPowerSpectrum( k, z, dim = False, model = model ) * filt( kr )
+        y2  = y1 * k * dfilt( kr )
+        y1  = y1 * filt( kr )
+        
+        out = simps( y2 ) / simps( y1 )
+        return r * ( out if np.ndim(r) else out[0] ) 
 
-        return r * ( q2 / q1 if np.ndim(r) else q2[0] / q1[0] ) 
-
-    def dlnsdlnm(self, r: Any, z: float = 0, ka: float = 1.0E-08, kb: float = 1.0E+08, pts: int = 10001, model: str = None) -> Any:
+    def dlnsdlnm(self, r: Any, z: float = 0, model: str = None) -> Any:
         """ 
         Compute the logarithmic derivative of linear matter variance.
         """
-        return self.dlnsdlnr( r, z, ka, kb, pts, model ) / 3.0
+        return self.dlnsdlnr( r, z, model ) / 3.0
 
-    def correlation(self, r: Any, z: float = 0, ka: float = 1.0E-08, kb: float = 1.0E+08, pts: int = 10001, model: str = None) -> Any:
+    def correlation(self, r: Any, z: float = 0, model: str = None) -> Any:
         """
         Linear matter correlation function.
         """
         if np.ndim( r ) > 1:
             raise TypeError("array dimension should be less than 2")
 
-        if pts < 3:
-            raise ValueError("'pts' must be greater than 2")
-        elif ( pts % 2 ):
-            pts = pts + 1
+        ka, kb, pts = settings.a, settings.b, settings.pts
         
-        if ka < 0.0 or kb < 0.0:
-            raise ValueError("'ka' and 'kb' should be positive")
+        if ka <= 0.0 or kb <= 0.0:
+            raise ValueError("'ka' and 'kb' must be positive") 
         elif kb <= ka:
             raise ValueError("'ka' should be less than 'kb'")
+            
+        if pts < 3:
+                raise ValueError("'pts' must be greater than 2")
+        elif not ( pts % 2 ):
+            pts = pts + 1
 
         def sinc(x: Any) -> Any:
             return np.sinc( x / np.pi )
@@ -345,26 +429,28 @@ class Cosmology:
 
         # integration done in log(k) variable
         kr  = np.outer(r, k)
-        y   = self.matterPowerSpectrum( k, z, dim = False, model = model ) * sinc( kr )
-        var = ( 
-                    y[ ...,:-1:2 ].sum(-1) + 4 * y[ ...,1::2 ].sum(-1) + y[ ...,2::2 ].sum(-1)
-              ) * dlnk / 3
+        var = simps(
+                        self.matterPowerSpectrum( k, z, dim = False, model = model ) * sinc( kr ),
+                        dlnk
+                   )
 
         return var if np.ndim(r) else var[0] 
     
-    def _correlation(self, r: Any, z: float = 0, ka: float = 1.0E-08, kb: float = 1.0E+08, pts: int = 101, model: str = None) -> Any:
+    def _correlation(self, r: Any, z: float = 0, model: str = None, pts: int = 101) -> Any:
         """
         Linear matter correlation function (note: slow).
         """
-        if pts < 3:
-            raise ValueError("'pts' must be greater than 2")
-        elif ( pts % 2 ):
-            pts = pts + 1
+        ka, kb = settings.a, settings.b
         
-        if ka < 0.0 or kb < 0.0:
-            raise ValueError("'ka' and 'kb' should be positive")
+        if ka <= 0.0 or kb <= 0.0:
+            raise ValueError("'ka' and 'kb' must be positive") 
         elif kb <= ka:
             raise ValueError("'ka' should be less than 'kb'")
+            
+        if pts < 3:
+                raise ValueError("'pts' must be greater than 2")
+        elif not ( pts % 2 ):
+            pts = pts + 1
 
         def sinc(x: Any) -> Any:
             return np.sinc( x / np.pi )
@@ -377,13 +463,14 @@ class Cosmology:
                 k       = np.exp( k )    
 
                 # integration done in log(k) variable
-                y = self.matterPowerSpectrum( k, z, dim = False, model = model ) * sinc( k*r )
-                q = ( 
-                        y[ :-1:2 ].sum(-1) + 4 * y[ 1::2 ].sum(-1) + y[ 2::2 ].sum(-1)
-                    ) * dlnk / 3
-                cor  += q
-                kai   = kbi
-                kbi  += np.pi / r
+                q = simps(
+                            self.matterPowerSpectrum( k, z, dim = False, model = model ) * sinc( k*r ),
+                            dlnk
+                         )
+
+                cor += q
+                kai  = kbi
+                kbi += np.pi / r
                 if kbi > kb:
                     break
                 if cor and np.abs( q / cor ) < 1.0E-4:
@@ -396,35 +483,50 @@ class Cosmology:
             return np.asfarray( list( map( _correlation, r ) ) )
         return _correlation( r )
 
-    def powerNorm(self, sigma8: float, **kwargs: Any) -> float:
+    def powerNorm(self, sigma8: float, model: str = None) -> float:
         """
         Get the power spectrum normalization without setting it.
         """ 
-        return sigma8**2 / self.variance( 8.0, **kwargs )
+        return sigma8**2 / self.variance( 8.0, 0.0, model )
 
-    def normalize(self, sigma8: float, **kwargs: Any) -> None:
+    def normalize(self, sigma8: float, model: str = None) -> None:
         """
         Normalize the power spectrum.
         """
         self.A      = 1.0
         self.sigma8 = sigma8
-        self.A      = self.powerNorm( sigma8, **kwargs )
+        self.A      = self.powerNorm( sigma8, model )
 
-    def lagrangianR(self, m: Any) -> Any:
+    def effectiveIndex(self, k: Any, z: float = 0.0, model: str = None) -> Any:
         """
-        Lagrangian radius (in Mpc/h) corresponding to a mass (in Msun/h).
+        Compute the slope of the power spectrum.
         """
-        m    = np.asfarray( m )                 # Msun/h
-        rho0 = self.Om0 * const.RHO_CRIT0_ASTRO # h^2 Msun/Mpc^3
-        return np.cbrt( 0.75*m / ( np.pi * rho0 ) )
+        h = settings.step
+        if h <= 0.0:
+            raise ValueError("'h' cannot be negative or zero")
 
-    def lagrangianM(self, r: Any) -> Any:
-        """
-        Lagrangian mass (in Msun/h) corresponding to a radius (in Mpc/h)
-        """
-        r    = np.asfarray( r )                 # Mpc/h
-        rho0 = self.Om0 * const.RHO_CRIT0_ASTRO # h^2 Msun/Mpc^3
-        return ( 4*np.pi / 3.0 ) * r**3 * rho0
+        k    = np.asfarray( k )
+        dlnp = (
+                    -np.log( 
+                                self.matterPowerSpectrum( (1+2*h)*k, z, dim = False, model = model ) 
+                        )
+                        + 8.0*np.log( 
+                                        self.matterPowerSpectrum( (1+h)*k, z, dim = False, model = model ) 
+                                    )
+                        - 8.0*np.log( 
+                                        self.matterPowerSpectrum( (1-h)*k, z, dim = False, model = model ) 
+                                    )
+                        + np.log( 
+                                    self.matterPowerSpectrum( (1-2*h)*k, z, dim = False, model = model ) 
+                                )
+                )
+        dlnk = ( np.log( (1+h)*k ) - np.log( (1-h)*k ) )
+        
+        return dlnp / dlnk
+
+
+
+#########################################################################################################
 
 class LambdaCDM( Cosmology ):
     """
