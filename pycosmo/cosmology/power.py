@@ -1,6 +1,10 @@
 import numpy as np
 from typing import Any
+from pycosmo.utils import FunctionTable, addfunction
 
+ftable = FunctionTable('power')
+
+@addfunction('eisenstein98_bao', ftable, fclass = 'power', cosmo = True)
 def eisenstein98_withBaryon(cm: object, k: Any, z: float = None) -> Any:
     """
     Transfer function by Eisenstein & Hu, with baryon oscillations.
@@ -91,6 +95,7 @@ def eisenstein98_withBaryon(cm: object, k: Any, z: float = None) -> Any:
 
     return fb * tb + fc * tc # full transfer function : eqn. 16
 
+@addfunction('eisenstein98_zb', ftable, fclass = 'power', cosmo = True)
 def eisenstein98_zeroBaryon(cm: object, k: Any, z: float = None) -> Any:
     """
     Transfer function by Eisenstein & Hu, without baryon oscillations.
@@ -113,6 +118,7 @@ def eisenstein98_zeroBaryon(cm: object, k: Any, z: float = None) -> Any:
     c = 14.2 + 731.0 / ( 1 + 62.5*q )
     return l / ( l + c*q**2 )
 
+@addfunction('eisenstein98_nu', ftable, fclass = 'power', z = True, cosmo = True)
 def eisenstein98_withNeutrino(cm: object, k: Any, z: float) -> Any:
     """
     Transfer function by Eisenstein & Hu, with neutrino (no baryon oscillations).
@@ -173,6 +179,7 @@ def eisenstein98_withNeutrino(cm: object, k: Any, z: float) -> Any:
 
     return Tk_master * Dcb
 
+@addfunction('sugiyama96', ftable, fclass = 'power', cosmo = True)
 def sugiyama96(cm: object, k: Any, z: float = None) -> Any:
     """
     Transfer function Bardeen et al, with correction by Sugiyama.
@@ -193,29 +200,23 @@ def sugiyama96(cm: object, k: Any, z: float = None) -> Any:
     return Tk
 
 
+########################################################################################################
 
-_functab = {
-                'eisenstein98_bao' : eisenstein98_withBaryon,
-                'eisenstein98_zb'  : eisenstein98_zeroBaryon,
-                'eisenstein98_nu'  : eisenstein98_withNeutrino,
-                'sugiyama96'       : sugiyama96,
-           }
+ftable.setMapping( { 'bbks': 'sugiyama96',  } )
 
 def available(model: str) -> bool:
     """
-    Check if the given model is available.
+    Check if a model is available.
     """
-    return ( model in _functab.keys() )
+    return ftable.exists( model )
 
 def transfer(model: str, cm: object, k: Any, z: float = None) -> Any:
     """
     Compute the transfer function of given model. 
     """
-    if model == 'bbks':
-        model = 'sugiyama96'
         
-    if not available( model ):
+    if not ftable.exists( model ):
         raise ValueError("model is not available: '{}'".format( model ))
     
-    tfunc = _functab[ model ]
+    tfunc = ftable[ model ]
     return tfunc( cm, k, z )
