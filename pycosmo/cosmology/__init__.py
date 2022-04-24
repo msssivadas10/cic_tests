@@ -2,5 +2,5 @@
 
 __all__ = [ 'cosmo', 'power',  ]
 
-from pycosmo.cosmology.cosmo import Cosmology, LambdaCDM, FlatLambdaCDM
+from pycosmo.cosmology.models import Cosmology
 from pycosmo.cosmology.power import transfer
