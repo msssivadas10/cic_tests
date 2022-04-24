@@ -2,10 +2,10 @@ import numpy as np
 from typing import Any
 from pycosmo.utils import FunctionTable, addfunction
 
-ftable = FunctionTable('power')
+ftable = FunctionTable( 'power' )
 
 @addfunction('eisenstein98_bao', ftable, fclass = 'power', cosmo = True)
-def eisenstein98_withBaryon(cm: object, k: Any, z: float = None) -> Any:
+def psmodelEisenstein98_withBaryon(cm: Any, k: Any, z: float = None) -> Any:
     """
     Transfer function by Eisenstein & Hu, with baryon oscillations.
     """
@@ -96,7 +96,7 @@ def eisenstein98_withBaryon(cm: object, k: Any, z: float = None) -> Any:
     return fb * tb + fc * tc # full transfer function : eqn. 16
 
 @addfunction('eisenstein98_zb', ftable, fclass = 'power', cosmo = True)
-def eisenstein98_zeroBaryon(cm: object, k: Any, z: float = None) -> Any:
+def psmodelEisenstein98_zeroBaryon(cm: Any, k: Any, z: float = None) -> Any:
     """
     Transfer function by Eisenstein & Hu, without baryon oscillations.
     """
@@ -119,7 +119,7 @@ def eisenstein98_zeroBaryon(cm: object, k: Any, z: float = None) -> Any:
     return l / ( l + c*q**2 )
 
 @addfunction('eisenstein98_nu', ftable, fclass = 'power', z = True, cosmo = True)
-def eisenstein98_withNeutrino(cm: object, k: Any, z: float) -> Any:
+def psmodelEisenstein98_withNeutrino(cm: Any, k: Any, z: float) -> Any:
     """
     Transfer function by Eisenstein & Hu, with neutrino (no baryon oscillations).
     """
@@ -180,7 +180,7 @@ def eisenstein98_withNeutrino(cm: object, k: Any, z: float) -> Any:
     return Tk_master * Dcb
 
 @addfunction('sugiyama96', ftable, fclass = 'power', cosmo = True)
-def sugiyama96(cm: object, k: Any, z: float = None) -> Any:
+def psmodelSugiyama96(cm: Any, k: Any, z: float = None) -> Any:
     """
     Transfer function Bardeen et al, with correction by Sugiyama.
     """
@@ -210,7 +210,7 @@ def available(model: str) -> bool:
     """
     return ftable.exists( model )
 
-def transfer(model: str, cm: object, k: Any, z: float = None) -> Any:
+def transfer(model: str, cm: Any, k: Any, z: float = None) -> Any:
     """
     Compute the transfer function of given model. 
     """
