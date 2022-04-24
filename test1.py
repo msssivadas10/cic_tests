@@ -65,11 +65,13 @@ def lognorm(b: float, z: float, cm: Cosmology, sigma8: float, bias: float):
 
     return x, y
 
-@plotit()
+@plotit(scale = 'semilogx')
 def main1():
     cm   = Cosmology( Om0 = 0.3, Ob0 = 0.05, h = 0.70 )
     # x, y = gev( 2.0, 0.0, cm, 1.0, 0.8 )
-    x, y = lognorm( 2.0, 0, cm, 1.0, 0.8 )
+    # x, y = lognorm( 2.0, 0, cm, 1.0, 0.8 )
+    x = np.logspace(-3, 3, 21)
+    y = cm.neff( x )
     return x, y
 
 
@@ -97,4 +99,4 @@ def main2():
 
 
 
-main2()
+main1()

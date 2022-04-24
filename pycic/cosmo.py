@@ -239,7 +239,7 @@ class Cosmology:
         k     = np.asfarray( k ) * 0.5
         left  = (1 + 0.5 * delta) * k
         right = (1 - 0.5 * delta) * k
-        dlnk  = np.log(right) - np.log(left)
+        dlnk  = 2.0 * ( np.log(right) - np.log(left) )
         dlnp  = np.log( self.matterPowerSpectrum(right, z) ) - np.log( self.matterPowerSpectrum(left, z) )
         return dlnp / dlnk
 
