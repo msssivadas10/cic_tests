@@ -1,6 +1,4 @@
 
-########################################################################################################
-
 import numpy as np
 import pycosmo.core.filters as filters
 import pycosmo.power.transfer_functions as pm
