@@ -1,10 +1,9 @@
 #!\usr\bin\python3
 
 from typing import Any
-from pycosmo.utils import FunctionTable, addfunction
-from pycosmo.cosmology import Cosmology
-from pycosmo.lss.helpers import mdefParser
-import pycosmo.constants as const
+from pycosmo.utils.function_table import FunctionTable, addfunction
+from pycosmo.lss.helpers import parseMassDefinition
+import pycosmo.utils.constants as const
 import numpy as np
 
 
@@ -94,7 +93,7 @@ def mf_Reed03(sigma: Any) -> Any:
     return mf_Sheth01( sigma ) * np.exp( -0.7 / ( sigma * np.cosh( 2*sigma )**5 ) )
 
 @addfunction( 'reed07', ftable, fclass = 'bias', z = True, cosmo = True, mdef = [ 'fof' ] )
-def mf_Reed07(sigma: Any, z: float, cm: Cosmology) -> Any:
+def mf_Reed07(sigma: Any, z: float, cm: object) -> Any:
     """
     Fitting function by Reed et al. (2007).
     """
@@ -157,14 +156,17 @@ def available(model: str) -> bool:
     """
     Check if the model is available.
     """
+    if model is None:
+        return list( ftable.keys() )
     return ftable.exists( model )
 
-def massFunction(m: Any, cm: Cosmology, z: float = 0.0, model: str = 'tinker08', mdef: str = 'fof', out: str = 'dndlnm') -> Any:
+def massFunction(cm: object, m: Any, z: float = 0.0, model: str = 'tinker08', mdef: str = 'fof', out: str = 'dndlnm') -> Any:
     """
     Compute the halo mass-function.
     """
-    if not isinstance( cm, Cosmology ):
-        raise TypeError("'cm' must be a 'Cosmology' object")
+    # from pycosmo.core.cosmology import Cosmology
+    # if not isinstance( cm, Cosmology ):
+    #     raise TypeError("'cm' must be a 'Cosmology' object")
 
     if z < -1.0:
         raise ValueError("redshift 'z' must be greater than -1")
@@ -176,7 +178,10 @@ def massFunction(m: Any, cm: Cosmology, z: float = 0.0, model: str = 'tinker08',
 
     # compute f( sigma ) of given model:
     if not ftable.exists( model ):
-        raise ValueError("model is not available: '{}'".format( model ))
+        _all = ', '.join( map( lambda name: f"'{ name }'", ftable.keys() ) ) 
+        msg  = "mass-function model '{}' is not available. available models are [{}]".format( model, _all )
+        raise ValueError( msg )
+
     f = ftable[ model ]
 
     args = { 'sigma': sigma }
@@ -184,7 +189,7 @@ def massFunction(m: Any, cm: Cosmology, z: float = 0.0, model: str = 'tinker08',
     if f.z_dependent:
         args[ 'z' ] = z
 
-    delta, mdef = mdefParser( mdef, z, cm )
+    delta, mdef = parseMassDefinition( mdef, z, cm )
     if mdef not in f.mdef:
         raise ValueError("invalid mass definition: '{}'".format( mdef ))
     if mdef != 'fof':

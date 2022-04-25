@@ -3,7 +3,7 @@
 import numpy as np
 from typing import Any
 
-def nlpmodelHalofit(cm: Any, k: Any, z: float = 0.0) -> Any:
+def nlpmodelHalofit(cm: object, k: Any, z: float = 0.0) -> Any:
     """
     Non-linear power spectrum using **halofit**.
     """
@@ -48,7 +48,7 @@ def nlpmodelHalofit(cm: Any, k: Any, z: float = 0.0) -> Any:
 
     return delta2Q + delta2H
 
-def nlpmodelPeacock(cm: Any, k: Any, z: float) -> Any:
+def nlpmodelPeacock(cm: Any, k: Any, z: float = 0.0) -> Any:
     """
     Non-linear power spectrum by Peacock and Dodds formula.
     """

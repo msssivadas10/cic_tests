@@ -1,8 +1,7 @@
 #!/usr/bin/python3
 
 import numpy as np
-import pycosmo.constants as const
-from pycosmo.cosmology.cosmo import Cosmology
+import pycosmo.utils.constants as const
 from typing import Any
 
 def bias_Cole89(nu: Any):
@@ -44,7 +43,7 @@ def bias_Tinker10(nu: Any, Delta: float):
     c  = 2.4
     return 1.0 - A * nu**a / ( nu**a + const.DELTA_C**a ) + B * nu**b + C * nu**c
 
-def bias_Jing98(nu: Any, z: float, cm: Cosmology) -> Any:
+def bias_Jing98(nu: Any, z: float, cm: object) -> Any:
     """
     Fitting function by Jing (1998).
     """
@@ -54,7 +53,7 @@ def bias_Jing98(nu: Any, z: float, cm: Cosmology) -> Any:
     return ( 0.5 / nu**4 + 1 )**( 0.06 - 0.02*neff ) * ( 1 + ( nu**2 - 1 ) / const.DELTA_C )
 
 
-def bias_Seljak04(nu: Any, z: float, cm: Cosmology, correction: bool = False) -> Any:
+def bias_Seljak04(nu: Any, z: float, cm: object, correction: bool = False) -> Any:
     """
     Fitting function by Seljak et al (2004).
     """

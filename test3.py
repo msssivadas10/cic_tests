@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.style.use( 'ggplot' )
 
-from pycosmo.cosmology.models import Cosmology
+from pycosmo.core.cosmology import Cosmology
 
 c1 = Cosmology(True, 0.7, 0.3, 0.05, sigma8 = 0.8)
 
@@ -20,7 +20,7 @@ plt.loglog()
 # plt.semilogx()
 
 x = np.logspace( -3, 3, 21)
-y = c1.variance( x )
+y = c1.matterPowerSpectrum( x )
 
 plt.plot( x, y, '-o', ms = 3)
 

@@ -1,9 +1,8 @@
 #!\usr\bin\python3
 
 import numpy as np
-from pycosmo.cosmology import Cosmology
 
-def mdefParser(value: str, z: float = None, cm: Cosmology = None) -> tuple:
+def parseMassDefinition(value: str, z: float = None, cm: object = None) -> tuple:
     """
     Parse a mass definition string.
     """

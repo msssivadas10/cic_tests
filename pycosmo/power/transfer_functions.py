@@ -1,8 +1,8 @@
 import numpy as np
 from typing import Any
-from pycosmo.utils import FunctionTable, addfunction
+from pycosmo.utils.function_table import FunctionTable, addfunction
 
-ftable = FunctionTable( 'power' )
+ftable = FunctionTable( 'transfer_functions' )
 
 @addfunction('eisenstein98_bao', ftable, fclass = 'power', cosmo = True)
 def psmodelEisenstein98_withBaryon(cm: Any, k: Any, z: float = None) -> Any:
@@ -204,10 +204,12 @@ def psmodelSugiyama96(cm: Any, k: Any, z: float = None) -> Any:
 
 ftable.setMapping( { 'bbks': 'sugiyama96',  } )
 
-def available(model: str) -> bool:
+def available(model: str = None) -> Any:
     """
     Check if a model is available.
     """
+    if model is None:
+        return list( ftable.keys() )
     return ftable.exists( model )
 
 def transfer(model: str, cm: Any, k: Any, z: float = None) -> Any:
@@ -216,7 +218,9 @@ def transfer(model: str, cm: Any, k: Any, z: float = None) -> Any:
     """
         
     if not ftable.exists( model ):
-        raise ValueError("model is not available: '{}'".format( model ))
+        _all = ', '.join( map( lambda name: f"'{ name }'", ftable.keys() ) ) 
+        msg  = "transfer function model '{}' is not available. available models are [{}]".format( model, _all )
+        raise ValueError( msg )
     
     tfunc = ftable[ model ]
     return tfunc( cm, k, z )
