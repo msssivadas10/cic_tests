@@ -77,3 +77,20 @@ def nlpmodelPeacock(cm: Any, k: Any, z: float = 0.0) -> Any:
                                 )**( 1/beta )
     return dnl
 
+def nonlinearPowerSpectrum(cm: Any, k: Any, z: float = 0.0, dim: bool = True, model: str = 'pd') -> Any:
+    """
+    Compute the non-linear matter power spectrum.
+    """
+    k = np.asfarray( k )
+    if model == 'pd':
+        Dk = nlpmodelPeacock( cm, k, z )
+    elif model == 'halofit':
+        Dk = nlpmodelHalofit( cm, k, z )
+    else:
+        raise ValueError(f"unknown model key: '{ model }")
+
+    if dim:
+        return ( 2*np.pi**2 ) * Dk * k**-3
+    return Dk
+
+    

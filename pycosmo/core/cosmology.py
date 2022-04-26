@@ -1,7 +1,7 @@
 
 import numpy as np
 import pycosmo.core.filters as filters
-import pycosmo.power.transfer_functions as pm
+import pycosmo.power.linear_power as lp
 import pycosmo.power.nonlinear_power as nlp
 import pycosmo.lss.massfunction as hmf
 from pycosmo.core.components import ( 
@@ -136,7 +136,7 @@ class Cosmology:
         if isinstance( value, str ):
             # value is a valid string name of a (linear) model
 
-            if not pm.available( value ):
+            if not lp.available( value ):
                 raise ValueError(f"power spectrum model not available: '{ value }'")
             self.psmodel = value
         else:
@@ -567,34 +567,23 @@ class Cosmology:
                             np.exp( self.pspline( np.log( k ) ) ) / k**self.ns 
                           )
             
-        return pm.transfer( model, self, k, z )
+        return lp.transfer( self, k, z, model )
 
     def linearPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True) -> Any:
         """
         Compute linear matter power spectrum. 
         """
-        k  = np.asfarray( k )
-        pk = self.A * k**self.ns * self.transfer( k, z )**2 * self.Dz( z )**2
-        if dim:
-            return pk
-        return pk * k**3 / ( 2*np.pi**2 )
+        model = self.psmodel
+        if model == 'raw':
+            return self.A * np.exp( self.pspline( np.log( k ) ) )
+        return lp.linearPowerSpectrum( self, k, z, dim, model )
     
     def nonlinearPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True) -> Any:
         """
         Compute the non-linear power spectrum.
         """
         model = settings.nlpower
-
-        if model == 'halofit':
-            dnl = nlp.nlpmodelHalofit( self, k, z )
-        elif model == 'pd':
-            dnl = nlp.nlpmodelPeacock( self, k, z )
-        else:
-            raise ValueError(f"invalid model: '{ model }'")
-
-        if dim:
-            return 2*np.pi**2 * dnl / np.asfarray( k )**3
-        return dnl
+        return nlp.nonlinearPowerSpectrum( self, k, z, dim, model )
 
     def knl(self, k: Any, z: float = 0.0) -> Any:
         """

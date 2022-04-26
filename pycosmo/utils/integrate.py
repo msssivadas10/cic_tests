@@ -4,7 +4,7 @@ import numpy as np
 from typing import Any
 from itertools import repeat
 
-def simps(y: Any, dx: Any = 1.0, axis: int = -1) -> Any:
+def simps(y: Any, dx: Any = None, axis: int = -1) -> Any:
     """
     Simpsons rule integration.
     """
@@ -24,6 +24,9 @@ def simps(y: Any, dx: Any = 1.0, axis: int = -1) -> Any:
 
     i1, i2, i3 = tuple( i1 ), tuple( i2 ), tuple( i3 )
     
-    return (
+    retval = (
                 y[ i1 ].sum( axis ) + 4.0*y[ i2 ].sum( axis ) + y[ i3 ].sum( axis )
-           ) * ( dx / 3.0 )
+             ) / 3.0
+    if dx is not None:
+        return retval * dx
+    return retval

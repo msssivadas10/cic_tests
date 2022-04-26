@@ -5,7 +5,7 @@ from pycosmo.utils.function_table import FunctionTable, addfunction
 ftable = FunctionTable( 'transfer_functions' )
 
 @addfunction('eisenstein98_bao', ftable, fclass = 'power', cosmo = True)
-def psmodelEisenstein98_withBaryon(cm: Any, k: Any, z: float = None) -> Any:
+def psmodelEisenstein98_withBaryon(cm: object, k: Any, z: float = None) -> Any:
     """
     Transfer function by Eisenstein & Hu, with baryon oscillations.
     """
@@ -96,7 +96,7 @@ def psmodelEisenstein98_withBaryon(cm: Any, k: Any, z: float = None) -> Any:
     return fb * tb + fc * tc # full transfer function : eqn. 16
 
 @addfunction('eisenstein98_zb', ftable, fclass = 'power', cosmo = True)
-def psmodelEisenstein98_zeroBaryon(cm: Any, k: Any, z: float = None) -> Any:
+def psmodelEisenstein98_zeroBaryon(cm: object, k: Any, z: float = None) -> Any:
     """
     Transfer function by Eisenstein & Hu, without baryon oscillations.
     """
@@ -119,7 +119,7 @@ def psmodelEisenstein98_zeroBaryon(cm: Any, k: Any, z: float = None) -> Any:
     return l / ( l + c*q**2 )
 
 @addfunction('eisenstein98_nu', ftable, fclass = 'power', z = True, cosmo = True)
-def psmodelEisenstein98_withNeutrino(cm: Any, k: Any, z: float) -> Any:
+def psmodelEisenstein98_withNeutrino(cm: object, k: Any, z: float) -> Any:
     """
     Transfer function by Eisenstein & Hu, with neutrino (no baryon oscillations).
     """
@@ -180,7 +180,7 @@ def psmodelEisenstein98_withNeutrino(cm: Any, k: Any, z: float) -> Any:
     return Tk_master * Dcb
 
 @addfunction('sugiyama96', ftable, fclass = 'power', cosmo = True)
-def psmodelSugiyama96(cm: Any, k: Any, z: float = None) -> Any:
+def psmodelSugiyama96(cm: object, k: Any, z: float = None) -> Any:
     """
     Transfer function Bardeen et al, with correction by Sugiyama.
     """
@@ -212,7 +212,7 @@ def available(model: str = None) -> Any:
         return list( ftable.keys() )
     return ftable.exists( model )
 
-def transfer(model: str, cm: Any, k: Any, z: float = None) -> Any:
+def transfer(cm: object, k: Any, z: float = 0.0, model: str = 'eisenstein98_zb') -> Any:
     """
     Compute the transfer function of given model. 
     """
@@ -224,3 +224,13 @@ def transfer(model: str, cm: Any, k: Any, z: float = None) -> Any:
     
     tfunc = ftable[ model ]
     return tfunc( cm, k, z )
+
+def linearPowerSpectrum(cm: Any, k: Any, z: float = 0.0, dim: bool = True, model: str = 'eisenstein98_zb') -> Any:
+    """
+    Compute the linear power spectrum.
+    """
+    k  = np.asfarray( k )
+    Pk = cm.A * transfer( model, cm, k, z )**2 * k**cm.ns * cm.Dz( z )**2
+    if dim:
+        return Pk
+    return Pk * k**3 / ( 2*np.pi**2 )
