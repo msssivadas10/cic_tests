@@ -26,7 +26,7 @@ def compare(scale: str = None, xlab: str = '', ylab: str = '', col: str = 'C0', 
 
 @compare(scale='loglog', figsize=[8,6])
 def test_bbks():
-    c1 = cm.Cosmology(True, h=0.7, Om0=0.3, Ob0=0.05, ns=1.0, sigma8=0.8, power_spectrum='bbks')
+    c1 = cm.Cosmology(True, h=0.7, Om0=0.3, Ob0=0.05, ns=1.0, sigma8=0.8, transfer_function='bbks')
     c2 = pyccl.Cosmology(Omega_c=0.25, Omega_b=0.05, h=0.7, n_s=1.0, sigma8=0.8, transfer_function='bbks')
     k  = np.logspace(-3, 3, 21)
     p2 = pyccl.linear_matter_power(c2, k*0.7, 1.0) * 0.7**3
@@ -35,7 +35,7 @@ def test_bbks():
 
 @compare(scale='loglog', figsize=[8,6])
 def test_eh():
-    c1 = cm.Cosmology(True, h=0.7, Om0=0.3, Ob0=0.05, ns=1.0, sigma8=0.8, power_spectrum='eisenstein98_bao')
+    c1 = cm.Cosmology(True, h=0.7, Om0=0.3, Ob0=0.05, ns=1.0, sigma8=0.8, transfer_function='eisenstein98_bao')
     c2 = pyccl.Cosmology(Omega_c=0.25, Omega_b=0.05, h=0.7, n_s=1.0, sigma8=0.8, transfer_function='eisenstein_hu')
     k  = np.logspace(-3, 3, 21)
     p2 = pyccl.linear_matter_power(c2, k*0.7, 1.0) * 0.7**3
@@ -44,7 +44,7 @@ def test_eh():
 
 @compare(scale='loglog', figsize=[8,6])
 def test_sigma():
-    c1 = cm.Cosmology(True, h=0.7, Om0=0.3, Ob0=0.05, ns=1.0, sigma8=0.8, power_spectrum='eisenstein98_bao')
+    c1 = cm.Cosmology(True, h=0.7, Om0=0.3, Ob0=0.05, ns=1.0, sigma8=0.8, transfer_function='eisenstein98_bao')
     c2 = pyccl.Cosmology(Omega_c=0.25, Omega_b=0.05, h=0.7, n_s=1.0, sigma8=0.8, transfer_function='eisenstein_hu')
     r  = np.logspace(-3, 3, 21)
     p2 = pyccl.sigmaR(c2, r/0.7, 1.0)**2

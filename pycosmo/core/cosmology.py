@@ -35,17 +35,16 @@ class settings:
     # non-linear power spectrum model
     nlpower = 'pd'
 
-
 class Cosmology:
     """
     Represents a basic cosmology model.
     """
     __slots__ = (
-                    'name', 'univ', 'h', 'sigma8', 'ns', 'Tcmb0', 'A', 'psmodel', 'ptable', 'flat',
+                    'name', 'univ', 'h', 'sigma8', 'ns', 'Tcmb0', 'A', 'psmodel', 'tftable', 'flat',
                     'demodel', 'hmfmodel', 'biasmodel',
                 )
 
-    def __init__(self, flat: bool = True, h: float = None, Om0: float = None, Ob0: float = None, Ode0: float = None, Onu0: float = 0.0, Nnu: float = None, sigma8: float = None, ns: float = 1.0, w0: float = -1.0, wa: float = 0.0, Tcmb0: float = 2.725, power_spectrum: str = 'eisenstein98_zb', filter: str = 'tophat', hmfmodel: str = None, bias_model: str = None) -> None:
+    def __init__(self, flat: bool = True, h: float = None, Om0: float = None, Ob0: float = None, Ode0: float = None, Onu0: float = 0.0, Nnu: float = None, sigma8: float = None, ns: float = 1.0, w0: float = -1.0, wa: float = 0.0, Tcmb0: float = 2.725, transfer_function: str = 'eisenstein98_zb', filter: str = 'tophat', hmfmodel: str = None, bias_model: str = None) -> None:
         if h is None:
             raise ValueError("required argument: 'h'")
         elif h <= 0.0:
@@ -74,13 +73,13 @@ class Cosmology:
             raise ValueError(f"invalid filter key: '{ filter }")
 
         # set the power spectrum model:
-        self.setPowerSpectrum( power_spectrum )
+        self.setTransferFunction( transfer_function )
 
         # set the mass-function model:
-        self.sethmf( hmfmodel )
+        self.setHaloMassFunction( hmfmodel )
 
         # set linear bias model: 
-        self.setbias( bias_model )  
+        self.setBias( bias_model )  
 
     def _createUniverse(self, flat: bool, Om0: float, Ob0: float, Ode0: float, wde: Any, Onu0: float, Nnu: float) -> None:
         """
@@ -127,36 +126,36 @@ class Cosmology:
         self.flat    = flat or univ.flat
         self.demodel = de.name
 
-    def setPowerSpectrum(self, value: Any) -> None:
+    def setTransferFunction(self, value: Any) -> None:
         """
-        Set a power spectrum model.
+        Set a transfer function model.
         """
-        self.ptable = None
+        self.tftable = None
 
         if isinstance( value, str ):
             # value is a valid string name of a (linear) model
 
             if not lp.available( value ):
-                raise ValueError(f"power spectrum model not available: '{ value }'")
+                raise ValueError(f"transfer function model not available: '{ value }'")
             self.psmodel = value
         else:
             # value is a tabulated power spectrum
 
             if np.ndim( value ) != 2:
-                raise TypeError("power spectrum table must be a 2D array")
+                raise TypeError("transfer function table must be a 2D array")
             value = np.asfarray( value )
             if value.shape[1] != 2:
-                raise TypeError("power spectrum table should only have 2 coulmns: 'lnk' and 'lnPk'")
+                raise TypeError("transfer function table should only have 2 coulmns: 'lnk' and 'lnPk'")
 
             from scipy.interpolate import CubicSpline
 
-            lnk, lnPk   = value.T
-            self.ptable = CubicSpline( lnk, lnPk )
+            lnk, lnPk    = value.T
+            self.tftable = CubicSpline( lnk, lnPk )
             self.psmodel = 'rawdata'   
 
         return self.normalize()
 
-    def sethmf(self, value: str) -> None:
+    def setHaloMassFunction(self, value: str) -> None:
         """
         Set the halo mass-function model to use.
         """
@@ -164,7 +163,7 @@ class Cosmology:
             raise ValueError(f"mass-function model not available: '{ value }'")
         self.hmfmodel = value
 
-    def setbias(self, value: str) -> None:
+    def setBias(self, value: str) -> None:
         """
         Set the linear bias model to use.
         """
