@@ -63,12 +63,24 @@ class CosmologyData( ABC ):
         self._sigma8 = sigma8
 
         # power spectrum index:
+        if ns is None:
+            raise CosmologyError( "required parameter: 'ns'" )
         self._ns = ns
 
         # set dark energy model:
+        if dark_energy is None:
+            raise CosmologyError( "required parameter: 'dark_energy'" )
         self.setmodel_darkEnergy( dark_energy )
 
-        # initialize components in the universe
+        if Om0 is None:
+            raise CosmologyError( "required parameter: 'Om0'" )
+        elif Ob0 is None:
+            raise CosmologyError( "required parameter: 'Ob0'" )
+        elif not flat and Ode0 is None:
+            raise CosmologyError( "required parameter: 'Ode0'" ) 
+
+        # initialize components in the universe:
+        
         
 
     @abstractmethod
