@@ -230,7 +230,7 @@ def linearPowerSpectrum(cm: Any, k: Any, z: float = 0.0, dim: bool = True, model
     Compute the linear power spectrum.
     """
     k  = np.asfarray( k )
-    Pk = cm.A * transfer( model, cm, k, z )**2 * k**cm.ns * cm.Dz( z )**2
+    Pk = cm.A * transfer( cm, k, z, model )**2 * k**cm.ns * cm.Dz( z )**2
     if dim:
         return Pk
     return Pk * k**3 / ( 2*np.pi**2 )
