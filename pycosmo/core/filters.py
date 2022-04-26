@@ -34,3 +34,16 @@ def sharpk(x: Any, j: int = 0) -> Any:
     Sharp-k filter in k-space.
     """
     raise NotImplementedError("function not implemented!")
+
+def filter(x: Any, j: int = 0, model: str = 'tophat') -> Any:
+    """
+    Filter function in k-space.
+    """
+    x = np.asfarray( x )
+    if model == 'tophat':
+        return tophat( x, j )
+    elif model == 'gauss':
+        return gauss( x, j )
+    elif model == 'sharpk':
+        return sharpk( x, j )
+    raise ValueError(f"invalid filter: '{ model }'")

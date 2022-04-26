@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Any
+from typing import Any, Callable, Union
 from pycosmo.utils.function_table import FunctionTable, addfunction
 
 ftable = FunctionTable( 'transfer_functions' )
@@ -225,12 +225,19 @@ def transfer(cm: object, k: Any, z: float = 0.0, model: str = 'eisenstein98_zb')
     tfunc = ftable[ model ]
     return tfunc( cm, k, z )
 
-def linearPowerSpectrum(cm: Any, k: Any, z: float = 0.0, dim: bool = True, model: str = 'eisenstein98_zb') -> Any:
+def linearPowerSpectrum(cm: Any, k: Any, z: float = 0.0, dim: bool = True, transfer_function: Union[str,Callable] = 'eisenstein98_zb') -> Any:
     """
     Compute the linear power spectrum.
     """
     k  = np.asfarray( k )
-    Pk = cm.A * transfer( cm, k, z, model )**2 * k**cm.ns * cm.Dz( z )**2
+
+    if callable( transfer_function ):
+        Tk = transfer_function( k, z )
+    else:
+        Tk = transfer( cm, k, z, transfer_function )
+
+    Pk = cm.A * Tk**2 * k**cm.ns * cm.Dz( z )**2
+
     if dim:
         return Pk
     return Pk * k**3 / ( 2*np.pi**2 )

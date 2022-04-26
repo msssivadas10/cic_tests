@@ -145,12 +145,12 @@ class Cosmology:
                 raise TypeError("transfer function table must be a 2D array")
             value = np.asfarray( value )
             if value.shape[1] != 2:
-                raise TypeError("transfer function table should only have 2 coulmns: 'lnk' and 'lnPk'")
+                raise TypeError("transfer function table should only have 2 coulmns: 'lnk' and 'lnTk'")
 
             from scipy.interpolate import CubicSpline
 
-            lnk, lnPk    = value.T
-            self.tftable = CubicSpline( lnk, lnPk )
+            lnk, lnTk    = value.T
+            self.tftable = CubicSpline( lnk, lnTk )
             self.psmodel = 'rawdata'   
 
         return self.normalize()
@@ -544,15 +544,7 @@ class Cosmology:
         Filter function.
         """
         filt = settings.filter
-
-        x = np.asfarray( x )
-        if filt == 'tophat':
-            return filters.tophat( x, j )
-        elif filt == 'gauss':
-            return filters.gauss( x, j )
-        elif filt == 'sharpk':
-            return filters.sharpk( x, j )
-        raise ValueError(f"invalid filter: '{ filt }'")
+        return filters.filter( x, j, filt )
 
     def transfer(self, k: Any, z: float = 0) -> Any:
         """
@@ -561,11 +553,7 @@ class Cosmology:
         model = self.psmodel
 
         if model == 'raw':
-            k = np.asfarray( k )
-            return np.sqrt( 
-                            np.exp( self.pspline( np.log( k ) ) ) / k**self.ns 
-                          )
-            
+            return np.exp( self.tftable( np.log( k ) ) )
         return lp.transfer( self, k, z, model )
 
     def linearPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True) -> Any:
@@ -573,8 +561,10 @@ class Cosmology:
         Compute linear matter power spectrum. 
         """
         model = self.psmodel
+        
         if model == 'raw':
-            return self.A * np.exp( self.pspline( np.log( k ) ) )
+            model = lambda k, z: np.exp( self.pspline( np.log( k ) ) )
+
         return lp.linearPowerSpectrum( self, k, z, dim, model )
     
     def nonlinearPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True) -> Any:
