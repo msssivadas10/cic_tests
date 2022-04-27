@@ -150,5 +150,12 @@ class Universe( ComponentCollection ):
     def __init__(self, flat: float = True) -> None:
         super().__init__( density0 = 1.0, w = None )
 
+        self.flat = flat
+        
+        # components
+        self.matter      = None
+        self.dark_energy = None
+        self.curvature   = None
+
 # m = Matter(0.4)
 # print(m.wparam)
