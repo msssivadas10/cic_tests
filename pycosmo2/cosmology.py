@@ -403,29 +403,37 @@ class CosmologyBase:
 
         .. math ::
 
-            q(z) = -\frac{ a(z) \ddot{a}(z) }{ \dot{a}(z) }
+            q = -\frac{ a \ddot{a} }{ \dot{a}^2 }
 
         """
-        return self.dlnEdlnzp1( z ) - 1 # TODO: check this eqn.
+        zp1 = np.asfarray( z )
+        return zp1 * self.dlnEdlnzp1( z ) - 1 # TODO: check this eqn.
 
 
-# import matplotlib.pyplot as plt
-# from scipy.interpolate import CubicSpline
 
-# c = CosmologyBase(True, 0.7, 0.3, 0.05, sigma8=0.8, ns=1.0)
 
-# plt.figure()
 
-# x = np.logspace(-3, 3, 501)
-# y = c.E(x)
-# f = CubicSpline(np.log(x+1), np.log(y))
 
-# x = np.logspace(-3, 3, 21)
-# y = c.q(x)
 
-# plt.semilogx()
-# plt.plot(x, y, 'o', ms = 4)
 
-# plt.plot(x, f(np.log(x+1), 1), '-')
 
-# plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+import matplotlib.pyplot as plt
+c = CosmologyBase(True, 0.7, 0.3, 0.05, sigma8=0.8, ns=1.0)
+plt.figure()
+x = np.logspace(-3, 1, 21)
+y = c.q(x)
+plt.semilogx()
+plt.plot(x, y, '-o', ms = 4)
+plt.show()
