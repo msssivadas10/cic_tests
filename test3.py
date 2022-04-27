@@ -20,7 +20,7 @@ plt.loglog()
 # plt.semilogx()
 
 x = np.logspace( -3, 3, 21)
-y = c1.matterPowerSpectrum( x )
+y = c1.Ez( x )
 
 plt.plot( x, y, '-o', ms = 3)
 
