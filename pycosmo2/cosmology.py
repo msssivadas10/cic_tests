@@ -1,15 +1,16 @@
+from abc import ABC, abstractmethod
 from typing import Any, Type, Union
 import numpy as np
 
 ####################################################################################################
 
 class CosmologyError( Exception ):
-    """
+    r"""
     Base class of exceptions used by cosmology objects.
     """
     ...
 
-class CosmologyBase:
+class CosmologyBase( ABC ):
     r"""
     Object to store a cosmology model.
     """
@@ -409,6 +410,147 @@ class CosmologyBase:
         zp1 = np.asfarray( z )
         return zp1 * self.dlnEdlnzp1( z ) - 1 # TODO: check this eqn.
 
+    # abstract methods;
+
+    @abstractmethod
+    def Dz(self, z: Any) -> Any:
+        r"""
+        Linear growth factor at redshift z.
+        """
+        ...
+
+    @abstractmethod
+    def fz(self, z: Any) -> Any:
+        r"""
+        Logarithmic rate of linear growth at redshift z.
+        """
+        ...
+
+    @abstractmethod
+    def matterPowerSpectrum(self, k: Any, *args, **kwargs) -> Any:
+        r"""
+        Compute the matter power spectrum as function of wave number k (unit: h/Mpc).
+        """
+        ...
+
+    @abstractmethod
+    def haloMassFunction(self, m: Any, *args, **kwargs) -> Any:
+        r"""
+        Compute the halo mass-function, given mass m (unit: Msun/h).
+        """
+        ...
+
+####################################################################################################
+
+class PowerSpectrumError( Exception ):
+    r"""
+    Base class of exceptions used by power spectrum objects.
+    """
+    ...
+
+class PowerSpectrum( ABC ):
+    r"""
+    A class representing the matter power spectrum.
+    """
+    
+    __slots__ = 'transfer_function', 'nonlinear_model', 'filter', 'A', 'cosmology', 'attrs'
+
+    def __init__(self, cm: CosmologyBase, transfer_function: str, nonlinear_model: str, filter: str) -> None:
+        self.cosmology = cm
+
+        self.transfer_function = transfer_function
+        self.nonlinear_model   = nonlinear_model
+        self.filter            = filter
+
+        self.A     = 1.0   # normalization of the power spectrum
+        self.attrs = set() # set of attributes
+
+    @abstractmethod
+    def transferFunction(self, k: Any, *args, **kwargs) -> Any:
+        r"""
+        Compute the linear transfer function as function of wavenumber. The wavenumber 
+        k must be in units of h/Mpc.
+        """
+        ...
+
+    @abstractmethod
+    def matterPowerSpectrum(self, k: Any, z: float, dim: bool = True) -> Any:
+        r"""
+        Compute the matter power spectrum as function of wavenumber. The wavenumber k should 
+        be in units of h/Mpc and the power spectrum computed will have units of :math:`h^3/{\rm Mpc}^3`.
+        """
+        ...
+
+    @abstractmethod
+    def linearPowerSpectrum(self, k: Any, z: float, dim: bool = True) -> Any:
+        r"""
+        Compute the linear matter power spectrum as function of wavenumber. Units are similar 
+        to :meth:`matterPowerSpectrum` function.
+        """
+        ...
+
+    @abstractmethod
+    def nonlinearPowerSpectrum(self, k: Any, z: float, dim: bool = True) -> Any:
+        r"""
+        Compute the non-linear power spectrum as function of wavenumber. Units are similar 
+        to :meth:`matterPowerSpectrum` function.
+        """
+        ...
+
+    @abstractmethod
+    def variance(self, r: Any, z: float, linear: bool = True) -> Any:
+        r"""
+        Compute the matter fluctuations variance as function of smoothing radius r. Radius 
+        should be in units of Mpc/h and the result is unitless.
+        """
+        ...
+
+    
+####################################################################################################
+
+class MassFunctionError( Exception ):
+    r"""
+    Base class of exceptions used by halo mass-function objects.
+    """
+    ...
+
+class MassFunction( ABC ):
+    r"""
+    A class representing a halo mass-function model.
+    """
+
+    __slots__ = 'mass_function', 'depend_z', 'depend_cosmology', 'mdefs', 'cosmology'
+
+    def __init__(self, model: str, depend_z: bool, depend_cosmo: bool, mdefs: list) -> None:
+        self.mass_function    = model # name of the models
+
+        # model specific attributes
+        self.depend_z         = depend_z     # model depends on redshift 
+        self.depend_cosmology = depend_cosmo # depends on a cosmology model
+        self.mdefs            = mdefs        # allowed mass definition types
+
+        self.cosmology = None # cosmology model to use
+
+    @abstractmethod
+    def f(self, sigma: Any, *args, **kwargs) -> Any:
+        r"""
+        Compute the fitting function.
+        """
+        ...
+
+    @abstractmethod
+    def dndlnm(self, m: Any, *args, **kwargs) -> Any:
+        r"""
+        Compute the halo mass-function.
+        """
+        ...
+
+    @abstractmethod
+    def dndm(self, m: Any, *args, **kwargs) -> Any:
+        r"""
+        Compute the halo mass-function.
+        """
+        ...
 
 
 
@@ -421,19 +563,3 @@ class CosmologyBase:
 
 
 
-
-
-
-
-
-
-
-
-import matplotlib.pyplot as plt
-c = CosmologyBase(True, 0.7, 0.3, 0.05, sigma8=0.8, ns=1.0)
-plt.figure()
-x = np.logspace(-3, 1, 21)
-y = c.q(x)
-plt.semilogx()
-plt.plot(x, y, '-o', ms = 4)
-plt.show()
