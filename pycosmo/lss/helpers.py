@@ -28,7 +28,7 @@ def parseMassDefinition(value: str, z: float = None, cm: object = None) -> tuple
     
     if delta:
         if ref == 'm':
-            return ( int( delta ) * cm.Omz( z ), 'so' )
+            return ( int( delta ) * cm.rho_m( z ), 'so' )
         elif ref == 'c':
             return ( int( delta ) * cm.criticalDensity( z ), 'so' )
 
