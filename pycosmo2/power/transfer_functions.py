@@ -108,7 +108,7 @@ def psmodelEisenstein98_zeroBaryon(cm: Cosmology, k: Any, z: float = 0) -> Any:
     c = 14.2 + 731.0 / ( 1 + 62.5*q )
     return l / ( l + c*q**2 )
 
-def psmodelEisenstein98_withNeutrino(cm: Cosmology, k: Any, z: float) -> Any:
+def psmodelEisenstein98_withNeutrino(cm: Cosmology, k: Any, z: float = 0, exact_growth: bool = False) -> Any:
     theta, Om0, Ob0, h, Nnu  = cm.Tcmb0 / 2.7, cm.Om0, cm.Ob0, cm.h, cm.Nmnu
 
     k = np.asfarray( k ) * h # Mpc^-1
@@ -141,7 +141,7 @@ def psmodelEisenstein98_withNeutrino(cm: Cosmology, k: Any, z: float) -> Any:
     pc  = 0.25*( 5 - np.sqrt( 1 + 24.0*fc  ) ) # eqn. 14 
     pcb = 0.25*( 5 - np.sqrt( 1 + 24.0*fcb ) ) 
 
-    Dz  = cm.Dplus( z, fac = zp1_eq )
+    Dz  = cm.Dplus( z, exact = exact_growth, fac = zp1_eq )
     Dcb = cm._DplusFreeStream( q, Dz, include_nu = False )
 
     # small-scale suppression : eqn. 15
