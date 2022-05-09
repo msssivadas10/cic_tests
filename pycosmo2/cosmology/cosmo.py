@@ -11,15 +11,14 @@ class CosmologyError(Exception):
 class Cosmology:
     __slots__ = (
                     'Om0', 'Ob0', 'Omnu0', 'Oc0', 'Ode0', 'Ok0', 'Or0', 'Oph0', 'Ornu0', 'Tcmb0', 'Tnu0',
-                    'h', 'sigma8', 'ns', 'A', 'Nmnu', 'Nrnu', 'Mmnu', 'Mrnu', 'Nnu', 'Mnu', 'w0', 'wa',
-                    'flat', 'relspecies', 'transfer_function', 'mass_function', 'linear_bias',
+                    'h', 'sigma8', 'ns', 'Nmnu', 'Nrnu', 'Mmnu', 'Mrnu', 'Nnu', 'Mnu', 'w0', 'wa', 'flat', 
+                    'relspecies', 
                 )
     
     def __init__(
                     self, h: float, Om0: float, Ob0: float, sigma8: float, ns: float, flat: bool = True, 
                     relspecies: bool = False, Ode0: float = None, Omnu0: float = 0.0, Nmnu: float = None, 
                     Tcmb0: float = 2.725, w0: float = -1.0, wa: float = 0.0, Nnu: float = 3.0,
-                    transfer_function: str = None, mass_function: str = None, linear_bias: str = None,
                 ) -> None:
 
         # check parameters h, sigma8 and ns
@@ -70,13 +69,6 @@ class Cosmology:
 
         # dark-energy equation of state parameterization:
         self.w0, self.wa = w0, wa     
-
-        self.A = 1.0
-
-        # setting models
-        self.transfer_function = transfer_function
-        self.mass_function     = mass_function
-        self.linear_bias       = linear_bias       
 
     def _init_matter(self, Om0: float, Ob0: float, Omnu0: float = 0.0, Nmnu: float = None):
         if Om0 < 0:
@@ -441,19 +433,18 @@ class Cosmology:
                    )
         
         return fzExact( z ) if exact else fzFit( z )
-
-    def DplusFreeStream(self, q: Any, z: Any, include_nu: bool = False, exact: bool = False, fac: float = None) -> Any:
-        q, z = np.asfarray( q ), np.asfarray( z )
+    
+    def _DplusFreeStream(self, q: Any, Dz: Any, include_nu: bool = False) -> Any:
+        q, Dz = np.asfarray( q ), np.asfarray( Dz )
         if np.ndim( q ):
             q = q.flatten()
-        if np.ndim( z ):
-            z = z.flatten()[ :, None ]
+        if np.ndim( Dz ):
+            Dz = Dz.flatten()[ :, None ]
         
-        D1 = self.Dplus( z, exact, fac ) # growth without free streaming
         if not self.Omnu:
             return np.repeat( 
-                                D1, q.shape[0], 
-                                axis = 1 if np.ndim( z ) else 0 
+                                Dz, q.shape[0], 
+                                axis = 1 if np.ndim( Dz ) else 0 
                             )
 
         fnu = self.Omnu0 / self.Om0 # fraction of massive neutrino
@@ -461,7 +452,11 @@ class Cosmology:
         pcb = 0.25*( 5 - np.sqrt( 1 + 24.0*fcb ) )
         yfs = 17.2 * fnu * ( 1 + 0.488*fnu**(-7./6.) ) * ( self.Nmnu*q / fnu )**2
         
-        x = ( D1 / ( 1 + yfs ) )**0.7     
+        x = ( Dz / ( 1 + yfs ) )**0.7     
         y = fcb**( 0.7 / pcb ) if include_nu else 1.0
-        return ( y + x )**( pcb / 0.7 ) * D1**( 1 - pcb )
+        return ( y + x )**( pcb / 0.7 ) * Dz**( 1 - pcb )
+
+    def DplusFreeStream(self, q: Any, z: Any, include_nu: bool = False, exact: bool = False, fac: float = None) -> Any:
+        Dz = self.Dplus( z, exact, fac ) # growth without free streaming
+        return self._DplusFreeStream( q, Dz, include_nu )
         

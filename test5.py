@@ -1,4 +1,4 @@
-from pycosmo2.cosmo import Cosmology
+from pycosmo2.cosmology.cosmo import Cosmology
 import numpy as np
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
