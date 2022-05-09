@@ -496,7 +496,7 @@ class Cosmology:
             y2 = self.curvature.zDensity( z )
             y += y2
         
-        y1 = y1 * ( 2.5 / ( ( z+1 )*self.Dz( z, 1.0, exact ) ) - 1.5 )
+        y1 = y1 * ( 2.5 / ( ( z+1 )*self.Dz( z, 1.0 ) ) - 1.5 )
         if y2 is not None:
             y1 += y2
         return ( y1 / y )
