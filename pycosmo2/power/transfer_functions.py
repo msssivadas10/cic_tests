@@ -119,9 +119,7 @@ def psmodelEisenstein98_withNeutrino(cm: Cosmology, k: Any, z: float = 0, exact_
     fcb, fnb   = fc + fb, fnu + fc
 
     if fnu == 0:
-        raise ValueError("cannot use 'eisenstein98_withNeutrino' if the model has no neutrino")
-    elif z is None:
-        raise ValueError("redshift should be given")
+        raise ValueError("cannot use 'with-neutrino model' if the cosmology has no neutrino")
 
     # redshift at matter-radiation equality: eqn. 1
     zp1_eq = 2.5e+4 * Omh2 / theta**4
