@@ -4,12 +4,12 @@ from pycosmo2.power_spectrum.core import PowerSpectrum, PowerSpectrumError
 
 # predefined power spectrum models
 from pycosmo2.power_spectrum.core import (
-                                    Eisenstein98_withBaryon, 
-                                    Eisenstein98_zeroBaryon, 
-                                    Eisenstein98_withNeutrino, 
-                                    Sugiyama96, BBKS,
-                                    PowerSpectrumTable
-                                  )
+											Eisenstein98_withBaryon, 
+											Eisenstein98_zeroBaryon, 
+											Eisenstein98_withNeutrino, 
+											Sugiyama96, BBKS,
+											PowerSpectrumTable
+										)
 
 models = {
             'sugiyama96'     : Sugiyama96,
