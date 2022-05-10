@@ -74,6 +74,7 @@ class Filter(ABC):
         return y2 if np.ndim( r ) else y2[0]
 
 
+##################################################################################################
 
 
 class Tophat(Filter):
@@ -89,8 +90,24 @@ class Tophat(Filter):
             return ( ( x**2 - 12.0 ) * x * np.cos( x ) - ( 5*x**2 - 12.0 ) * np.sin( x ) ) * 3.0 / x**5
         return NotImplemented
 
+class Gaussian(Filter):
+
+    def filter(x: Any, j: int = 0) -> Any:
+        x = np.asfarray( x )
+
+        if j == 0:
+            return np.exp( -0.5*x**2 )
+        elif j == 1:
+            return -x*np.exp( -0.5*x**2 )
+        elif j == 2:
+            return ( x**2 - 1 )*np.exp( -0.5*x**2 )
+        return NotImplemented
+
+class SharpK(Filter):
+    ...
 
 
 filters = {
                 'tophat': Tophat(),
+                'gauss' : Gaussian(),
           }

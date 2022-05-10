@@ -147,6 +147,15 @@ def integrate2(f: Callable, a: Any, b: Any, args: tuple = (), eps: float = 1e-06
         else:
             warnings.warn("integral is not converged to specified accuracy", NumericWarning)
     return Ik
+
+def derivative(f: Callable, x: Any, h: Any = 0.01, args: tuple = ()) -> Any:
+    h = np.asfarray( h )
+
+    if not callable( f ):
+        raise NumericError('f must be a callable')
+
+    df = -f( x+2*h, *args ) + 8*f( x+h, *args ) - 8*f( x-h, *args ) + f( x-2*h, *args )
+    return df / ( 12*h )
         
 
 def solve(f: Callable, a: Any, b: Any, args: tuple = (), tol: float = 1e-06) -> Any:
