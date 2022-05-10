@@ -1,9 +1,10 @@
 from typing import Any 
 import numpy as np
 import pycosmo2.cosmology.cosmo as cosmo
-import pycosmo2.power.linear_power as lp
-import pycosmo2.power.nonlinear_power as nlp
-import pycosmo2.power.transfer_functions as tf
+import pycosmo2.power_spectrum.linear_power as lp
+import pycosmo2.power_spectrum.nonlinear_power as nlp
+import pycosmo2.power_spectrum.transfer_functions as tf
+
 
 class PowerSpectrumError(lp.LinearPowerSpectrumError):
     ...
@@ -95,10 +96,4 @@ class PowerSpectrumTable(PowerSpectrum):
     def transferFunction(self, k: Any, z: float = 0) -> Any:
         return np.exp( self.spline( np.log( k ) ) )
 
-models = {
-            'sugiyama96'     : Sugiyama96,
-            'bbks'           : BBKS,
-            'eisenstein98_zb': Eisenstein98_zeroBaryon,
-            'eisenstein98_wb': Eisenstein98_withBaryon,
-            'eisenstein98_nu': Eisenstein98_withNeutrino,
-         }
+

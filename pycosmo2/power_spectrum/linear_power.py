@@ -4,7 +4,7 @@ import numpy as np
 import pycosmo2.utils.settings as settings
 import pycosmo2.utils.numeric as numeric
 import pycosmo2.cosmology.cosmo as cosmo
-import pycosmo2.power.filters as filters
+import pycosmo2.power_spectrum.filters as filters
 
 class LinearPowerSpectrumError(Exception):
     ...

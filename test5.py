@@ -43,7 +43,7 @@ def test1():
 def test2():
     c = Cosmology( 0.7, 0.3, 0.05, 0.8, 1.0 )
 
-    from pycosmo2.power.power import Sugiyama96
+    from pycosmo2.power_spectrum import Sugiyama96
 
     p = Sugiyama96( c )
 
