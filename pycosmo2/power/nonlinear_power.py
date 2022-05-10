@@ -1,17 +1,18 @@
-#!/usr/bin/python3
-
 import numpy as np
 from typing import Any
+from pycosmo2.power.linear_power import LinearPowerSpectrum
 
-def nlpmodelHalofit(cm: object, k: Any, z: float = 0.0) -> Any:
-    """
-    Non-linear power spectrum using **halofit**.
-    """
-    rstar = cm.radius( 1.0, z, lin = True ) # 1/k_sigma in eqn. A4 ( with default filter )
+def halofit(ps: LinearPowerSpectrum, k: Any, z: float = 0.0) -> Any:
+
+    if not isinstance( ps, LinearPowerSpectrum ):
+        raise TypeError("ps must be a 'LinearPowerSpectrum' object")
+
+    cm    = ps.cosmology
+    rstar = ps.radius( 1.0, z, linear = True ) # 1/k_sigma in eqn. A4 ( with default filter )
 
     # eqn. A5
-    neff  = -2.0 * cm.dlnsdlnr( rstar, z, lin = True ) - 3.0 
-    C     = -2.0 * cm.d2lnsdlnr2( rstar, z, lin = True )   
+    neff  = -2.0 * ps.dlnsdlnr( rstar, z, linear = True ) - 3.0 
+    C     = -2.0 * ps.d2lnsdlnr2( rstar, z, linear = True )     
 
     Om, Ow, w = cm.Om( z ), cm.Ode( z ), cm.wde( z )
 
@@ -38,7 +39,7 @@ def nlpmodelHalofit(cm: object, k: Any, z: float = 0.0) -> Any:
     y     = np.asfarray( k ) * rstar
 
     # two-halo term: eqn. A2
-    dlin    = cm.linearPowerSpectrum( k, z, dim = False )
+    dlin    = ps.linearPowerSpectrum( k, z, dim = False )
     fy      = 0.25 * y + 0.125 * y**2
     delta2Q = dlin * ( ( 1 + dlin )**beta_n / ( 1 + alpha_n * dlin ) ) * np.exp( -fy )
 
@@ -48,18 +49,19 @@ def nlpmodelHalofit(cm: object, k: Any, z: float = 0.0) -> Any:
 
     return delta2Q + delta2H
 
-def nlpmodelPeacock(cm: Any, k: Any, z: float = 0.0) -> Any:
-    """
-    Non-linear power spectrum by Peacock and Dodds formula.
-    """
-    neff = cm.effectiveIndex( k, z, lin = True )
+def peacockDodds(ps: LinearPowerSpectrum, k: Any, z: float = 0.0) -> Any:
+
+    if not isinstance( ps, LinearPowerSpectrum ):
+        raise TypeError("ps must be a 'LinearPowerSpectrum' object")
+
+    neff = ps.effectiveIndex( k, z, linear = True )
     n3p1 = 1 + neff / 3
     mask = ( n3p1 > 0 ) # else, for neff < -3, power becomes complex
 
     dnl  = np.zeros_like( neff )
-    g    = cm.gz( z )
+    g    = ps.cosmology.g( z, ps.use_exact_growth )
     
-    dnl[ mask ] = cm.linearPowerSpectrum( k[ mask ], z, dim = False )
+    dnl[ mask ] = ps.linearPowerSpectrum( k[ mask ], z, dim = False )
 
     # best-fit parameters: eqn. 23-27
     A     = 0.486 * n3p1[ mask ]**-0.947
@@ -77,20 +79,14 @@ def nlpmodelPeacock(cm: Any, k: Any, z: float = 0.0) -> Any:
                                 )**( 1/beta )
     return dnl
 
-def nonlinearPowerSpectrum(cm: Any, k: Any, z: float = 0.0, dim: bool = True, model: str = 'pd') -> Any:
-    """
-    Compute the non-linear matter power spectrum.
-    """
-    k = np.asfarray( k )
-    if model == 'pd':
-        Dk = nlpmodelPeacock( cm, k, z )
-    elif model == 'halofit':
-        Dk = nlpmodelHalofit( cm, k, z )
+def nonlinearPowerSpectrum(ps: LinearPowerSpectrum, k: Any, z: float = 0, dim: bool = True, model: str = 'halofit') -> Any:
+    if model == 'halofit':
+        dnl = halofit( ps, k, z )
+    elif model == 'peacock_dodds':
+        dnl = peacockDodds( ps, k, z )
     else:
-        raise ValueError(f"unknown model key: '{ model }")
+        raise ValueError(f"invalid model: '{ model }'")
 
     if dim:
-        return ( 2*np.pi**2 ) * Dk * k**-3
-    return Dk
-
-    
+        return dnl * ( 2*np.pi**2 ) / np.asfarray( k )**3
+    return dnl

@@ -632,7 +632,9 @@ class Cosmology:
 
         def _radius(var: Any) -> Any:
             return toms748( f, 1.0E-05, 1.0E+05, args = ( z, lin, var ) )
-
+        
+        if not np.ndim( sigma ):
+            return _radius( sigma**2 ) 
         return np.asfarray( 
                             list( 
                                     map( _radius, np.asfarray( sigma )**2 ) 
@@ -793,7 +795,7 @@ class Cosmology:
                                     self.matterPowerSpectrum( (1-2*h)*k, z, dim = True, lin = lin ) 
                                 )
                 )
-        dlnk = 12.0 * ( np.log( (1+h)*k ) - np.log( (1-h)*k ) )
+        dlnk = 6.0 * ( np.log( (1+h)*k ) - np.log( (1-h)*k ) )
         
         return dlnp / dlnk
 
