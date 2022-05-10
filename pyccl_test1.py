@@ -63,6 +63,9 @@ def test_massfunction():
     c2 = pyccl.Cosmology(Omega_c=0.25, Omega_b=0.05, h=0.7, n_s=1.0, sigma8=0.8, transfer_function='eisenstein_hu', mass_function='tinker')
     m  = np.logspace( 6, 15, 21 )
     n1 = massfunction.massFunction(c1, m, 0.0, mdef = '200m', out = 'dndlnm')
+
+    # NOTE: pyccl accept mass in Msun/h and return dn/dlog10M in Mpc^-3. change this 
+    # to dn/dlnM in h^3/Mpc^3 to compare  
     n2 = pyccl.massfunction.massfunc( c2, m/0.7, 1.0, 200 ) / np.log(10) / 0.7**3
 
     return m, n2, n1
