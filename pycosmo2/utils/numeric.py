@@ -1,5 +1,6 @@
 from typing import Any, Callable
 from pycosmo2.utils.gaussrules import legendrerule
+from itertools import repeat
 import warnings
 import numpy as np
 
@@ -37,19 +38,7 @@ def erfc(x: Any) -> Any:
     """
     return 1 - erf( x )
 
-class IntegrationError(NumericError):
-    """
-    Base class of exceptions used by integrators.
-    """
-    ...
-
-class IntegrationWarning(NumericWarning):
-    """
-    Base class of warnings used by integrators.
-    """
-    ...
-
-def integrate1(f: Callable, a: Any, b: Any, args: tuple = (), rtol: float = 1e-06, atol: float = 1e-08) -> Any:
+def integrate1(f: Callable, a: Any, b: Any, args: tuple = (), subdiv: int = 20) -> Any:
     r"""
     Compute the integral of a real valued function :math:`f(x)` using adaptive simpsons rule.
 
@@ -61,11 +50,10 @@ def integrate1(f: Callable, a: Any, b: Any, args: tuple = (), rtol: float = 1e-0
         Lower and upper limits of integration. Both `a` and `b` should have the same dimension.
     args: tuple, optional  
         Other arguments to pass to the function.
-    rtol: float, optional
-        Relative tolerance (default: 1E-6).
-    atol: float, optional. 
-        Absolute tolerance (default: 1E-8).
-    
+    subdiv: int, optional
+        Number of subdivisions of the integration domain. This correspond to :math:`2^{subdiv}+1` 
+        points. Default is 20.
+
     Returns
     -------
     result: array_like
@@ -78,69 +66,14 @@ def integrate1(f: Callable, a: Any, b: Any, args: tuple = (), rtol: float = 1e-0
     .. math::
         \int_0^1 x^a {\rm d}x = \left[ \frac{x^{a+1}}{a+1} \right]_0^1 = \frac{1}{a+1}
 
-    >>> a = np.array([2.0, 4.0, 6.0])
-    >>> 1/(a+1) # eaxct values
-    array([0.33333333, 0.2       , 0.14285714])
-    >>> integrate1(lambda x: x**a, 0, 1) 
-    array([0.33333333, 0.20000001, 0.14285715])
-
-    For a scalar valued function, 
-
-    >>> integrate1(lambda x: x**6, 0, 1)
-    0.1428571464752982
 
     """
+    pts  = int( 2**subdiv + 1 )
+    x, h = np.linspace( a, b, pts, retstep = True, axis = -1 )
+    y    = f( x, *args )
+    return ( y[...,:-1:2].sum(-1) + 4*y[...,1::2].sum(-1) + y[...,2::2].sum(-1) ) * h/3
 
-    def simps3pt(
-                    f: Callable, a: Any, fa: Any, b: Any, fb: Any, args: tuple
-                ) -> tuple:
-        h  = b - a
-        m  = a + 0.5*h
-        fm = f( m, *args )
-        return m, fm, ( fa + 4*fm + fb ) * h / 6.0
-
-    def recurse(
-                    f: Callable, a: Any, fa: Any, b: Any, fb: Any, m: Any, fm: Any, 
-                    prev: Any, args: tuple, rtol: float, atol: float, conv: Any, j: int
-               ) -> Any:
-        if j > 50:
-            raise IntegrationError("maximum recursions reached without convergence")
-
-        rtol, atol = max( rtol, 1e-08 ), max( atol, 1e-08 )
-
-        lm, flm, left  = simps3pt( f, a, fa, m, fm, args )
-        rm, frm, right = simps3pt( f, m, fm, b, fb, args )
-
-        current = np.where( conv, prev, left + right )
-
-        conv = conv | ( np.abs( current - prev ) <= atol + rtol * np.abs( current ) )
-
-        if np.min( conv ):
-            return current
-        return (
-                    recurse(
-                                f, a, fa, m, fm, lm, flm, left, 
-                                args, rtol / 2, atol / 2, conv, j+1
-                           ) 
-                    + recurse(
-                                f, m, fm, b, fb, rm, frm, right, 
-                                args, rtol / 2, atol / 2, conv, j+1
-                             )
-               )
-
-    if rtol < 0 or atol < 0:
-        raise ValueError("tolerance must be positive")
-
-    a, b   = np.asfarray( a ), np.asfarray( b )
-    fa, fb = f( a, *args ), f( b, *args )
-
-    m, fm, prev = simps3pt( f, a, fa, b, fb, args )
-    prev        = np.asfarray( prev )
-    conv        = np.zeros_like( fm, 'bool' )
-    out         = recurse( f, a, fa, b, fb, m, fm, prev, args, rtol, atol, conv, 0 )
-    return out
-
-def integrate2(f: Callable, a: Any, b: Any, args: tuple = (), eps: float = 1e-06, n: int = 64) -> Any:
+def integrate2(f: Callable, a: Any, b: Any, args: tuple = (), eps: float = 1e-06, n: int = 64, no_warnings: bool = True) -> Any:
     r"""
     Compute the integral of a function using Gauss-Konrod quadrature rule.
 
@@ -194,7 +127,7 @@ def integrate2(f: Callable, a: Any, b: Any, args: tuple = (), eps: float = 1e-06
         elif np.ndim( b ) == 0:
             b = b * np.ones_like( a )
         else:
-            raise IntegrationError("a and b should have same dimension")
+            raise NumericError("a and b should have same dimension")
 
     m = 0.5*( b - a )
     c = a + m
@@ -208,25 +141,13 @@ def integrate2(f: Callable, a: Any, b: Any, args: tuple = (), eps: float = 1e-06
     Ik = m * np.dot( y, wk )
 
     error = np.abs( Ig - Ik )
-    if np.any( error > eps ):
+    if np.any( error > eps ) and not no_warnings:
         if np.ndim( error ):
-            warnings.warn("atleast some integrals are not converged to specified accuracy", IntegrationWarning)
+            warnings.warn("atleast some integrals are not converged to specified accuracy", NumericWarning)
         else:
-            warnings.warn("integral is not converged to specified accuracy", IntegrationWarning)
+            warnings.warn("integral is not converged to specified accuracy", NumericWarning)
     return Ik
-
-
-class SolverError(NumericError):
-    r"""
-    Base class of exceptions used by solver functions.
-    """
-    ...
-
-class SolverWarning(NumericWarning):
-    r"""
-    Base class of warnings used by solver functions.
-    """
-    ...
+        
 
 def solve(f: Callable, a: Any, b: Any, args: tuple = (), tol: float = 1e-06) -> Any:
     r"""
@@ -262,7 +183,7 @@ def solve(f: Callable, a: Any, b: Any, args: tuple = (), tol: float = 1e-06) -> 
 
     def recurse(f: Callable, a: Any, fa: Any, b: Any, fb: Any, args: tuple, tol: float, conv: Any, j: int = 0) -> Any:
         if j > 1000:
-            raise SolverError("root does not converge after maximum iterations")
+            raise NumericError("root does not converge after maximum iterations")
 
         h = b - a
         c = a + h * 0.5
@@ -326,13 +247,13 @@ def solve(f: Callable, a: Any, b: Any, args: tuple = (), tol: float = 1e-06) -> 
         return recurse( f, a, fa, b, fb, args, tol, conv, j+1 )
 
     if np.ndim( a ) != np.ndim( b ):
-        raise SolverError("a and b should have same dimension")
+        raise NumericError("a and b should have same dimension")
 
     a, b   = np.asfarray( a ).copy(), np.asfarray( b ).copy()
     fa, fb = f( a, *args ), f( b, *args )
 
     if np.any( fa * fb >= 0 ):
-        raise SolverError("interval does not contain a root")
+        raise NumericError("interval does not contain a root")
 
     conv = np.zeros_like( fa, 'bool' )
     return recurse( f, a, fa, b, fb, args, tol, conv, 0 )

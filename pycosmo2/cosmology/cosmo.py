@@ -321,11 +321,7 @@ class Cosmology:
             z = np.exp( lnzp1 ) - 1
             return f( z ) * ( z + 1 )
 
-        return numeric.integrate2( 
-                                    zfunc, np.log( za+1 ), np.log( zb+1 ), 
-                                    eps = settings.RELTOL, 
-                                    n = settings.DEFAULT_N
-                                 )
+        return numeric.integrate1( zfunc, np.log( za+1 ), np.log( zb+1 ), subdiv = settings.DEFAULT_SUBDIV  )
 
     def zIntegral_zp1_over_Ez3(self, za: Any, zb: Any) -> Any:
         def zfunc(z: Any) -> Any:
