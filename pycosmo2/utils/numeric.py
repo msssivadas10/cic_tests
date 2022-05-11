@@ -19,7 +19,18 @@ class NumericWarning(Warning):
 def erf(x: Any) -> Any:
     r"""
     Return an approximate value for the error function. This approximation has a maximum accuracy 
-    of :math:`1.7 \times 10^{-7}`. Argument `x` must be real.    
+    of :math:`1.7 \times 10^{-7}`. Argument `x` must be real.  
+
+    Parameters
+    ----------
+    x: array_like
+        Argument. must be real.
+
+    Returns
+    -------
+    y: array_like
+        Value of error function at x.
+
     """
     x = np.asfarray( x )
     t = 1 / ( 1 + 0.3275911*np.abs( x ) )
@@ -34,7 +45,21 @@ def erf(x: Any) -> Any:
 
 def erfc(x: Any) -> Any:
     r"""
-    Compute the approximate value of :math:`{\rm erfc}(x) = 1 - {\rm erf}(x)` for real argument.
+    return an approximate value of the complementary error function.
+    
+    .. math ::
+        {\rm erfc}(x) = 1 - {\rm erf}(x)
+
+    Parameters
+    ----------
+    x: array_like
+        Argument. must be real.
+
+    Returns
+    -------
+    y: array_like
+        Value of error function at x.
+
     """
     return 1 - erf( x )
 
@@ -149,14 +174,43 @@ def integrate2(f: Callable, a: Any, b: Any, args: tuple = (), eps: float = 1e-06
     return Ik
 
 def derivative(f: Callable, x: Any, h: Any = 0.01, args: tuple = ()) -> Any:
+    r"""
+    Compute the approximate value of the derivative at given point.
+
+    Parameters
+    ----------
+    f: callable
+        Function to differentiate.
+    x: array_like
+        Point at which the derivative is evaluated.
+    h: array_like
+        Step size. Must be a positive value.
+    args: tuple
+        Other arguments for function call.
+
+    Returns
+    -------
+    df: array_like
+        Value of the derivative.
+
+    Examples
+    --------
+    Derivative of :math:`\sin(x)` is :math:`\cos(x)`. 
+
+    >>> derivative(lambda x: np.sin(x), np.pi/4)
+    0.7071067809508457
+    >>> np.cos(np.pi/4)
+    0.7071067811865476
+
+
+    """
     h = np.asfarray( h )
 
     if not callable( f ):
         raise NumericError('f must be a callable')
 
     df = -f( x+2*h, *args ) + 8*f( x+h, *args ) - 8*f( x-h, *args ) + f( x-2*h, *args )
-    return df / ( 12*h )
-        
+    return df / ( 12*h )      
 
 def solve(f: Callable, a: Any, b: Any, args: tuple = (), tol: float = 1e-06) -> Any:
     r"""

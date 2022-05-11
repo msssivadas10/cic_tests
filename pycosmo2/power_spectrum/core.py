@@ -6,10 +6,10 @@ import pycosmo2.power_spectrum.nonlinear_power as nlp
 import pycosmo2.power_spectrum.transfer_functions as tf
 
 
-class PowerSpectrumError(lp.LinearPowerSpectrumError):
+class PowerSpectrumError(lp.PowerSpectrumError):
     ...
 
-class PowerSpectrum(lp.LinearPowerSpectrum):
+class PowerSpectrum(lp.PowerSpectrum):
 
     __slots__ = 'nonlinear_model', 'linear_model', 
 

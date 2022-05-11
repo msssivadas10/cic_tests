@@ -3,6 +3,24 @@ from pycosmo2.cosmology.cosmo import Cosmology
 import numpy as np
 
 def psmodelEisenstein98_withBaryon(cm: Cosmology, k: Any, z: float = 0) -> Any:
+    r"""
+    Transfer function given by Eisentein & Hu (1998), including baryon oscillations.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Working cosmology model.
+    k: array_like
+        Wavenumbers in h/Mpc.
+    z: float, optional
+        Redshift (default is 0). This argument is ignored.
+
+    Returns
+    -------
+    tk; array_like
+        Value of the transfer function.
+ 
+    """
     theta, Om0, Ob0, h = cm.Tcmb0 / 2.7, cm.Om0, cm.Ob0, cm.h
 
     k = np.asarray(k) * h #  Mpc^-1
@@ -90,6 +108,24 @@ def psmodelEisenstein98_withBaryon(cm: Cosmology, k: Any, z: float = 0) -> Any:
     return fb * tb + fc * tc # full transfer function : eqn. 16
 
 def psmodelEisenstein98_zeroBaryon(cm: Cosmology, k: Any, z: float = 0) -> Any:
+    r"""
+    Transfer function given by Eisentein & Hu (1998), not including baryon oscillations.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Working cosmology model.
+    k: array_like
+        Wavenumbers in h/Mpc.
+    z: float, optional
+        Redshift (default is 0). This argument is ignored.
+
+    Returns
+    -------
+    tk; array_like
+        Value of the transfer function.
+ 
+    """
     theta, Om0, Ob0, h = cm.Tcmb0 / 2.7, cm.Om0, cm.Ob0, cm.h
     Omh2, Obh2, fb     = Om0 * h**2, Ob0 * h**2, Ob0 / Om0
 
@@ -109,6 +145,26 @@ def psmodelEisenstein98_zeroBaryon(cm: Cosmology, k: Any, z: float = 0) -> Any:
     return l / ( l + c*q**2 )
 
 def psmodelEisenstein98_withNeutrino(cm: Cosmology, k: Any, z: float = 0, exact_growth: bool = False) -> Any:
+    r"""
+    Transfer function given by Eisentein & Hu (1998), including massive neutrinos.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Working cosmology model.
+    k: array_like
+        Wavenumbers in h/Mpc.
+    z: float, optional
+        Redshift (default is 0).
+    exact_growth: bool, optional
+        If true, use the exact value of growth factor (default is false).
+
+    Returns
+    -------
+    tk; array_like
+        Value of the transfer function.
+ 
+    """
     theta, Om0, Ob0, h, Nnu  = cm.Tcmb0 / 2.7, cm.Om0, cm.Ob0, cm.h, cm.Nmnu
 
     k = np.asfarray( k ) * h # Mpc^-1
@@ -165,6 +221,24 @@ def psmodelEisenstein98_withNeutrino(cm: Cosmology, k: Any, z: float = 0, exact_
     return Tk_master * Dcb / Dz
 
 def psmodelSugiyama96(cm: object, k: Any, z: float = 0) -> Any:
+    r"""
+    Transfer function given by Bardeen et al, corrected by Sugiyama (1996).
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Working cosmology model.
+    k: array_like
+        Wavenumbers in h/Mpc.
+    z: float, optional
+        Redshift (default is 0). This argument is ignored.
+
+    Returns
+    -------
+    tk; array_like
+        Value of the transfer function.
+ 
+    """
     theta, Om0, Ob0, h = cm.Tcmb0 / 2.7, cm.Om0, cm.Ob0, cm.h
 
     k  = np.asfarray( k )
@@ -181,6 +255,24 @@ def psmodelSugiyama96(cm: object, k: Any, z: float = 0) -> Any:
     return np.where( k < 1e-5, 1.0, Tk )
 
 def psmodelBBKS(cm: object, k: Any, z: float = 0) -> Any:
+    r"""
+    Transfer function given by Bardeen et al, corrected by Sugiyama (1996).
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Working cosmology model.
+    k: array_like
+        Wavenumbers in h/Mpc.
+    z: float, optional
+        Redshift (default is 0). This argument is ignored.
+
+    Returns
+    -------
+    tk; array_like
+        Value of the transfer function.
+ 
+    """
     return psmodelSugiyama96( cm, k, z )
 
 

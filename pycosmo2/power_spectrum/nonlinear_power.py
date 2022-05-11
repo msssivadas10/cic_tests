@@ -1,11 +1,28 @@
 import numpy as np
 from typing import Any
-from pycosmo2.power_spectrum.linear_power import LinearPowerSpectrum
+from pycosmo2.power_spectrum.linear_power import PowerSpectrum
 
-def halofit(ps: LinearPowerSpectrum, k: Any, z: float = 0.0) -> Any:
+def halofit(ps: PowerSpectrum, k: Any, z: float = 0.0) -> Any:
+    r"""
+    Compute the non-linear power spectrum using *Halofit*.
 
-    if not isinstance( ps, LinearPowerSpectrum ):
-        raise TypeError("ps must be a 'LinearPowerSpectrum' object")
+    Paramters
+    ---------
+    ps: PowerSpectrum
+        A power spectrum object. Must be an instance of :class:`PowerSpectrum`.
+    k: array_like
+        Wavenumbers (linear) in h/Mpc.
+    z: float, optional
+        Redshift (default is 0)
+    
+    Returns
+    -------
+    dnl:
+        Dimenssionless non-linear power spectrum, ;math:`\Delta^2_{\rm nl}(k)`.
+
+    """
+    if not isinstance( ps, PowerSpectrum ):
+        raise TypeError("ps must be a 'PowerSpectrum' object")
 
     cm    = ps.cosmology
     rstar = ps.radius( 1.0, z, linear = True ) # 1/k_sigma in eqn. A4 ( with default filter )
@@ -49,10 +66,27 @@ def halofit(ps: LinearPowerSpectrum, k: Any, z: float = 0.0) -> Any:
 
     return delta2Q + delta2H
 
-def peacockDodds(ps: LinearPowerSpectrum, k: Any, z: float = 0.0) -> Any:
+def peacockDodds(ps: PowerSpectrum, k: Any, z: float = 0.0) -> Any:
+    r"""
+    Compute the non-linear power spectrum using *Peacock & Dodds formula*.
 
-    if not isinstance( ps, LinearPowerSpectrum ):
-        raise TypeError("ps must be a 'LinearPowerSpectrum' object")
+    Paramters
+    ---------
+    ps: PowerSpectrum
+        A power spectrum object. Must be an instance of :class:`PowerSpectrum`.
+    k: array_like
+        Wavenumbers (linear) in h/Mpc.
+    z: float, optional
+        Redshift (default is 0)
+    
+    Returns
+    -------
+    dnl:
+        Dimenssionless non-linear power spectrum, ;math:`\Delta^2_{\rm nl}(k)`.
+
+    """
+    if not isinstance( ps, PowerSpectrum ):
+        raise TypeError("ps must be a 'PowerSpectrum' object")
 
     neff = ps.effectiveIndex( k, z, linear = True )
     n3p1 = 1 + neff / 3
@@ -79,7 +113,29 @@ def peacockDodds(ps: LinearPowerSpectrum, k: Any, z: float = 0.0) -> Any:
                                 )**( 1/beta )
     return dnl
 
-def nonlinearPowerSpectrum(ps: LinearPowerSpectrum, k: Any, z: float = 0, dim: bool = True, model: str = 'halofit') -> Any:
+def nonlinearPowerSpectrum(ps: PowerSpectrum, k: Any, z: float = 0, dim: bool = True, model: str = 'halofit') -> Any:
+    r"""
+    Compute the non-linear power spectrum using the specified model.
+
+    Paramters
+    ---------
+    ps: PowerSpectrum
+        A power spectrum object. Must be an instance of :class:`PowerSpectrum`.
+    k: array_like
+        Wavenumbers (linear) in h/Mpc.
+    z: float, optional
+        Redshift (default is 0)
+    dim: bool, optional
+        If false to return the dimenssionless power spectrum. Default is true.
+    model: str, optional
+        Model to use. Must be either `halofit` (default) or `peacock_dodds`.
+    
+    Returns
+    -------
+    dnl:
+        Non-linear power spectrum values.
+
+    """
     if model == 'halofit':
         dnl = halofit( ps, k, z )
     elif model == 'peacock_dodds':
