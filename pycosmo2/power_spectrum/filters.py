@@ -6,13 +6,51 @@ import pycosmo2.utils.numeric as numeric
 import pycosmo2.utils.settings as settings
 
 class Filter(ABC):
-    
+    r"""
+    Base class representing a smoothing filter in k-space.
+    """
+
     @abstractmethod
     def filter(self, x: Any, j: int = 0) -> Any:
+        r"""
+        Functional form of the filter.
+
+        Parameters
+        ----------
+        x: array_like
+            Argument.
+        j: int, optional
+            Specifies the n-the derivative. Default is 0, meaning the function itself.
+
+        Returns
+        -------
+        wx: array_like
+            Value of the function.
+        """
         ...
 
     def convolution(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
+        r"""
+        Convolve a function with the filter. i.e., smooth the function. The convolution of a function 
+        :math:`f(k)` with wthe filter is given by the integral
 
+        .. math::
+            F(r) = \int_0^\infty f(k) w(kr)^2 {\rm d}k
+
+        Parameters
+        ----------
+        f: callable
+            Function to convolve with the filter.
+        r: array_like
+            Smoothing radius or convolution argument.
+        args: tuple, optional
+            Other arguments to be passed to the function call.
+
+        Returns
+        -------
+        F: array_like
+            Value of the convolution.
+        """
         def integrand(lnk: Any, r: Any, *args):
             k  = np.exp( lnk )
             kr = np.outer( r, k )
@@ -25,7 +63,23 @@ class Filter(ABC):
         return out if np.ndim( r ) else out[0]
 
     def dcdr(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
+        r"""
+        Compute the first derivative of the convolution.
 
+        Parameters
+        ----------
+        f: callable
+            Function to convolve with the filter.
+        r: array_like
+            Smoothing radius or convolution argument.
+        args: tuple, optional
+            Other arguments to be passed to the function call.
+
+        Returns
+        -------
+        dF: array_like
+            Value of the derivative of convolution.
+        """
         def integrand(lnk: Any, r: Any, *args):
             k  = np.exp( lnk )
             kr = np.outer( r, k )
@@ -37,7 +91,23 @@ class Filter(ABC):
         return y1 if np.ndim( r ) else y1[0]
 
     def d2cdr2(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
+        r"""
+        Compute the second derivative of the convolution.
 
+        Parameters
+        ----------
+        f: callable
+            Function to convolve with the filter.
+        r: array_like
+            Smoothing radius or convolution argument.
+        args: tuple, optional
+            Other arguments to be passed to the function call.
+
+        Returns
+        -------
+        d2F: array_like
+            Value of the derivative of convolution.
+        """
         def integrand(lnk: Any, r: Any, *args):
             k  = np.exp( lnk )
             kr = np.outer( r, k )
@@ -55,7 +125,14 @@ class Filter(ABC):
 
 
 class Tophat(Filter):
+    r"""
+    Spherical tophat filter in k-space.
 
+    .. math::
+        w(x) = 3 \frac{ \sin(x) - x\cos(x) }{ x^3 }
+
+    """
+    
     def filter(self, x: Any, j: int = 0) -> Any:
         x = np.asfarray( x )
 
@@ -68,6 +145,13 @@ class Tophat(Filter):
         return NotImplemented
 
 class Gaussian(Filter):
+    r"""
+    Gaussian filter in k-space.
+
+    .. math::
+        w(x) = e^{ -x^2 / 2 }
+        
+    """
 
     def filter(x: Any, j: int = 0) -> Any:
         x = np.asfarray( x )
@@ -81,7 +165,13 @@ class Gaussian(Filter):
         return NotImplemented
 
 class SharpK(Filter):
-    
+    r"""
+    Sharp k filter in k-space. It is the Fourier transform of the spherical tophat filter 
+    in real space. It's value is 0 for x > 0 and 1 otherwise.
+        
+    Note: derivative of the convolution is not implemented.
+    """
+
     def filter(self, x: Any, j: int = 0) -> Any:
         x = np.asfarray( x )
         
@@ -110,9 +200,33 @@ class SharpK(Filter):
 filters = {
                 'tophat': Tophat(),
                 'gauss' : Gaussian(),
+                'sharpk': SharpK(),
           }
 
 def j0convolution(f: Callable, r: Any, args: tuple = (), ) -> Any:
+    r"""
+    Compute the convolution with sinc function (spherical bessel function :math:`j_0`) filter.
+
+    .. math::
+        F(r) = \int_0^\infty f(k) \frac{ \sin(kr) }{ kr }
+
+    Note: sinc function is highly oscillating for large arguments, it is exponentilly suppressed 
+    at x = 100. i.e., an additional factor of :math:`\exp[(x/100)^2]` is introduced.
+
+    Parameters
+    ----------
+    f: callable
+        Function to convolve with the filter.
+    r: array_like
+        Smoothing radius or convolution argument.
+    args: tuple, optional
+        Other arguments to be passed to the function call.
+
+    Returns
+    -------
+    F: array_like
+        Value of the convolution.
+    """
     
     def integrand(lnk: Any, r: Any, *args):
         k  = np.exp( lnk )
