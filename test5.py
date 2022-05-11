@@ -43,9 +43,9 @@ def test1():
 def test2():
     c = Cosmology( 0.7, 0.3, 0.05, 0.8, 1.0 )
 
-    from pycosmo2.power_spectrum import Sugiyama96
+    import pycosmo2.power_spectrum as ps
 
-    p = Sugiyama96( c )
+    p = ps.Sugiyama96( c )
 
     import pycosmo.core.cosmology as cm
     d = cm.Cosmology( h=0.7, Om0=0.3, Ob0=0.05, sigma8=0.8, ns=1.0, transfer_function='sugiyama96' )
