@@ -1,15 +1,30 @@
 from typing import Any 
 import numpy as np
 import pycosmo2.cosmology.cosmo as cosmo
-import pycosmo2.power_spectrum.linear_power as lp
+import pycosmo2.power_spectrum.base as base
 import pycosmo2.power_spectrum.nonlinear_power as nlp
 import pycosmo2.power_spectrum.transfer_functions as tf
 
 
-class PowerSpectrumError(lp.PowerSpectrumError):
-    ...
+class PowerSpectrum(base.PowerSpectrum):
+    r"""
+    An abstract power spectrum class. A properly initialised power spectrum object cann be 
+    used to compute the linear and non-linear power spectra, matter variance etc.
 
-class PowerSpectrum(lp.PowerSpectrum):
+    Parameters
+    ----------
+    cm: Cosmology
+        Working cosmology object. Power spectrum objects extract cosmology parameters from 
+        these objects.
+    filter: str. optional
+        Filter to use for smoothing the density field. Its allowed values are `tophat` (default), 
+        `gauss` and `sharpk`.
+    
+    Raises
+    ------
+    PowerSpectrumError
+
+    """
 
     __slots__ = 'nonlinear_model', 'linear_model', 
 
@@ -87,7 +102,7 @@ class PowerSpectrumTable(PowerSpectrum):
 
         lnk, lnt = np.asfarray( lnk ), np.asfarray( lnt )
         if np.ndim( lnk ) != 1 or np.ndim( lnt ) != 1:
-            raise PowerSpectrumError("both lnk and lnt must be 1-dimensional arrays")
+            raise base.PowerSpectrumError("both lnk and lnt must be 1-dimensional arrays")
         
         from scipy.interpolate import CubicSpline
 

@@ -1,6 +1,7 @@
 __all__ = [ 'filters', 'linear_power', 'nonlinear_power', 'power', 'transfer_functions' ]
 
-from pycosmo2.power_spectrum.core import PowerSpectrum, PowerSpectrumError
+from pycosmo2.power_spectrum.core import PowerSpectrum
+from pycosmo2.power_spectrum.base import PowerSpectrumError
 
 # predefined power spectrum models
 from pycosmo2.power_spectrum.core import (

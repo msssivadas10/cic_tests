@@ -14,22 +14,7 @@ class PowerSpectrumError(Exception):
 
 class PowerSpectrum(ABC):
     r"""
-    An abstract power spectrum class. A properly initialised power spectrum object cann be 
-    used to compute the linear and non-linear power spectra, matter variance etc.
-
-    Parameters
-    ----------
-    cm: Cosmology
-        Working cosmology object. Power spectrum objects extract cosmology parameters from 
-        these objects.
-    filter: str. optional
-        Filter to use for smoothing the density field. Its allowed values are `tophat` (default), 
-        `gauss` and `sharpk`.
-    
-    Raises
-    ------
-    PowerSpectrumError
-
+    Base power spectrum class. 
     """
 
     __slots__ = 'filter', 'cosmology', 'A', 'use_exact_growth'
