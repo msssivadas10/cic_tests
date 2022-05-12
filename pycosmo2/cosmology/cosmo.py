@@ -15,7 +15,8 @@ class Cosmology(base.Cosmology):
                     self, h: float, Om0: float, Ob0: float, sigma8: float, ns: float, flat: bool = True, 
                     relspecies: bool = False, Ode0: float = None, Omnu0: float = 0.0, Nmnu: float = None, 
                     Tcmb0: float = 2.725, w0: float = -1.0, wa: float = 0.0, Nnu: float = 3.0,
-                    power_spectrum: str = 'eisenstein98_zb', mass_function: str = 'tinker08', linear_bias: str = None,
+                    power_spectrum: str = 'eisenstein98_zb', filter: str = 'tophat', 
+                    mass_function: str = 'tinker08', linear_bias: str = None,
                 ) -> None:
 
         # check parameters h, sigma8 and ns
@@ -71,9 +72,8 @@ class Cosmology(base.Cosmology):
         if isinstance(power_spectrum, str):
             if power_spectrum not in ps.models:
                 raise ValueError(f"invalid value for power spectrum: '{ power_spectrum }'")
-            power_spectrum = ps.models[ power_spectrum ]
-
-        if not isinstance(power_spectrum, ps.PowerSpectrum):
+            power_spectrum = ps.models[ power_spectrum ]( self, filter = filter )
+        elif not isinstance(power_spectrum, ps.PowerSpectrum):
             raise TypeError("power spectrum must be a `PowerSpectrum` object")
         self.power_spectrum = power_spectrum
 

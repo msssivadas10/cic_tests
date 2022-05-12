@@ -3,48 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
-# print(plt.style.available)
-
-def integrate_osc_test():
-    from pycosmo2.utils.numeric import integrate2, erfc
-
-    def f(x):
-        y = np.zeros_like(x, 'float')
-        y[ x!= 0 ] = np.sin(x[x!=0]) / np.log(1+x[x!=0])
-        return y
-
-    print("oscillatory integral test:")
-    eps = 1e-07
-    q   = int( np.ceil( np.sqrt( -np.log( eps ) ) ) )
-    p   = 2*q
-    L   = 2*p*q
-    print( 
-            integrate2( 
-                        lambda x: f(x)*erfc(x/p-q)*0.5, 0, L 
-                      ), 
-                        2.0410186151477098866 
-         )
-
-def test1():
-    c = Cosmology( 0.7, 0.3, 0.05, 0.8, 1.0 )
-    # print(c)
-
-    x  = np.logspace(-3, 1, 21)
-    y1 = c.f( x, False )
-    y2 = c.f( x, True )
-
-    plt.figure()
-    plt.semilogx()
-    plt.plot( x, y1, color = 'tab:blue' )
-    plt.plot( x, y2, 'o', ms = 4, color = 'green')
-    plt.show()
 
 def test2():
-    c = Cosmology( 0.7, 0.3, 0.05, 0.8, 1.0 )
-
-    import pycosmo2.power_spectrum as ps
-
-    p = ps.Sugiyama96( c )
+    c = Cosmology( 0.7, 0.3, 0.05, 0.8, 1.0, power_spectrum = 'sugiyama96' )
 
     import pycosmo.core.cosmology as cm
     d = cm.Cosmology( h=0.7, Om0=0.3, Ob0=0.05, sigma8=0.8, ns=1.0, transfer_function='sugiyama96' )
@@ -55,12 +16,9 @@ def test2():
     # f = CubicSpline( np.log(x), np.log(y2) )
 
     x  = np.logspace( -3, 3, 51 )
-    y1 = d.matterPowerSpectrum( x, dim=0, lin=0 )
+    y1 = d.matterPowerSpectrum( x, dim=0, lin=1 )
     # # y1 = f(np.log(x), nu = 2) 
-    y2 = p.matterPowerSpectrum( x, dim=0, linear=0 )
-
-    
-
+    y2 = c.power_spectrum.matterPowerSpectrum( x, dim=0, linear=1 )
 
     plt.figure()
     # plt.semilogx()

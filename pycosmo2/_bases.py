@@ -20,9 +20,11 @@ class Cosmology:
                     self, h: float, Om0: float, Ob0: float, sigma8: float, ns: float, flat: bool = True, 
                     relspecies: bool = False, Ode0: float = None, Omnu0: float = 0.0, Nmnu: float = None, 
                     Tcmb0: float = 2.725, w0: float = -1.0, wa: float = 0.0, Nnu: float = 3.0, 
-                    power_spectrum: str = None, mass_function: str = None, linear_bias: str = None,
+                    power_spectrum: str = None, filter: str = None, mass_function: str = None, 
+                    linear_bias: str = None,
                 ) -> None:
-        ...
+
+        self.power_spectrum: PowerSpectrum
 
     def __repr__(self) -> str:
         items = [ f'flat={ self.flat }' , f'h={ self.h }', f'Om0={ self.Om0 }', f'Ob0={ self.Ob0 }', f'Ode0={ self.Ode0 }' ]

@@ -1,6 +1,5 @@
 from typing import Any 
 import numpy as np
-import pycosmo2.cosmology.cosmo as cosmo
 import pycosmo2._bases as base
 import pycosmo2.utils.settings as settings
 import pycosmo2.utils.numeric as numeric
@@ -30,11 +29,11 @@ class PowerSpectrum(base.PowerSpectrum):
 
     """
 
-    def __init__(self, cm: cosmo.Cosmology, filter: str = 'tophat') -> None:
+    def __init__(self, cm: base.Cosmology, filter: str = 'tophat') -> None:
         self.linear_model    = None
         self.nonlinear_model = 'halofit'
 
-        if not isinstance( cm, cosmo.Cosmology ):
+        if not isinstance( cm, base.Cosmology ):
             raise PowerSpectrumError("cm must be a 'Cosmology' object")
         self.cosmology        = cm
         self.use_exact_growth = False # whether to use exact (integrated) growth factors
@@ -278,7 +277,7 @@ class Sugiyama96(PowerSpectrum):
             Mon. Not. R. Astron. Soc. 304, 851-864, 1999.  
     """
 
-    def __init__(self, cm: cosmo.Cosmology, filter: str = 'tophat') -> None:
+    def __init__(self, cm: base.Cosmology, filter: str = 'tophat') -> None:
         super().__init__(cm, filter)
         self.linear_model = 'sugiyama96'
 
@@ -290,7 +289,7 @@ class BBKS(Sugiyama96):
     Same as :class:`Sugiyama96`.
     """
 
-    def __init__(self, cm: cosmo.Cosmology, filter: str = 'tophat') -> None:
+    def __init__(self, cm: base.Cosmology, filter: str = 'tophat') -> None:
         super().__init__(cm, filter)
         self.linear_model = 'bbks'
 
@@ -318,7 +317,7 @@ class Eisenstein98_zeroBaryon(PowerSpectrum):
             `arXive:astro-ph/9709112v1, <http://arXiv.org/abs/astro-ph/9709112v1>`_, 1997.
     """
 
-    def __init__(self, cm: cosmo.Cosmology, filter: str = 'tophat') -> None:
+    def __init__(self, cm: base.Cosmology, filter: str = 'tophat') -> None:
         super().__init__(cm, filter)
         self.linear_model = 'eisenstein98_zb'
 
@@ -349,7 +348,7 @@ class Eisenstein98_withBaryon(PowerSpectrum):
             `arXive:astro-ph/9709112v1, <http://arXiv.org/abs/astro-ph/9709112v1>`_, 1997.
     """
 
-    def __init__(self, cm: cosmo.Cosmology, filter: str = 'tophat') -> None:
+    def __init__(self, cm: base.Cosmology, filter: str = 'tophat') -> None:
         super().__init__(cm, filter)
         self.linear_model = 'eisenstein98_wb'
 
@@ -380,7 +379,7 @@ class Eisenstein98_withNeutrino(PowerSpectrum):
             `arXive:astro-ph/9710252v1, <http://arXiv.org/abs/astro-ph/9710252v1>`_, 1997.
     """
 
-    def __init__(self, cm: cosmo.Cosmology, filter: str = 'tophat') -> None:
+    def __init__(self, cm: base.Cosmology, filter: str = 'tophat') -> None:
         super().__init__(cm, filter)
         self.linear_model = 'eisenstein98_nu'
 
@@ -417,7 +416,7 @@ class PowerSpectrumTable(PowerSpectrum):
 
     __slots__ = 'spline', 
 
-    def __init__(self, lnk: Any, lnt: Any, cm: cosmo.Cosmology, filter: str = 'tophat') -> None:
+    def __init__(self, lnk: Any, lnt: Any, cm: base.Cosmology, filter: str = 'tophat') -> None:
         super().__init__(cm, filter)
         self.linear_model = 'rawdata'
 
