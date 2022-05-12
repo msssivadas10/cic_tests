@@ -2,7 +2,7 @@ from typing import Any
 from abc import ABC, abstractmethod
 import pycosmo2.cosmology.cosmo as cosmo
 
-################################################################################################
+# base power spectrum object
 
 class PowerSpectrumError(Exception):
     r"""

@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Any
-from pycosmo2.power_spectrum.base import PowerSpectrum
+from pycosmo2.bases import PowerSpectrum
 
 def halofit(ps: PowerSpectrum, k: Any, z: float = 0.0) -> Any:
     r"""
