@@ -25,6 +25,8 @@ class Cosmology:
                 ) -> None:
 
         self.power_spectrum: PowerSpectrum
+        self.mass_function : Any
+        self.linear_bias   : Any
 
     def __repr__(self) -> str:
         items = [ f'flat={ self.flat }' , f'h={ self.h }', f'Om0={ self.Om0 }', f'Ob0={ self.Ob0 }', f'Ode0={ self.Ode0 }' ]
