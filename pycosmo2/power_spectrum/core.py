@@ -1,14 +1,14 @@
 from typing import Any 
 import numpy as np
 import pycosmo2.cosmology.cosmo as cosmo
-import pycosmo2.bases as base
+import pycosmo2._bases as base
 import pycosmo2.utils.settings as settings
 import pycosmo2.utils.numeric as numeric
 import pycosmo2.power_spectrum.filters as filters
 import pycosmo2.power_spectrum.nonlinear_power as nlp
 import pycosmo2.power_spectrum.transfer_functions as tf
 
-from pycosmo2.bases import PowerSpectrumError
+from pycosmo2._bases import PowerSpectrumError
 
 class PowerSpectrum(base.PowerSpectrum):
     r"""

@@ -1,5 +1,5 @@
 from typing import Any
-from pycosmo2.cosmology.cosmo import Cosmology
+from pycosmo2._bases import Cosmology
 import numpy as np
 
 def psmodelEisenstein98_withBaryon(cm: Cosmology, k: Any, z: float = 0) -> Any:

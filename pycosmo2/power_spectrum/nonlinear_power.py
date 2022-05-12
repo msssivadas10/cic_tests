@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Any
-from pycosmo2.bases import PowerSpectrum
+from pycosmo2._bases import PowerSpectrum
 
 def halofit(ps: PowerSpectrum, k: Any, z: float = 0.0) -> Any:
     r"""
@@ -23,8 +23,8 @@ def halofit(ps: PowerSpectrum, k: Any, z: float = 0.0) -> Any:
     """
     if not isinstance( ps, PowerSpectrum ):
         raise TypeError("ps must be a 'PowerSpectrum' object")
+    cm = ps.cosmology
 
-    cm    = ps.cosmology
     rstar = ps.radius( 1.0, z, linear = True ) # 1/k_sigma in eqn. A4 ( with default filter )
 
     # eqn. A5
@@ -63,7 +63,7 @@ def halofit(ps: PowerSpectrum, k: Any, z: float = 0.0) -> Any:
     # one-halo term: eqn. A3
     delta2H = an * y**( 3 * f1 ) / ( 1 + bn * y**f2 + ( cn * f3 * y )**( 3 - gamma_n ) )
     delta2H = delta2H / ( 1 + mu_n * y**-1 + nu_n * y**-2 ) 
-
+    
     return delta2Q + delta2H
 
 def peacockDodds(ps: PowerSpectrum, k: Any, z: float = 0.0) -> Any:
@@ -87,13 +87,14 @@ def peacockDodds(ps: PowerSpectrum, k: Any, z: float = 0.0) -> Any:
     """
     if not isinstance( ps, PowerSpectrum ):
         raise TypeError("ps must be a 'PowerSpectrum' object")
+    cm = ps.cosmology
 
     neff = ps.effectiveIndex( k, z, linear = True )
     n3p1 = 1 + neff / 3
     mask = ( n3p1 > 0 ) # else, for neff < -3, power becomes complex
 
     dnl  = np.zeros_like( neff )
-    g    = ps.cosmology.g( z, ps.use_exact_growth )
+    g    = cm.g( z, ps.use_exact_growth )
     
     dnl[ mask ] = ps.linearPowerSpectrum( k[ mask ], z, dim = False )
 

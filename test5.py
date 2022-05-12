@@ -1,4 +1,3 @@
-from cgi import test
 from pycosmo2.cosmology.cosmo import Cosmology
 import numpy as np
 import matplotlib.pyplot as plt
@@ -56,9 +55,9 @@ def test2():
     # f = CubicSpline( np.log(x), np.log(y2) )
 
     x  = np.logspace( -3, 3, 51 )
-    y1 = d.matterPowerSpectrum( x, dim=0, lin=1 )
+    y1 = d.matterPowerSpectrum( x, dim=0, lin=0 )
     # # y1 = f(np.log(x), nu = 2) 
-    y2 = p.matterPowerSpectrum( x, dim=0, linear=1 )
+    y2 = p.matterPowerSpectrum( x, dim=0, linear=0 )
 
     
 

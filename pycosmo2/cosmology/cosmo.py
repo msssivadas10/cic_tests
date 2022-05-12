@@ -3,22 +3,19 @@ import numpy as np
 import pycosmo2.utils.constants as const
 import pycosmo2.utils.numeric as numeric
 import pycosmo2.utils.settings as settings
+import pycosmo2.power_spectrum as ps
+import pycosmo2._bases as base
+
+from pycosmo2._bases import CosmologyError
 
 
-class CosmologyError(Exception):
-    ...
-
-class Cosmology:
-    __slots__ = (
-                    'Om0', 'Ob0', 'Omnu0', 'Oc0', 'Ode0', 'Ok0', 'Or0', 'Oph0', 'Ornu0', 'Tcmb0', 'Tnu0',
-                    'h', 'sigma8', 'ns', 'Nmnu', 'Nrnu', 'Mmnu', 'Mrnu', 'Nnu', 'Mnu', 'w0', 'wa', 'flat', 
-                    'relspecies', 
-                )
+class Cosmology(base.Cosmology):
     
     def __init__(
                     self, h: float, Om0: float, Ob0: float, sigma8: float, ns: float, flat: bool = True, 
                     relspecies: bool = False, Ode0: float = None, Omnu0: float = 0.0, Nmnu: float = None, 
                     Tcmb0: float = 2.725, w0: float = -1.0, wa: float = 0.0, Nnu: float = 3.0,
+                    power_spectrum: str = 'eisenstein98_zb', mass_function: str = 'tinker08', linear_bias: str = None,
                 ) -> None:
 
         # check parameters h, sigma8 and ns
@@ -68,7 +65,17 @@ class Cosmology:
         self.flat, self.Ok0 = flat, Ok0
 
         # dark-energy equation of state parameterization:
-        self.w0, self.wa = w0, wa     
+        self.w0, self.wa = w0, wa 
+
+        # initialiing power spectrum
+        if isinstance(power_spectrum, str):
+            if power_spectrum not in ps.models:
+                raise ValueError(f"invalid value for power spectrum: '{ power_spectrum }'")
+            power_spectrum = ps.models[ power_spectrum ]
+
+        if not isinstance(power_spectrum, ps.PowerSpectrum):
+            raise TypeError("power spectrum must be a `PowerSpectrum` object")
+        self.power_spectrum = power_spectrum
 
     def _init_matter(self, Om0: float, Ob0: float, Omnu0: float = 0.0, Nmnu: float = None):
         if Om0 < 0:
@@ -455,4 +462,33 @@ class Cosmology:
     def DplusFreeStream(self, q: Any, z: Any, include_nu: bool = False, exact: bool = False, fac: float = None) -> Any:
         Dz = self.Dplus( z, exact, fac ) # growth without free streaming
         return self._DplusFreeStream( q, Dz, include_nu )
+
+    # power spectrum
+
+    def linearPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True) -> Any:
+        return self.power_spectrum.linearPowerSpectrum( k, z, dim )
+
+    def nonlinearPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True) -> Any:
+        return self.power_spectrum.nonlinearPowerSpectrum( k, z, dim )
+
+    def matterPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True, linear: bool = True) -> Any:
+        return self.power_spectrum.matterPowerSpectrum( k, z, dim, linear )
+
+    def matterCorreleation(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        return self.power_spectrum.matterCorrelation( r, z, linear )
+
+    def variance(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        return self.power_spectrum.variance(r, z, linear)
+    
+    def dlnsdlnr(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        return self.power_spectrum.dlnsdlnr( r, z, linear )
+
+    def d2lnsdlnr2(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        return self.power_spectrum.d2lnsdlnr2( r, z, linear )
+
+    def effectiveIndex(self, k: Any, z: float = 0, linear: bool = True) -> Any:
+        return self.power_spectrum.effectiveIndex( k, z, linear )
+
+    def nonlineark(self, k: Any, z: float = 0) -> Any:
+        return self.power_spectrum.nonlineark( k, z )
         
