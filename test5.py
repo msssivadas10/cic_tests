@@ -18,7 +18,7 @@ def test2():
     x  = np.logspace( -3, 3, 51 )
     y1 = d.matterPowerSpectrum( x, dim=0, lin=1 )
     # # y1 = f(np.log(x), nu = 2) 
-    y2 = c.power_spectrum.matterPowerSpectrum( x, dim=0, linear=1 )
+    y2 = c.matterPowerSpectrum( x, dim=0, linear=1 )
 
     plt.figure()
     # plt.semilogx()

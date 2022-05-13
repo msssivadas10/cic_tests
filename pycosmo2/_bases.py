@@ -23,9 +23,31 @@ class Cosmology:
                     power_spectrum: str = None, filter: str = None, mass_function: str = None, 
                     linear_bias: str = None,
                 ) -> None:
-
+        self.Om0           : float
+        self.Ob0           : float
+        self.Omnu0         : float
+        self.Oc0           : float
+        self.Ode0          : float
+        self.Or0           : float
+        self.Oph0          : float 
+        self.Ornu0         : float
+        self.Nmnu          : float
+        self.Nnu           : float
+        self.Nrnu          : float
+        self.Mmnu          : float
+        self.Mnu           : float
+        self.Mrnu          : float
+        self.w0            : float 
+        self.wa            : float
+        self.Tcmb0         : float
+        self.Tnu0          : float
+        self.h             : float
+        self.sigma8        : float
+        self.ns            : float
+        self.flat          : bool
+        self.relspecies    : bool
         self.power_spectrum: PowerSpectrum
-        self.mass_function : Any
+        self.mass_function : HaloMassFunction
         self.linear_bias   : Any
 
     def __repr__(self) -> str:
@@ -1270,7 +1292,12 @@ class PowerSpectrum(ABC):
     __slots__ = 'filter', 'cosmology', 'A', 'use_exact_growth', 'nonlinear_model', 'linear_model',
 
     def __init__(self, cm: Cosmology, filter: str = 'tophat') -> None:
-        ...
+        self.filter          : Any
+        self.cosmology       : Cosmology
+        self.A               : float
+        self.use_exact_growth: bool
+        self.nonlinear_model : str
+        self.linear_model    : str 
 
     def Dplus(self, z: Any) -> Any:
         r"""
@@ -1556,3 +1583,22 @@ class PowerSpectrum(ABC):
         Normalize the power spectrum using the value of :math:`\sigma_8` parameter.
         """
         ...
+
+
+# halo mass function models
+
+class HaloMassFunctionError(Exception):
+    r"""
+    Base class of exceptions used by halo mass function objects.
+    """
+
+class HaloMassFunction(ABC):
+    
+    __slots__ = 'model', 'prop', 'cosmology'
+
+    def __init__(self, cm: Cosmology) -> None:
+        self.cosmology : Cosmology
+        self.model     : str
+        self.prop      : int 
+
+    
