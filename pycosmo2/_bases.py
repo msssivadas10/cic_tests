@@ -1177,6 +1177,31 @@ class Cosmology:
         
         """
         ...
+    
+    def radius(self, sigma: Any, z: float = 0, linear: bool = True) -> Any:
+        r"""
+        Invert the variance to find the smoothing radius.
+
+        Parameters
+        ----------
+        sigma: array_like
+            Variance values (linear or non-linear, specified by `linear` argument), to be exact, their 
+            square roots.
+        z: float, optional
+            Redshift (default is 0).
+        linear: bool, optional
+            If true (default) use the linear variance, else the non-linear variance.
+        
+        Returns
+        -------
+        r: array_like
+            Smoothing radius in Mpc/h.
+
+        Examples
+        --------
+
+        """
+        ...
 
     def dlnsdlnr(self, r: Any, z: float = 0, linear: bool = True) -> Any:
         r"""
@@ -1199,6 +1224,30 @@ class Cosmology:
         Examples
         --------
         
+        """
+        ...
+
+    def dlnsdlnm(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        r"""
+        Compute the first logarithmic derivative of matter fluctuations variance w.r.to mass.
+
+        Parameters
+        ----------
+        m: array_like
+            Smoothing radius in Mpc/h, corresponding to the mass.
+        z: float, optional
+            Redshift (default is 0).
+        linear: bool, optional
+            If true (default) return the value for linear variance, else for non-linear variance.
+        
+        Returns
+        -------
+        y: array_like
+            Values of the derivative.
+
+        Examples
+        --------
+
         """
         ...
 
@@ -1273,6 +1322,51 @@ class Cosmology:
         --------
         
         """
+        ...
+
+    # halo mass function and related calculations
+
+    def lagrangianR(self, m: Any) -> Any:
+        r"""
+        Compute the Lagrangian radius corresponding to a mass.
+
+        Parameters
+        ----------
+        m: array_like
+            Mass in Msun/h.
+
+        Returns
+        -------
+        r: array_like
+            Lagrangian radius in Mpc/h.
+
+        Examples
+        --------
+
+        """
+        ...
+
+    def lagrangianM(self, r: Any) -> Any:
+        r"""
+        Compute the mass corresponding to a Lagrangian radius.
+
+        Parameters
+        ----------
+        r: array_like
+            Lagrangian radius in Mpc/h.
+        
+        Returns
+        -------
+        m: array_like
+            Mass in Msun/h.
+
+        Examples
+        --------
+        
+        """
+        ...
+
+    def massFunction(self, m: Any, z: float = 0, overdensity: Union[int, str] = '200m', out: str = 'dndlnm') -> Any:
         ...
 
 
@@ -1593,12 +1687,21 @@ class HaloMassFunctionError(Exception):
     """
 
 class HaloMassFunction(ABC):
+    r"""
+    Base halo mass-function class.
+    """
     
-    __slots__ = 'model', 'prop', 'cosmology'
+    __slots__ = 'model', 'flags', 'cosmology'
 
-    def __init__(self, cm: Cosmology) -> None:
+    def __init__(self, cm: Cosmology, flags: int = 0) -> None:
         self.cosmology : Cosmology
         self.model     : str
-        self.prop      : int 
+        self.flags     : int 
+    
+    @abstractmethod
+    def f(self, sigma: Any, *args, **kwargs) -> Any:
+        ...
 
+    def massFunction(self, m: Any, z: float = 0, overdensity: Union[int, str] = '200m', out: str = 'dndlnm') -> Any:
+        ...
     

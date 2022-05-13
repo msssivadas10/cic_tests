@@ -480,8 +480,14 @@ class Cosmology(base.Cosmology):
     def variance(self, r: Any, z: float = 0, linear: bool = True) -> Any:
         return self.power_spectrum.variance(r, z, linear)
     
+    def radius(self, sigma: Any, z: float = 0, linear: bool = True) -> Any:
+        return self.power_spectrum.radius( sigma, z, linear )
+    
     def dlnsdlnr(self, r: Any, z: float = 0, linear: bool = True) -> Any:
         return self.power_spectrum.dlnsdlnr( r, z, linear )
+    
+    def dlnsdlnm(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        return self.dlnsdlnr( r, z, linear ) / 3.0
 
     def d2lnsdlnr2(self, r: Any, z: float = 0, linear: bool = True) -> Any:
         return self.power_spectrum.d2lnsdlnr2( r, z, linear )
