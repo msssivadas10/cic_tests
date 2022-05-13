@@ -1011,30 +1011,246 @@ class Cosmology:
     # power spectrum 
 
     def linearPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True) -> Any:
+        r"""
+        Compute the linear matter power spectrum. This power spectrum will correspond to the specified 
+        transfer function model. 
+
+        Parameters
+        ----------
+        k: array_like
+            Wavenumber in h/Mpc.
+        z: float, optional
+            Redshift (default is 0).
+        dim: bool, optional
+            If true (default) return the power spectrum in :math:`h^{-3}/{\rm Mpc}^3`, otherwise gives the 
+            dimensionless power spectrum.
+        
+        Returns
+        -------
+        pk: array_like
+            Values of power spectrum.
+
+        Examples
+        --------
+
+        """
         ...
 
     def nonlinearPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True) -> Any:
+        r"""
+        Compute the non-linear matter power spectrum. This power spectrum will correspond to the specified 
+        model. 
+
+        Parameters
+        ----------
+        k: array_like
+            Wavenumber in h/Mpc.
+        z: float, optional
+            Redshift (default is 0).
+        dim: bool, optional
+            If true (default) return the power spectrum in :math:`h^{-3}/{\rm Mpc}^3`, otherwise gives the 
+            dimensionless power spectrum.
+        
+        Returns
+        -------
+        pk: array_like
+            Values of power spectrum.
+
+        Examples
+        --------
+        
+        """
         ...
 
     def matterPowerSpectrum(self, k: Any, z: float = 0, dim: bool = True, linear: bool= True) -> Any:
+        r"""
+        Compute the linear or non-linear matter power spectrum. This power spectrum will correspond to the 
+        specified transfer function model. The linear power spectrum is given in terms of the transfer function 
+        :math:`T(k)` as
+
+        .. math::
+            P_{\rm lin}(k, z) = A k^{ n_s } T(k)^2 D_+(z)^2
+
+        where :math:`A` is the normalization factor. Non-linear power spectrum is modelled as some function of 
+        the linear power spectrum. Thes will have units :math:`h^{-3}/{\rm Mpc}^3`. The dimensionless power 
+        spectrum is defined as 
+
+        .. math ::
+            \Delta^2(k, z) = \frac{ k^3 P(k, z) }{ 2\pi^2 }
+
+        Parameters
+        ----------
+        k: array_like
+            Wavenumber in h/Mpc.
+        z: float, optional
+            Redshift (default is 0).
+        dim: bool, optional
+            If true (default) return the power spectrum in :math:`h^{-3}/{\rm Mpc}^3`, otherwise gives the 
+            dimensionless power spectrum.
+        linear: bool, optional
+            If true (default) return the linear model, else non-linear.
+        
+        Returns
+        -------
+        pk: array_like
+            Values of power spectrum.
+
+        Examples
+        --------
+        
+        """
         ...
 
     def matterCorreleation(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        r"""
+        Compute the two-point correlation function for matter.
+
+        .. math::
+            \xi(r, z) = \int_0^\infty \Delta^2(k, z) \frac{ \sin kr }{ kr } {\rm d}\ln k
+
+        Parameters
+        ----------
+        r: array_like
+           Seperation between two spacial points in Mpc/h.
+        z: float, optional
+            Redshift (default is 0).
+        linear: bool, optional
+            If true (default) return the linear model, else non-linear.
+        
+        Returns
+        -------
+        xi: array_like
+            Values of power spectrum.
+
+        Examples
+        --------
+        
+        """
         ...
 
     def variance(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        r"""
+        Compute the variance of matter fluctuations, smoothed at radius :math:`r` using a filter function,
+        :math:`w (kr )`, such as a spherical top-hat. 
+
+        .. math::
+            \\sigma^2(r, z) = \int_0^\infty \Delta^2(k, z) w( kr )^2 {\rm d}\ln k
+
+        Parameters
+        ----------
+        r: array_like
+           Seperation between two spacial points in Mpc/h.
+        z: float, optional
+            Redshift (default is 0).
+        linear: bool, optional
+            If true (default) return the linear model, else non-linear.
+        
+        Returns
+        -------
+        var: array_like
+            Values of variance.
+
+        Examples
+        --------
+        
+        """
         ...
 
     def dlnsdlnr(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        r"""
+        Compute the first logarithmic derivative of smoothed variance.
+
+        Parameters
+        ----------
+        r: array_like
+           Seperation between two spacial points in Mpc/h.
+        z: float, optional
+            Redshift (default is 0).
+        linear: bool, optional
+            If true (default) return the linear model, else non-linear.
+        
+        Returns
+        -------
+        y: array_like
+            Values of derivative of variance.
+
+        Examples
+        --------
+        
+        """
         ...
 
     def d2lnsdlnr2(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+        r"""
+        Compute the second logarithmic derivative of smoothed variance.
+
+        Parameters
+        ----------
+        r: array_like
+           Seperation between two spacial points in Mpc/h.
+        z: float, optional
+            Redshift (default is 0).
+        linear: bool, optional
+            If true (default) return the linear model, else non-linear.
+        
+        Returns
+        -------
+        y: array_like
+            Values of derivative of variance.
+
+        Examples
+        --------
+        
+        """
         ...
 
     def effectiveIndex(self, k: Any, z: float = 0, linear: bool = True) -> Any:
+        r"""
+        Compute the effective slope or index of the power spectrum.
+
+        .. math::
+            n_{\rm eff}(k, z) = \frac{ {\rm d}\ln P(k,z) }{ {\rm d}\ln k }
+
+        Parameters
+        ----------
+        k: array_like
+            Wavenumber in h/Mpc.
+        z: float, optional
+            Redshift (default is 0).
+        linear: bool, optional
+            If true (default) return the slope for linear model, else non-linear.
+
+        Returns
+        -------
+        neff: array_like
+            Effective slope at given wavenumber.
+
+        Examples
+        --------
+
+        """
         ...
     
     def nonlineark(self, k: Any, z: float = 0) -> Any:
+        r"""
+        Compute the non-linear wavenumber corresponding to a linear one.
+
+        Parameters
+        ----------
+        k: array_like
+            linear wavenumber in h/Mpc.
+        z: float, optional
+            Redshift (default is 0).
+
+        Returns
+        -------
+        knl: array_like
+            Non-linear wavenumber in h/Mpc.
+
+        Examples
+        --------
+        
+        """
         ...
 
 
