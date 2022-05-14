@@ -11,17 +11,79 @@ from pycosmo2._bases import CosmologyError
 
 PowerSpectrumType = TypeVar('PowerSpectrumType', str, base.PowerSpectrum )
 MassFunctionType  = TypeVar('MassFunctionType', str, base.HaloMassFunction)
-LinearBiasType    = TypeVar('LinearBiasType', str, )
+# LinearBiasType    = TypeVar('LinearBiasType', str, object)
 
 
 class Cosmology(base.Cosmology):
+    r"""
+    A class representing a cosmology model. A cosmology model stores parameters modelling a cosmology and 
+    contains special methods related to astrophysical computations, such as power spectra, correlations and 
+    halo mass-functions. 
+    
+    This model uses a generally variable dark-energy model, with the equation of state linearly varying 
+    with time, :math:`w(z) = w_0 + w_a \frac{ z }{ z+1 }`. Default model is the *cosmological constant*, 
+    :math:`\Lambda`, corresponding to :math:`w_0=-1, w_a=0`. The model can also be configured to include 
+    curved geometry, relativistic species and massive neutrinos.
+
+    Parameters
+    ----------
+    h: float
+        Present value of Hubble parameter in 100 km/sec/Mpc.
+    Om0: float
+        Present density of matter in units of critical density. Must be non-negative.
+    Ob0: float
+        Present density of baryonic matter in units of critical density. Must be non-negative.
+    sigma8: float
+        RMS fluctuation of the matter density field at 8 Mpc/h scale. Must be non-negative. 
+    ns: float
+        Power law index for the early power spectrum.
+    flat: bool, optional
+        Tells the spatial geometry. Default is a flat geometry.
+    relspecies: bool, optional
+        Tells if the model contains relativistic species or radiation (default is false).
+    Ode0: float, only for non-flat geometry
+        Present dark-energy density in units of critical density. Must be non-negative. In a flat space, it 
+        is taken as the remaining density after matter.
+    Omnu0: float, optional
+        Present density of *massive* neutrinos in units of critical density. Must be non-negative. Default 
+        value is 0, means no massive neutrinos.
+    Nmnu: float, optional
+        Number of massive neutrino species. Must be a non-zero, positive value, and it is required when there 
+        is massive neutrinos.
+    Tcmb0: float, optional
+        Present temperature of the CMB in kelvin (default 2.275K).
+    w0, wa: float, optional
+        Equation of state parametrization for dark-energy. `w0` is the constant part  and `wa` is the time 
+        varying part (default is `w0` = -1 and `wa` = 0, correspond to the cosmological constant). 
+    Nnu: float, optional
+        Total number of neutrinos (massive and relativistic). Default is 3.
+    power_spectrum: str, PowerSpectrum, optional 
+        Tell the linear matter power spectrum (or, transfer function) model to use. Default model is Eisenstein-
+        Hu model without baryon oscillations (`eisenstein98_zb` if no massive neutrino, else `eisenstein98_nu`). 
+    filter: str, optional
+        Filter used to smooth the density field. Default is a spherical tophat (`tophat`). Other availabe models 
+        are Gaussian (`gauss`) and sharp-k (`sharp-k`, not fully implemented).
+    mass_function: str, HaloMassFunction, optional
+        Tell the halo mass function model to use. Default is the model by Tinker et al (2008), `tinker08`. 
+    linear_bias: str, optional
+        Tell the linear bias model to use.
+
+    Raises
+    ------
+    CosmologyError:
+        When the parameter values are incorrect, on failure of colsmological calculations.
+
+    Examples
+    --------
+    
+    """
     
     def __init__(
                     self, h: float, Om0: float, Ob0: float, sigma8: float, ns: float, flat: bool = True, 
                     relspecies: bool = False, Ode0: float = None, Omnu0: float = 0.0, Nmnu: float = None, 
                     Tcmb0: float = 2.725, w0: float = -1.0, wa: float = 0.0, Nnu: float = 3.0,
-                    power_spectrum: PowerSpectrumType = 'eisenstein98_zb', filter: str = 'tophat', 
-                    mass_function: MassFunctionType = 'tinker08', linear_bias: LinearBiasType = None,
+                    power_spectrum: PowerSpectrumType = None, filter: str = 'tophat', 
+                    mass_function: MassFunctionType = 'tinker08', linear_bias: str = None,
                 ) -> None:
 
         # check parameters h, sigma8 and ns
@@ -74,6 +136,9 @@ class Cosmology(base.Cosmology):
         self.w0, self.wa = w0, wa 
 
         # initialiing power spectrum
+        if power_spectrum is None:
+            power_spectrum = 'eisenstein98_nu' if self.Omnu0 > 1e-08 else 'eisenstein98_zb'
+
         if isinstance(power_spectrum, str):
             if power_spectrum not in ps.models:
                 raise ValueError(f"invalid value for power spectrum: '{ power_spectrum }'")
