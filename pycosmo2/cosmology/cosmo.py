@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 import numpy as np
 import pycosmo2.utils.constants as const
 import pycosmo2.utils.numeric as numeric
@@ -9,6 +9,10 @@ import pycosmo2._bases as base
 
 from pycosmo2._bases import CosmologyError
 
+PowerSpectrumType = TypeVar('PowerSpectrumType', str, base.PowerSpectrum )
+MassFunctionType  = TypeVar('MassFunctionType', str, base.HaloMassFunction)
+LinearBiasType    = TypeVar('LinearBiasType', str, )
+
 
 class Cosmology(base.Cosmology):
     
@@ -16,8 +20,8 @@ class Cosmology(base.Cosmology):
                     self, h: float, Om0: float, Ob0: float, sigma8: float, ns: float, flat: bool = True, 
                     relspecies: bool = False, Ode0: float = None, Omnu0: float = 0.0, Nmnu: float = None, 
                     Tcmb0: float = 2.725, w0: float = -1.0, wa: float = 0.0, Nnu: float = 3.0,
-                    power_spectrum: str = 'eisenstein98_zb', filter: str = 'tophat', 
-                    mass_function: str = 'tinker08', linear_bias: str = None,
+                    power_spectrum: PowerSpectrumType = 'eisenstein98_zb', filter: str = 'tophat', 
+                    mass_function: MassFunctionType = 'tinker08', linear_bias: LinearBiasType = None,
                 ) -> None:
 
         # check parameters h, sigma8 and ns

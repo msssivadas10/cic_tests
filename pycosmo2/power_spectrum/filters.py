@@ -1,6 +1,5 @@
 from typing import Any, Callable 
 from abc import ABC, abstractmethod
-from scipy.special import erfc
 import numpy as np
 import pycosmo2.utils.numeric as numeric
 import pycosmo2.utils.settings as settings
