@@ -82,11 +82,11 @@ def overdensity(value: Union[str, int, OverDensity]) -> OverDensity:
 
     tmp   = value
     value = value.lower()
-    m     = re.match( r'(\d*)([mc]|[fovir]{3})', value )
-    if m is None:
+    match = re.match( r'(\d*)([mc]|[fovir]{3})', value )
+    if match is None:
         raise ValueError("cannot parse mass definition: '{}'".format( value ))
 
-    value, ref = m.groups()
+    value, ref = match.groups()
 
     if value == 'fof':
         return fof

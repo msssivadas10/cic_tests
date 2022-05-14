@@ -1773,16 +1773,7 @@ class HaloMassFunctionError(Exception):
 
 class HaloMassFunction(ABC):
     r"""
-    Base halo mass-function class. The halo mass-function gives the number density of halos of a specific 
-    mass.
-
-    .. math::
-        \frac{ {\rm d}n }{ {\rm d}\ln M } 
-            = f(\sigma) \frac{\bar\rho_m}{M^2} \frac{ {\rm d}\ln \sigma^{-1} }{ {\rm d}\ln M }
-
-    where, :math:`f(\sigma)` is a fitting function modelling the mass function, :math:`\bar\rho_m` is the 
-    mean matter density and :math:`\sigma` is the RMS deviation of fluctuations in the matter field.
-
+    Base halo mass-function class. 
     """
     
     __slots__ = 'model', 'flags', 'cosmology'

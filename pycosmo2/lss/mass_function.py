@@ -45,6 +45,23 @@ FOF_OVERDENSITY = 0b0100
 SO_OVERDENSITY  = 0b1000
 
 class HaloMassFunction(base.HaloMassFunction):
+    r"""
+    An abstract halo mass-function class. The halo mass-function gives the number density of halos of a specific 
+    mass.
+
+    .. math::
+        \frac{ {\rm d}n }{ {\rm d}\ln M } 
+            = f(\sigma) \frac{\bar\rho_m}{M^2} \frac{ {\rm d}\ln \sigma^{-1} }{ {\rm d}\ln M }
+
+    where, :math:`f(\sigma)` is a fitting function modelling the mass function, :math:`\bar\rho_m` is the 
+    mean matter density and :math:`\sigma` is the RMS deviation of fluctuations in the matter field.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model object to use.
+    
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
 
@@ -92,7 +109,7 @@ class HaloMassFunction(base.HaloMassFunction):
             raise ValueError("z must be greater than -1")
 
         r        = self.cosmology.lagrangianR( m )
-        sigma    = self.cosmology.variance( r, z )
+        sigma    = np.sqrt( self.cosmology.variance( r, z ) )
         dlnsdlnm = self.cosmology.dlnsdlnm( r, z )
 
         f = self.f( sigma, z, overdensity )
@@ -118,6 +135,28 @@ class HaloMassFunction(base.HaloMassFunction):
 
 
 class Press74(HaloMassFunction):
+    r"""
+    Mass function model by Press & Schechter (1974)[1]_. This model is based on the assumption that the matter density 
+    fluctuations are normally distributed and halos are formed by spherical collapse of overdense regions of the 
+    field. This gives
+
+    .. math ::
+
+        f(\sigma) = \sqrt{ \frac{2}{\pi} } \nu \exp \left( -\frac{\nu^2}{2} \right)
+
+    where :math:`\nu = \delta_c / \sigma(M)` and :math:`delta_c \approx 1.686` is the critical over-density for 
+    spherical collapse.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] Houjun Mo, Frank van den Bosch, Simon White. Galaxy Formation and Evolution, Cambridge University Press, (2010). 
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
         super().__init__(cm)
@@ -137,6 +176,20 @@ class Press74(HaloMassFunction):
         return f
 
 class Sheth01(HaloMassFunction):
+    r"""
+    Halo mass-function by Sheth et al (2001) [1]_. It is based on ellipsolidal collapse.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] Ravi K. Sheth, H. J. Mo & Giuseppe Tormen. Ellipsoidal collapse and an improved model for the number and 
+            spatial distribution of dark matter haloes. <http://arXiv.org/abs/astro-ph/9907024v1>
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
         super().__init__(cm)
@@ -159,6 +212,20 @@ class Sheth01(HaloMassFunction):
         return f
 
 class Jenkins01(HaloMassFunction):
+    r"""
+    Halo mass function by Jenkins et al (2001). It is valid over the range :math:`-1.2 \le \ln \sigma^{-1} \le 1.05` 
+    [1]_.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] A. Jenkins et al. The mass function of dark matter halos. <http://arxiv.org/abs/astro-ph/0005260v2>
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
         super().__init__(cm)
@@ -178,6 +245,20 @@ class Jenkins01(HaloMassFunction):
         return f
 
 class Reed03(Sheth01):
+    r"""
+    Halo mass function by Reed et al (2003) [1]_.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] Zarija Lukić et al. The halo mass function: high-redshift evolution and universality. 
+            <http://arXiv.org/abs/astro-ph/0702360v2>.
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
         super().__init__(cm)
@@ -197,6 +278,20 @@ class Reed03(Sheth01):
         return f
 
 class Warren06(HaloMassFunction):
+    r"""
+    Halo mass function by Warren et al (2006) [1]_.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] Zarija Lukić et al. The halo mass function: high-redshift evolution and universality. 
+            <http://arXiv.org/abs/astro-ph/0702360v2>.
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
         super().__init__(cm)
@@ -219,6 +314,20 @@ class Warren06(HaloMassFunction):
         return f
 
 class Reed07(HaloMassFunction):
+    r"""
+    Halo mass function by Reed et al (2007) [1]_. This model depends on redshift and the specific cosmology model.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] Reed et al. The halo mass function from the dark ages through the present day. Mon. Not. R. Astron. Soc. 374, 
+            2-15 (2007)
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
         super().__init__(cm)
@@ -255,6 +364,20 @@ class Reed07(HaloMassFunction):
         return f
 
 class Tinker08(HaloMassFunction):
+    r"""
+    Halo mass function model by Tinker et al (2008) [1]_. This model is redshift dependent.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] Jeremy Tinker et al. Toward a halo mass function for precision cosmology: The limits of universality. 
+            <http://arXiv.org/abs/0803.2706v1> (2008).
+    """
 
     # find interpolated values from 0-redshift parameter table : table 2
     from scipy.interpolate import CubicSpline
@@ -295,7 +418,7 @@ class Tinker08(HaloMassFunction):
         overdensity = od.overdensity( overdensity )
         if not isinstance( overdensity, od.SO ):
             warnings.warn(f"'{ self.model }' mass function is defined only for SO halos")
-        overdensity = overdensity.value( z )
+        overdensity = overdensity.value( z, self.cosmology )
 
         if overdensity < 200 or overdensity > 3200:
             raise ValueError('`overdensity` value is out of bound. must be within 200 and 3200.')
@@ -307,11 +430,25 @@ class Tinker08(HaloMassFunction):
         alpha = 10.0**( -( 0.75 / np.log10( overdensity/75 ) )**1.2 ) # eqn 8    
         b     = self.b( overdensity ) / zp1**alpha # eqn 7 
         c     = self.c( overdensity )
-        
+
         f = A * ( 1 + ( b / sigma )**a ) * np.exp( -c / sigma**2 ) # eqn 3
         return f
 
 class Crocce10(HaloMassFunction):
+    r"""
+    Halo mass function by Crocce et al (2010) [1]_.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] Martín Crocce et al. Simulating the Universe with MICE : The abundance of massive clusters. 
+            <http://arxiv.org/abs/0907.0019v2>
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
         super().__init__(cm)
@@ -340,6 +477,20 @@ class Crocce10(HaloMassFunction):
         return Az * ( sigma**-az + bz ) * np.exp( -cz / sigma**2 )
 
 class Courtin10(HaloMassFunction):
+    r"""
+    Halo mass function by Courtin et al (2010) [1]_.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology model.
+
+    References
+    ----------
+
+    .. [1] J. Courtin et al. Imprints of dark energy on cosmic structure formation-II. Non-universality of the halo 
+            mass function. Mon. Not. R. Astron. Soc. 410, 1911-1931 (2011)
+    """
 
     def __init__(self, cm: base.Cosmology) -> None:
         super().__init__(cm)
