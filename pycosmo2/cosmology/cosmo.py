@@ -4,6 +4,7 @@ import pycosmo2.utils.constants as const
 import pycosmo2.utils.numeric as numeric
 import pycosmo2.utils.settings as settings
 import pycosmo2.power_spectrum as ps
+import pycosmo2.lss.mass_function as mf
 import pycosmo2._bases as base
 
 from pycosmo2._bases import CosmologyError
@@ -74,8 +75,17 @@ class Cosmology(base.Cosmology):
                 raise ValueError(f"invalid value for power spectrum: '{ power_spectrum }'")
             power_spectrum = ps.models[ power_spectrum ]( self, filter = filter )
         elif not isinstance(power_spectrum, ps.PowerSpectrum):
-            raise TypeError("power spectrum must be a `PowerSpectrum` object")
+            raise TypeError("power spectrum must be a 'str' or 'PowerSpectrum' object")
         self.power_spectrum = power_spectrum
+
+        # initialising mass function
+        if isinstance(mass_function, str):
+            if mass_function not in mf.models:
+                raise ValueError(f"invalid value for mass-function: '{ mass_function }'")
+            mass_function = mf.models[ mass_function ]( self )
+        elif not isinstance(mass_function, mf.HaloMassFunction):
+            raise TypeError("mass function must be a 'str' of 'HaloMassFunction' object")
+        self.mass_function = mass_function
 
     def _init_matter(self, Om0: float, Ob0: float, Omnu0: float = 0.0, Nmnu: float = None):
         if Om0 < 0:
@@ -319,6 +329,8 @@ class Cosmology(base.Cosmology):
     # z-integrals: integrals of z-functions 
 
     def zIntegral(self, f: Callable, za: Any, zb: Any) -> Any:
+        za, zb = np.asfarray( za ), np.asfarray( zb )
+
         if not callable( f ):
             raise TypeError("f must be a callable")
         if np.any( za+1 < 0 ) or np.any( zb+1 < 0 ):
@@ -498,3 +510,18 @@ class Cosmology(base.Cosmology):
     def nonlineark(self, k: Any, z: float = 0) -> Any:
         return self.power_spectrum.nonlineark( k, z )
         
+    # halo mass function and related calculations
+
+    def lagrangianR(self, m: Any) -> Any:
+        m = np.asfarray( m ) # Msun/h
+        return np.cbrt( 0.75*m / ( np.pi * self.rho_m( 0 ) ) )
+
+    def lagrangianM(self, r: Any) -> Any:
+        r = np.asfarray( r ) # Mpc/h
+        return ( 4*np.pi / 3.0 ) * r**3 * self.rho_m( 0 )
+
+    def collapseOverdensity(self, z: Any) -> float:
+        return const.DELTA_C * np.ones_like( z, 'float' )
+
+    def massFunction(self, m: Any, z: float = 0, overdensity: Any = None, out: str = 'dndlnm') -> Any:
+        return self.mass_function.massFunction( m, z, overdensity, out )

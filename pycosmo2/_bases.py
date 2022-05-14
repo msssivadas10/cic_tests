@@ -1,5 +1,6 @@
-from typing import Any, Callable, Union 
-from abc import ABC, abstractmethod
+from typing import Any, Callable, Tuple, Union 
+from abc import ABC, abstractmethod, abstractproperty
+from pycosmo2.utils.physics import Quantity
 
 # base cosmology object
 
@@ -344,7 +345,7 @@ class Cosmology:
         """
         ...
 
-    def criticalDensity(self, z: Any) -> Any:
+    def criticalDensity(self, z: Any) -> Quantity:
         r"""
         Evolution of the critical density for the universe. Critical density is the density for the 
         universe to be flat.
@@ -359,8 +360,8 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
-            Value of the density parameter. 
+        y: Quantity
+            Value of the density. 
 
         Examples
         --------
@@ -368,7 +369,7 @@ class Cosmology:
         """
         ...
 
-    def rho_m(self, z: Any) -> Any:
+    def rho_m(self, z: Any) -> Quantity:
         r"""
         Evolution of the density for matter. 
 
@@ -379,7 +380,7 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
+        y: Quantity
             Value of the density. 
 
         Examples
@@ -388,7 +389,7 @@ class Cosmology:
         """
         ...
 
-    def rho_b(self, z: Any) -> Any:
+    def rho_b(self, z: Any) -> Quantity:
         r"""
         Evolution of the density for baryonic matter. 
 
@@ -399,7 +400,7 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
+        y: Quantity
             Value of the density. 
 
         Examples
@@ -408,7 +409,7 @@ class Cosmology:
         """
         ...
 
-    def rho_c(self, z: Any) -> Any:
+    def rho_c(self, z: Any) -> Quantity:
         r"""
         Evolution of the density for cold dark-matter. 
 
@@ -419,7 +420,7 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
+        y: Quantity
             Value of the density. 
 
         Examples
@@ -428,7 +429,7 @@ class Cosmology:
         """
         ...
 
-    def rho_mnu(self, z: Any) -> Any:
+    def rho_mnu(self, z: Any) -> Quantity:
         r"""
         Evolution of the density for warm dark-matter (massive neutrino). 
 
@@ -439,7 +440,7 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
+        y: Quantity
             Value of the density. 
 
         Examples
@@ -448,7 +449,7 @@ class Cosmology:
         """
         ...
 
-    def rho_de(self, z: Any) -> Any:
+    def rho_de(self, z: Any) -> Quantity:
         r"""
         Evolution of the density for dark-energy. 
 
@@ -459,7 +460,7 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
+        y: Quantity
             Value of the density. 
 
         Examples
@@ -468,7 +469,7 @@ class Cosmology:
         """
         ...
     
-    def rho_r(self, z: Any) -> Any:
+    def rho_r(self, z: Any) -> Quantity:
         r"""
         Evolution of the density for relativistic components. 
 
@@ -479,7 +480,7 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
+        y: Quantity
             Value of the density. 
 
         Examples
@@ -488,7 +489,7 @@ class Cosmology:
         """
         ...
 
-    def rho_ph(self, z: Any) -> Any:
+    def rho_ph(self, z: Any) -> Quantity:
         r"""
         Evolution of the density for photons. 
 
@@ -499,7 +500,7 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
+        y: Quantity
             Value of the density. 
 
         Examples
@@ -508,7 +509,7 @@ class Cosmology:
         """
         ...
 
-    def rho_rnu(self, z: Any) -> Any:
+    def rho_rnu(self, z: Any) -> Quantity:
         r"""
         Evolution of the density for relativistic neutrinos. 
 
@@ -519,7 +520,7 @@ class Cosmology:
 
         Returns
         -------
-        y: array_like
+        y: Quantity
             Value of the density. 
 
         Examples
@@ -1366,7 +1367,53 @@ class Cosmology:
         """
         ...
 
-    def massFunction(self, m: Any, z: float = 0, overdensity: Union[int, str] = '200m', out: str = 'dndlnm') -> Any:
+    def collapseOverdensity(self, z: Any) -> float:
+        """
+        Critical value for the spherical collapse overdensity. It's value is approximately 1.686.
+
+        Parameters
+        ----------
+        z: array_like
+            Redshift. In general, it has a very small redshift dependence. But, here it is taken as a 
+            constant in time. So, value of this argument is unused, except the shape.
+
+        Returns
+        -------
+        delta_c: array_like
+            Value of the collapse overdensity.
+
+        Examples
+        --------
+
+        """
+        ...
+
+    def massFunction(self, m: Any, z: float = 0, overdensity: Union[int, str, 'OverDensity'] = ..., out: str = 'dndlnm') -> Any:
+        r"""
+        Compute the halo mass-function and return the value in a specified format.
+
+        Parameters
+        ----------
+        m: array_like
+            Mass of the halo in Msun/h.
+        z: float, optional
+            Redshift (default is 0).
+        overdensity: str, int, OverDensity, optional
+            Value of the overdensity. It could be an integer value of overdensity w.r.to the mean background density, 
+            a string indicating the value such as `200m`, `vir` etc., or an :class:`OverDensity` object. For FoF type 
+            halos, its default value is `fof` and for spherical overdensity (SO) halos, it is 200.
+        out: str, optional
+            Output format for the mass function. Must be either of `f`, `dndm`, `dndlnm` (default) or `dndlog10m`.
+
+        Returns
+        -------
+        mf: array_like
+            Halo mass-function in specified format.
+
+        Examples
+        --------
+
+        """
         ...
 
 
@@ -1679,6 +1726,44 @@ class PowerSpectrum(ABC):
         ...
 
 
+# overdensity models
+
+class OverDensity(ABC):
+    r"""
+    Represent the value of overdensity with respect to some reference. Halos are formed by the collapse of 
+    over-dense regions and the overdensity is the density at that place, with respect to mean background 
+    density (denoted by :math:`Delta`). Spherical overdenisties are specified w.r.to the mean density or 
+    critical density (denoted by an integer, followed by `m` or `c` respectively, eg., `200m` or `500c`). 
+    """
+
+    __slots__ = '_value'
+
+    def __init__(self, value: int = 1) -> None:
+        self._value = int( value )
+
+    def __repr__(self) -> str:
+        return f"Overdensity('{ self._value }')"
+
+    @abstractmethod
+    def value(self, z: float, cm: Cosmology) -> int:
+        r"""
+        Value of the overdensity with respect to mean matter density.
+
+        Parameters
+        ----------
+        z: float
+            Redshift
+        cm: Cosmology
+            Cosmology model to use.
+
+        Returns
+        -------
+        overdensity: int
+            Overdensity value with respect to background density.
+
+        """
+        ...
+
 # halo mass function models
 
 class HaloMassFunctionError(Exception):
@@ -1688,20 +1773,89 @@ class HaloMassFunctionError(Exception):
 
 class HaloMassFunction(ABC):
     r"""
-    Base halo mass-function class.
+    Base halo mass-function class. The halo mass-function gives the number density of halos of a specific 
+    mass.
+
+    .. math::
+        \frac{ {\rm d}n }{ {\rm d}\ln M } 
+            = f(\sigma) \frac{\bar\rho_m}{M^2} \frac{ {\rm d}\ln \sigma^{-1} }{ {\rm d}\ln M }
+
+    where, :math:`f(\sigma)` is a fitting function modelling the mass function, :math:`\bar\rho_m` is the 
+    mean matter density and :math:`\sigma` is the RMS deviation of fluctuations in the matter field.
+
     """
     
     __slots__ = 'model', 'flags', 'cosmology'
 
-    def __init__(self, cm: Cosmology, flags: int = 0) -> None:
+    def __init__(self, cm: Cosmology) -> None:
         self.cosmology : Cosmology
         self.model     : str
         self.flags     : int 
     
     @abstractmethod
-    def f(self, sigma: Any, *args, **kwargs) -> Any:
+    def f(self, sigma: Any, z: float = 0, overdensity: Union[int, str, OverDensity] = None) -> Any:
+        r"""
+        Fitting function for the mass-function.
+
+        Parameters
+        ----------
+        sigma: array_like
+            Density field fluctuation variance.
+        z: float, optional
+            Redshift (default is 0).
+        overdensity: str, int, OverDensity, optional
+            Value of the overdensity. For FoF type halos, its default value is `fof` and for spherical overdensity 
+            (SO) halos, it is 200.
+
+        Returns
+        -------
+        f: array_like
+            Halo mass function values.
+        """
         ...
 
-    def massFunction(self, m: Any, z: float = 0, overdensity: Union[int, str] = '200m', out: str = 'dndlnm') -> Any:
+    def massFunction(self, m: Any, z: float = 0, overdensity: Union[int, str, OverDensity] = None, out: str = 'dndlnm') -> Any:
+        r"""
+        Compute the halo mass-function and return the value in a specified format.
+
+        Parameters
+        ----------
+        m: array_like
+            Mass of the halo in Msun/h.
+        z: float, optional
+            Redshift (default is 0).
+        overdensity: str, int, OverDensity, optional
+            Value of the overdensity. It could be an integer value of overdensity w.r.to the mean background density, 
+            a string indicating the value such as `200m`, `vir` etc., or an :class:`OverDensity` object. For FoF type 
+            halos, its default value is `fof` and for spherical overdensity (SO) halos, it is 200.
+        out: str, optional
+            Output format for the mass function. Must be either of `f`, `dndm`, `dndlnm` (default) or `dndlog10m`.
+
+        Returns
+        -------
+        mf: array_like
+            Halo mass-function in specified format.
+        """
+        ...
+
+    @abstractproperty
+    def zDependent(self) -> bool:
+        """
+        Whether the model is redshift-dependent?
+        """
+        ...
+
+    @abstractproperty
+    def cosmoDependent(self) -> bool:
+        """
+        Whether the model is cosmology dependent?
+        """
+        ...
+
+    @abstractproperty
+    def mdefs(self) -> Tuple[str]:
+        """
+        Valid mass definitions/overdensities.
+        """
         ...
     
