@@ -49,7 +49,7 @@ class Cosmology:
         self.relspecies    : bool
         self.power_spectrum: PowerSpectrum
         self.mass_function : HaloMassFunction
-        self.linear_bias   : Any
+        self.linear_bias   : LinearBias
 
     def __repr__(self) -> str:
         items = [ f'flat={ self.flat }' , f'h={ self.h }', f'Om0={ self.Om0 }', f'Ob0={ self.Ob0 }', f'Ode0={ self.Ode0 }' ]
@@ -1327,7 +1327,7 @@ class Cosmology:
         """
         ...
 
-    # halo mass function and related calculations
+    # halo mass function, bias and related calculations
 
     def lagrangianR(self, m: Any) -> Any:
         r"""
@@ -1417,6 +1417,31 @@ class Cosmology:
 
         """
         ...
+
+    def linearBias(self, m: Any, z: float = 0, overdensity: Union[int, str, 'OverDensity'] = None) -> Any:
+        r"""
+        Compute the linear halo bias of a given model.
+
+        Parameters
+        ----------
+        m: array_like
+            Mass of the halo in Msun/h.
+        z: float, optional
+            Redshift (default is 0).
+        overdensity: str, int, OverDensity, optional
+            Value of the overdensity. It could be an integer value of overdensity w.r.to the mean background density, 
+            a string indicating the value such as `200m`, `vir` etc., or an :class:`OverDensity` object. For FoF type 
+            halos, its default value is None (not used) and for spherical overdensity (SO) halos, it is 200.
+
+        Returns
+        -------
+        bias: array_like
+            Linear halo bias values.
+        
+        Examples
+        --------
+
+        """
 
 
 # smoothing filters
@@ -1944,4 +1969,38 @@ class HaloMassFunction(ABC):
         Valid mass definitions/overdensities.
         """
         ...
-    
+
+# linear bias function
+
+class LinearBias(ABC):
+    r"""
+    Base class for linear bias function models.
+    """
+
+    __slots__ = 'flags', 'cosmology', 'corrections'
+
+    def __init__(self) -> None:
+        self.flags      : int
+        self.cosmology  : Cosmology
+        self.corrections: bool 
+
+    @abstractmethod
+    def b(self, nu: Any, z: float = 0, overdensity: Union[int, str, OverDensity] = None) -> Any:
+        r"""
+        Linear bias function.
+
+        Parameters
+        ----------
+        nu: array_like
+            Input argument. :math:`\nu(M) = \delta_c / \sigma(M)`.
+        z: float, optional
+            Redshift (default is 0).
+        overdensity: str, int, OverDensity
+            Overdensity value. Only needed for models based on spherical overdensity.
+
+        Returns
+        -------
+        b: array_like
+            Bias function values.
+        """
+        ...

@@ -38,11 +38,7 @@ import pycosmo2._bases as base
 import pycosmo2.lss.overdensity as od
 
 from pycosmo2._bases import HaloMassFunctionError
-
-Z_DEPENDENT     = 0b0001
-COSMO_DEPENDENT = 0b0010
-FOF_OVERDENSITY = 0b0100
-SO_OVERDENSITY  = 0b1000
+from pycosmo2.lss._flags import *
 
 class HaloMassFunction(base.HaloMassFunction):
     r"""

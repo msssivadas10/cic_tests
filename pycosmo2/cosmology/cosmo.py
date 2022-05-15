@@ -5,13 +5,15 @@ import pycosmo2.utils.numeric as numeric
 import pycosmo2.utils.settings as settings
 import pycosmo2.power_spectrum as ps
 import pycosmo2.lss.mass_function as mf
+import pycosmo2.lss.bias as bias
 import pycosmo2._bases as base
 
 from pycosmo2._bases import CosmologyError
 
-PowerSpectrumType = TypeVar('PowerSpectrumType', str, base.PowerSpectrum )
-MassFunctionType  = TypeVar('MassFunctionType', str, base.HaloMassFunction)
-# LinearBiasType    = TypeVar('LinearBiasType', str, object)
+PowerSpectrumType = TypeVar('PowerSpectrumType', str, ps.PowerSpectrum )
+MassFunctionType  = TypeVar('MassFunctionType', str, mf.HaloMassFunction)
+LinearBiasType    = TypeVar('LinearBiasType', str, bias.LinearBias)
+OverDensityType   = TypeVar('OverDensityType', int, str, base.OverDensity)
 
 
 class Cosmology(base.Cosmology):
@@ -83,7 +85,7 @@ class Cosmology(base.Cosmology):
                     relspecies: bool = False, Ode0: float = None, Omnu0: float = 0.0, Nmnu: float = None, 
                     Tcmb0: float = 2.725, w0: float = -1.0, wa: float = 0.0, Nnu: float = 3.0,
                     power_spectrum: PowerSpectrumType = None, filter: str = 'tophat', 
-                    mass_function: MassFunctionType = 'tinker08', linear_bias: str = None,
+                    mass_function: MassFunctionType = 'tinker08', linear_bias: LinearBiasType = 'tinker10',
                 ) -> None:
 
         # check parameters h, sigma8 and ns
@@ -155,6 +157,15 @@ class Cosmology(base.Cosmology):
         elif not isinstance(mass_function, mf.HaloMassFunction):
             raise TypeError("mass function must be a 'str' of 'HaloMassFunction' object")
         self.mass_function = mass_function
+
+        # initialising linear bias
+        if isinstance(linear_bias, str):
+            if linear_bias not in bias.models:
+                raise ValueError(f"invalid value for linear bias: '{ linear_bias }'")
+            linear_bias = bias.models[ linear_bias ](self)
+        elif not isinstance(linear_bias, bias.LinearBias):
+            raise TypeError("linear bias must be a 'str' of 'LinearBias' object")
+        self.linear_bias = linear_bias
 
     def _init_matter(self, Om0: float, Ob0: float, Omnu0: float = 0.0, Nmnu: float = None):
         if Om0 < 0:
@@ -583,7 +594,7 @@ class Cosmology(base.Cosmology):
     def nonlineark(self, k: Any, z: float = 0) -> Any:
         return self.power_spectrum.nonlineark( k, z )
         
-    # halo mass function and related calculations
+    # halo mass function, bias and related calculations
 
     def lagrangianR(self, m: Any) -> Any:
         m = np.asfarray( m ) # Msun/h
@@ -596,5 +607,11 @@ class Cosmology(base.Cosmology):
     def collapseOverdensity(self, z: Any) -> float:
         return const.DELTA_C * np.ones_like( z, 'float' )
 
-    def massFunction(self, m: Any, z: float = 0, overdensity: Any = None, out: str = 'dndlnm') -> Any:
+    def massFunction(self, m: Any, z: float = 0, overdensity: OverDensityType = None, out: str = 'dndlnm') -> Any:
         return self.mass_function.massFunction( m, z, overdensity, out )
+
+    def linearBias(self, m: Any, z: float = 0, overdensity: OverDensityType = None) -> Any:
+        m  = np.asfarray( m )
+        r  = self.lagrangianR( m )
+        nu = self.collapseOverdensity( z ) / np.sqrt( self.variance( r, z ) )
+        return self.linear_bias.b( nu, z, overdensity )
