@@ -558,8 +558,8 @@ class Cosmology(base.Cosmology):
     def matterCorreleation(self, r: Any, z: float = 0, linear: bool = True) -> Any:
         return self.power_spectrum.matterCorrelation( r, z, linear )
 
-    def variance(self, r: Any, z: float = 0, linear: bool = True) -> Any:
-        return self.power_spectrum.variance(r, z, linear)
+    def variance(self, r: Any, z: float = 0, linear: bool = True, j: int = 0) -> Any:
+        return self.power_spectrum.variance(r, z, linear, j)
     
     def radius(self, sigma: Any, z: float = 0, linear: bool = True) -> Any:
         return self.power_spectrum.radius( sigma, z, linear )

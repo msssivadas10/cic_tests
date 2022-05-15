@@ -1,55 +1,16 @@
 from typing import Any, Callable 
-from abc import ABC, abstractmethod
 import numpy as np
 import pycosmo2.utils.numeric as numeric
 import pycosmo2.utils.settings as settings
+import pycosmo2._bases as base
 
-class Filter(ABC):
+class Filter(base.Filter):
     r"""
-    Base class representing a smoothing filter in k-space.
+    Base class representing a smoothing filter in k-space. A filter function object must be a subclass of this. 
     """
 
-    @abstractmethod
-    def filter(self, x: Any, j: int = 0) -> Any:
-        r"""
-        Functional form of the filter.
-
-        Parameters
-        ----------
-        x: array_like
-            Argument.
-        j: int, optional
-            Specifies the n-the derivative. Default is 0, meaning the function itself.
-
-        Returns
-        -------
-        wx: array_like
-            Value of the function.
-        """
-        ...
-
     def convolution(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
-        r"""
-        Convolve a function with the filter. i.e., smooth the function. The convolution of a function 
-        :math:`f(k)` with wthe filter is given by the integral
-
-        .. math::
-            F(r) = \int_0^\infty f(k) w(kr)^2 {\rm d}k
-
-        Parameters
-        ----------
-        f: callable
-            Function to convolve with the filter.
-        r: array_like
-            Smoothing radius or convolution argument.
-        args: tuple, optional
-            Other arguments to be passed to the function call.
-
-        Returns
-        -------
-        F: array_like
-            Value of the convolution.
-        """
+        
         def integrand(lnk: Any, r: Any, *args):
             k  = np.exp( lnk )
             kr = np.outer( r, k )
@@ -62,23 +23,7 @@ class Filter(ABC):
         return out if np.ndim( r ) else out[0]
 
     def dcdr(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
-        r"""
-        Compute the first derivative of the convolution.
-
-        Parameters
-        ----------
-        f: callable
-            Function to convolve with the filter.
-        r: array_like
-            Smoothing radius or convolution argument.
-        args: tuple, optional
-            Other arguments to be passed to the function call.
-
-        Returns
-        -------
-        dF: array_like
-            Value of the derivative of convolution.
-        """
+        
         def integrand(lnk: Any, r: Any, *args):
             k  = np.exp( lnk )
             kr = np.outer( r, k )
@@ -90,23 +35,7 @@ class Filter(ABC):
         return y1 if np.ndim( r ) else y1[0]
 
     def d2cdr2(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
-        r"""
-        Compute the second derivative of the convolution.
-
-        Parameters
-        ----------
-        f: callable
-            Function to convolve with the filter.
-        r: array_like
-            Smoothing radius or convolution argument.
-        args: tuple, optional
-            Other arguments to be passed to the function call.
-
-        Returns
-        -------
-        d2F: array_like
-            Value of the derivative of convolution.
-        """
+        
         def integrand(lnk: Any, r: Any, *args):
             k  = np.exp( lnk )
             kr = np.outer( r, k )

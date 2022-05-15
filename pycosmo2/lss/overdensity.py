@@ -3,6 +3,10 @@ from pycosmo2._bases import Cosmology, OverDensity
 from math import pi
 
 class FoF(OverDensity):
+    r"""
+    Represents a Friends of Friends (FoF) halo. Since this is charecterised in terms of the linking length, 
+    not the overdensity, it gives None as value of overdensity. Only defined for completeness of the module. 
+    """
 
     def __init__(self) -> None:
         self._value = 'FoF'
@@ -11,9 +15,28 @@ class FoF(OverDensity):
         return None
 
 class SO(OverDensity):
+    r"""
+    Represents a spherical overdensity (SO) halo. This is charecterised by the value of the overdensity, 
+    denoted :math:`\Delta`.
+    """
     ...
 
 class _vir(SO):
+    r"""
+    Virial overdensity. This gives the spherical overdensity of a virialised object, which is approximately 
+    :math:`18\pi^2 \approx 178` for a matter deominated universe. For a flat universe 
+
+    .. math::
+        \Delta_c = 18\pi^2 + 82x - 39x^2
+
+    and for a universe without dark-energy, 
+
+    .. math::
+        \Delta_c = 18\pi^2 + 60x - 32x^2
+
+    where :math:`x = \Omega_m - 1`
+
+    """
 
     def __init__(self) -> None:
         self._value = None
@@ -32,6 +55,11 @@ class _vir(SO):
         return round( round( Delta_c ) * cm.criticalDensity( z ) / cm.rho_m( z ) )
 
 class _m(SO):
+    r"""
+    Spherical overdensity expressed in terms of the mean background density. It defines the suffix `m := _m(1)`, 
+    which can be used to define overdensities in the form `value*m` as in `200m` (e.g., `200m` is specified by 
+    `200*m`).
+    """
 
     def __repr__(self) -> str:
         return f"Overdensity('{ self._value }m')"
@@ -47,6 +75,10 @@ class _m(SO):
     __rmul__ = __mul__
 
 class _c(SO):
+    r"""
+    Spherical overdensity expressed in terms of the critical density. It defines the suffix `c := _c(1)`, which 
+    can be used to define overdensities in the form `value*c` as in `500c` (e.g., `500c` is specified by `500*c`).
+    """
 
     def __repr__(self) -> str:
         return f"Overdensity('{ self._value }c')"
@@ -62,13 +94,32 @@ class _c(SO):
     __rmul__ = __mul__
 
 
-fof = FoF()
-vir = _vir()
-m   = _m()
-c   = _c()
+fof = FoF()  # FoF halo indicator
+vir = _vir() # virial overdensity
+m   = _m()   # spherical overdensity w.r.to the mean: *m
+c   = _c()   # spherical overdensity w.r.to critical density: *c
 
 
 def overdensity(value: Union[str, int, OverDensity]) -> OverDensity:
+    r"""
+    Take an overdensity-like object and return the corresponding :class:`OverDensity` object.
+
+    Parameters
+    ----------
+    value: int, str, OverDensity
+        Overdensity specifier. If an integer, it represents the overdensity w.r.to the mean background density. 
+        If is a string, it must be either 'fof', 'vir' or, of the form `*m` or `*c`, where `*` is a number and 
+        the suffux represents the reference. If it is an :class:`OverDensity` object, then return itself.
+    
+    Returns
+    -------
+    Delta: OverDensity
+        Overdensity as an :class:`OverDensity` object.
+
+    Examples
+    --------
+    
+    """
     if isinstance( value, OverDensity ):
         return value
     

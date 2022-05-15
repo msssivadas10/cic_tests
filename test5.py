@@ -14,8 +14,6 @@ def test2():
     x  = np.logspace( 8, 16, 51 )
     # x = np.logspace( -3, 3, 51 )
     y1 = mf.massFunction( d, x, mdef = '200m', )
-    # y1 = d.lagrangianR( x )
-    # y2 = c.lagrangianR( x )
     y2 = c.massFunction( x, overdensity='200m', )
 
     plt.figure()

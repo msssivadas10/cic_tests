@@ -1151,7 +1151,7 @@ class Cosmology:
         """
         ...
 
-    def variance(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+    def variance(self, r: Any, z: float = 0, linear: bool = True, j: int = 0) -> Any:
         r"""
         Compute the variance of matter fluctuations, smoothed at radius :math:`r` using a filter function,
         :math:`w (kr )`, such as a spherical top-hat. 
@@ -1167,6 +1167,8 @@ class Cosmology:
             Redshift (default is 0).
         linear: bool, optional
             If true (default) return the linear model, else non-linear.
+        j: int, optional
+            Indicates the moment, j = 0 (default) moment is the variance.
         
         Returns
         -------
@@ -1417,6 +1419,97 @@ class Cosmology:
         ...
 
 
+# smoothing filters
+
+class Filter(ABC):
+    r"""
+    Base class representing a smoothing filter in k-space.
+    """
+
+    @abstractmethod
+    def filter(self, x: Any, j: int = 0) -> Any:
+        r"""
+        Functional form of the filter.
+
+        Parameters
+        ----------
+        x: array_like
+            Argument.
+        j: int, optional
+            Specifies the n-the derivative. Default is 0, meaning the function itself.
+
+        Returns
+        -------
+        wx: array_like
+            Value of the function.
+        """
+        ...
+
+    def convolution(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
+        r"""
+        Convolve a function with the filter. i.e., smooth the function. The convolution of a function 
+        :math:`f(k)` with wthe filter is given by the integral
+
+        .. math::
+            F(r) = \int_0^\infty f(k) w(kr)^2 {\rm d}k
+
+        Parameters
+        ----------
+        f: callable
+            Function to convolve with the filter.
+        r: array_like
+            Smoothing radius or convolution argument.
+        args: tuple, optional
+            Other arguments to be passed to the function call.
+
+        Returns
+        -------
+        F: array_like
+            Value of the convolution.
+        """
+        ...
+
+    def dcdr(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
+        r"""
+        Compute the first derivative of the convolution.
+
+        Parameters
+        ----------
+        f: callable
+            Function to convolve with the filter.
+        r: array_like
+            Smoothing radius or convolution argument.
+        args: tuple, optional
+            Other arguments to be passed to the function call.
+
+        Returns
+        -------
+        dF: array_like
+            Value of the derivative of convolution.
+        """
+        ...
+
+    def d2cdr2(self, f: Callable, r: Any, args: tuple = (), ) -> Any:
+        r"""
+        Compute the second derivative of the convolution.
+
+        Parameters
+        ----------
+        f: callable
+            Function to convolve with the filter.
+        r: array_like
+            Smoothing radius or convolution argument.
+        args: tuple, optional
+            Other arguments to be passed to the function call.
+
+        Returns
+        -------
+        d2F: array_like
+            Value of the derivative of convolution.
+        """
+        ...
+
+
 # base power spectrum object
 
 class PowerSpectrumError(Exception):
@@ -1433,7 +1526,7 @@ class PowerSpectrum(ABC):
     __slots__ = 'filter', 'cosmology', 'A', 'use_exact_growth', 'nonlinear_model', 'linear_model',
 
     def __init__(self, cm: Cosmology, filter: str = 'tophat') -> None:
-        self.filter          : Any
+        self.filter          : Filter
         self.cosmology       : Cosmology
         self.A               : float
         self.use_exact_growth: bool
@@ -1611,7 +1704,7 @@ class PowerSpectrum(ABC):
         """
         ...
 
-    def variance(self, r: Any, z: float = 0, linear: bool = True) -> Any:
+    def variance(self, r: Any, z: float = 0, linear: bool = True, j: int = 0) -> Any:
         r"""
         Compute the linear or non-linear matter fluctuations variance.
 
@@ -1623,6 +1716,8 @@ class PowerSpectrum(ABC):
             Redshift (default is 0).
         linear: bool, optional
             If true (default) return the linear variance, else the non-linear variance.
+        j: int, optional
+            Indicates the moment, j = 0 (default) moment is the variance.
         
         Returns
         -------

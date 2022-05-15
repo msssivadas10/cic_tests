@@ -74,90 +74,23 @@ class PowerSpectrum(base.PowerSpectrum):
         return self.nonlinearPowerSpectrum( k, z, dim )
 
     def matterCorrelation(self, r: Any, z: float = 0, linear: bool = True) -> Any:
-        r"""
-        Compute the linear or non-linear 2-point matter correlation function.
-
-        Parameters
-        ----------
-        r: array_like
-            Seperation between the two points in Mpc/h.
-        z: float, optional
-            Redshift (default is 0).
-        linear: bool, optional
-            If true (default) return the linear correlation, else the non-linear correlation.
-        
-        Returns
-        -------
-        xr: array_like
-            Matter correlation function values.
-
-        """
         return filters.j0convolution(  self.matterPowerSpectrum, r, args = ( z, False, linear ) )
 
-    def variance(self, r: Any, z: float = 0, linear: bool = True) -> Any:
-        r"""
-        Compute the linear or non-linear matter fluctuations variance.
+    def variance(self, r: Any, z: float = 0, linear: bool = True, j: int = 0) -> Any:
+        def moment_integrnd(k: Any, z: float, linear: bool, j: int) -> Any:
+            if j:
+                return self.matterPowerSpectrum( k, z, False, linear ) * k**( 2*j )
+            return self.matterPowerSpectrum( k, z, False, linear )
 
-        Parameters
-        ----------
-        r: array_like
-            Smoothing radius in Mpc/h.
-        z: float, optional
-            Redshift (default is 0).
-        linear: bool, optional
-            If true (default) return the linear variance, else the non-linear variance.
-        
-        Returns
-        -------
-        var: array_like
-            Matter fluctuation variance.
-
-        """
-        return self.filter.convolution( self.matterPowerSpectrum, r, args = ( z, False, linear ) )
+        return self.filter.convolution( moment_integrnd, r, args = ( z, linear, j ) )
 
     def dlnsdlnr(self, r: Any, z: float = 0, linear: bool = True) -> Any:
-        r"""
-        Compute the first logarithmic derivative of matter fluctuations variance w.r.to radius.
-
-        Parameters
-        ----------
-        r: array_like
-            Smoothing radius in Mpc/h.
-        z: float, optional
-            Redshift (default is 0).
-        linear: bool, optional
-            If true (default) return the value for linear variance, else for non-linear variance.
-        
-        Returns
-        -------
-        y: array_like
-            Values of the derivative.
-
-        """
         r  = np.asfarray( r )
         y0 = self.variance( r, z, linear )
         y1 = self.filter.dcdr( self.matterPowerSpectrum, r, args = ( z, False, linear ) )
         return 0.5 * r * y1 / y0
 
     def d2lnsdlnr2(self, r: Any, z: float = 0, linear: bool = True) -> Any:
-        r"""
-        Compute the second logarithmic derivative of matter fluctuations variance w.r.to radius.
-
-        Parameters
-        ----------
-        r: array_like
-            Smoothing radius in Mpc/h.
-        z: float, optional
-            Redshift (default is 0).
-        linear: bool, optional
-            If true (default) return the value for linear variance, else for non-linear variance.
-        
-        Returns
-        -------
-        y: array_like
-            Values of the derivative.
-
-        """
         h     = settings.DEFAULT_H
         r     = np.asfarray( r )
 
@@ -173,28 +106,10 @@ class PowerSpectrum(base.PowerSpectrum):
         return df / dlnr
 
     def radius(self, sigma: Any, z: float = 0, linear: bool = True) -> Any:
-        r"""
-        Invert the variance to find the smoothing radius.
 
-        Parameters
-        ----------
-        sigma: array_like
-            Variance values (linear or non-linear, specified by `linear` argument), to be exact, their 
-            square roots.
-        z: float, optional
-            Redshift (default is 0).
-        linear: bool, optional
-            If true (default) use the linear variance, else the non-linear variance.
-        
-        Returns
-        -------
-        r: array_like
-            Smoothing radius in Mpc/h.
-
-        """
         def f(lnr: Any, v: Any, z: float, linear: bool) -> Any:
             r = np.exp( lnr )
-            return self.variance( r, z, linear ) - v
+            return self.variance( r, z, linear, j = 0 ) - v
 
         v   = np.asfarray( sigma )**2
         lnr = numeric.solve( 
@@ -204,26 +119,7 @@ class PowerSpectrum(base.PowerSpectrum):
         return np.exp( lnr )
 
     def effectiveIndex(self, k: Any, z: float = 0, linear: bool = True) -> Any:
-        r"""
-        Compute the effective power spectrum index (effective slope).
 
-        .. math::
-            n_{]\rm eff}(k) = \frac{ {\rm d}\ln P(k) }{ {\rm d}\ln k }
-
-        Parameters
-        ----------
-        k: array_like
-            Wavenumbers in h/Mpc
-        z: float, optional
-            Redshift (default is 0).
-        linear: bool, optional
-            If true (default) return the index for linear power spectrum, else the non-linear power spectrum.
-        
-        Returns
-        -------
-        neff: array_like
-            Power spectrum index values.
-        """
         def lnPower(k: Any, z: float, linear: bool) -> Any:
             return np.log( self.matterPowerSpectrum( k, z, dim = True, linear = linear ) )
 
@@ -241,9 +137,6 @@ class PowerSpectrum(base.PowerSpectrum):
         return dlnp / dlnk
 
     def normalize(self) -> None:
-        r"""
-        Normalize the power spectrum using the value of :math:`\sigma_8` parameter.
-        """
         self.A = 1.0 # power spectrum normalization factor
         self.A = self.sigma8**2 / self.variance( 8.0 ) 
 
