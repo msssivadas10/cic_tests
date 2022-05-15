@@ -448,7 +448,7 @@ class Cosmology(base.Cosmology):
         return self.zIntegral_1_over_Ez( 0.0, z ) * fac
 
     def comovingCorrdinate(self, z: Any) -> Any:
-        x = self.comovingCorrdinate( z )
+        x = self.comovingDistance( z )
         if self.Ok0:
             K = np.sqrt( abs( self.Ok0 ) ) * ( self.H0 / const.C_SI * 1000 ) 
 
@@ -458,10 +458,12 @@ class Cosmology(base.Cosmology):
         return x
     
     def angularDiamaterDistance(self, z: Any) -> Any:
-        return NotImplemented
+        r = self.comovingCorrdinate( z )
+        return r / ( 1 + np.asfarray( z ) )
     
     def luminocityDistance(self, z: Any) -> Any:
-        return NotImplemented
+        r = self.comovingCorrdinate( z )
+        return r * ( 1 + np.asfarray( z ) )
 
     # horizons
 
@@ -470,10 +472,12 @@ class Cosmology(base.Cosmology):
         return c / self.Hz( z ) # Mpc
     
     def eventHorizon(self, z: Any) -> Any:
-        return NotImplemented
+        future = -1.0 + 1e-08
+        return self.zIntegral_1_over_Ez( future, z )
     
     def particleHorizon(self, z: Any) -> Any:
-        return NotImplemented
+        inf = settings.INF
+        return self.zIntegral_1_over_Ez( z, inf )
 
     # linear growth
 
