@@ -1,6 +1,11 @@
 from typing import Any, Callable, Tuple, Union 
 from abc import ABC, abstractmethod, abstractproperty
 
+
+PowerSpectrumType = Union[ str, 'PowerSpectrum' ]
+MassFunctionType  = Union[ str, 'HaloMassFunction' ]
+LinearBiasType    = Union[str, 'LinearBias']
+
 # base cosmology object
 
 class CosmologyError(Exception):
@@ -23,8 +28,8 @@ class Cosmology:
                     self, h: float, Om0: float, Ob0: float, sigma8: float, ns: float, flat: bool = True, 
                     relspecies: bool = False, Ode0: float = None, Omnu0: float = 0.0, Nmnu: float = None, 
                     Tcmb0: float = 2.725, w0: float = -1.0, wa: float = 0.0, Nnu: float = 3.0, 
-                    power_spectrum: str = None, filter: str = None, mass_function: str = None, 
-                    linear_bias: str = None,
+                    power_spectrum: PowerSpectrumType = None, filter: str = None, 
+                    mass_function: MassFunctionType = None, linear_bias: LinearBiasType = None,
                 ) -> None:
         self.Om0           : float
         self.Ob0           : float
@@ -52,6 +57,27 @@ class Cosmology:
         self.power_spectrum: PowerSpectrum
         self.mass_function : HaloMassFunction
         self.linear_bias   : LinearBias
+
+    def setPowerSpectrum(self, power_spectrum: PowerSpectrumType = None) -> None:
+        r"""
+        Set the linear power spectrum / transfer function model. The model must be a valid string name of a model 
+        or a :class:`PowerSpectrum` object. 
+        """
+        ...
+        
+    def setMassFunction(self, mass_function: MassFunctionType = None) -> None:
+        r"""
+        Set the halo mass-function model. The model must be a valid string name of a model or a 
+        :class:`HaloMassFunction` object. 
+        """
+        ...
+
+    def setLinearBias(self, linear_bias: LinearBiasType = None) -> None:
+        r"""
+        Set the linear halo bias model. The model must be a valid string name of a model or a :class:`LinearBias` 
+        object. 
+        """
+        ...
 
     def __repr__(self) -> str:
         items = [ f'flat={ self.flat }' , f'h={ self.h }', f'Om0={ self.Om0 }', f'Ob0={ self.Ob0 }', f'Ode0={ self.Ode0 }' ]

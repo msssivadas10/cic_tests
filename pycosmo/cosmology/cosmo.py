@@ -138,40 +138,13 @@ class Cosmology(base.Cosmology):
         self.w0, self.wa = w0, wa 
 
         # initialiing power spectrum
-        if power_spectrum is None:
-            power_spectrum = 'eisenstein98_nu' if self.Omnu0 > 1e-08 else 'eisenstein98_zb'
-
-        if isinstance(power_spectrum, str):
-            if power_spectrum not in ps.models:
-                raise ValueError(f"invalid value for power spectrum: '{ power_spectrum }'")
-            power_spectrum = ps.models[ power_spectrum ]( self, filter = filter )
-        elif not isinstance(power_spectrum, ps.PowerSpectrum):
-            raise TypeError("power spectrum must be a 'str' or 'PowerSpectrum' object")
-        self.power_spectrum = power_spectrum
+        self.setPowerSpectrum( power_spectrum )
 
         # initialising mass function
-        if mass_function is None:
-            mass_function = 'tinker08'
-
-        if isinstance(mass_function, str):
-            if mass_function not in mf.models:
-                raise ValueError(f"invalid value for mass-function: '{ mass_function }'")
-            mass_function = mf.models[ mass_function ]( self )
-        elif not isinstance(mass_function, mf.HaloMassFunction):
-            raise TypeError("mass function must be a 'str' of 'HaloMassFunction' object")
-        self.mass_function = mass_function
+        self.setMassFunction( mass_function )
 
         # initialising linear bias
-        if linear_bias is None:
-            linear_bias = 'tinker10'
-
-        if isinstance(linear_bias, str):
-            if linear_bias not in bias.models:
-                raise ValueError(f"invalid value for linear bias: '{ linear_bias }'")
-            linear_bias = bias.models[ linear_bias ](self)
-        elif not isinstance(linear_bias, bias.LinearBias):
-            raise TypeError("linear bias must be a 'str' of 'LinearBias' object")
-        self.linear_bias = linear_bias
+        self.setLinearBias( linear_bias )
 
     def _init_matter(self, Om0: float, Ob0: float, Omnu0: float = 0.0, Nmnu: float = None):
         if Om0 < 0:
@@ -233,6 +206,45 @@ class Cosmology(base.Cosmology):
         # total relativistic species density
         self.Or0   = self.Oph0 + self.Ornu0
         return
+
+    def setPowerSpectrum(self, power_spectrum: PowerSpectrumType = None) -> None:
+        # initialiing power spectrum
+        if power_spectrum is None:
+            power_spectrum = 'eisenstein98_nu' if self.Omnu0 > 1e-08 else 'eisenstein98_zb'
+
+        if isinstance(power_spectrum, str):
+            if power_spectrum not in ps.models:
+                raise ValueError(f"invalid value for power spectrum: '{ power_spectrum }'")
+            power_spectrum = ps.models[ power_spectrum ]( self, filter = filter )
+        elif not isinstance(power_spectrum, ps.PowerSpectrum):
+            raise TypeError("power spectrum must be a 'str' or 'PowerSpectrum' object")
+        self.power_spectrum = power_spectrum
+        
+    def setMassFunction(self, mass_function: MassFunctionType = None) -> None:
+        # initialising mass function
+        if mass_function is None:
+            mass_function = 'tinker08'
+
+        if isinstance(mass_function, str):
+            if mass_function not in mf.models:
+                raise ValueError(f"invalid value for mass-function: '{ mass_function }'")
+            mass_function = mf.models[ mass_function ]( self )
+        elif not isinstance(mass_function, mf.HaloMassFunction):
+            raise TypeError("mass function must be a 'str' of 'HaloMassFunction' object")
+        self.mass_function = mass_function
+
+    def setLinearBias(self, linear_bias: LinearBiasType = None) -> None:
+        # initialising linear bias
+        if linear_bias is None:
+            linear_bias = 'tinker10'
+
+        if isinstance(linear_bias, str):
+            if linear_bias not in bias.models:
+                raise ValueError(f"invalid value for linear bias: '{ linear_bias }'")
+            linear_bias = bias.models[ linear_bias ](self)
+        elif not isinstance(linear_bias, bias.LinearBias):
+            raise TypeError("linear bias must be a 'str' of 'LinearBias' object")
+        self.linear_bias = linear_bias
 
     def __repr__(self) -> str:
         items = [ f'flat={ self.flat }' , f'h={ self.h }', f'Om0={ self.Om0 }', f'Ob0={ self.Ob0 }', f'Ode0={ self.Ode0 }' ]

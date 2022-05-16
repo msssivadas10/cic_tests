@@ -8,7 +8,8 @@ tool for all the cosmology related calculations. This object stores a specific c
 computations using that model. Also, there will be some specific models such as :math:`Lambda`-CDM model, 
 which are implemented as subclasses of the base :class:`Cosmology` class.
 
-**Todo**: Predefined cosmology model objects.
+Predefined cosmology model objects can be found in :class:`Predefined` and include models based on Plank 
+and WMAP survays.
 
 
 Cosmological Functions
@@ -45,8 +46,11 @@ from pycosmo.cosmology.models import Cosmology, CosmologyError
 
 # other derived models
 from pycosmo.cosmology.models import (
-                                        Cosmology_wMDM,         
-                                        Cosmology_flat_wMDM,
-                                        Cosmology_LambdaCDM, 
-                                        Cosmology_flat_LambdaCDM
+										Cosmology_wMDM,         
+										Cosmology_flat_wMDM,
+										Cosmology_LambdaCDM, 
+										Cosmology_flat_LambdaCDM
                                      )
+
+# predefined model library
+from pycosmo.cosmology.models import Predefined
