@@ -1444,6 +1444,27 @@ class Cosmology:
         """
         ...
 
+    def peakHeight(self, m: Any, z: float = 0) -> Any:
+        r"""
+        Return the peak height :math:`\nu = \delta_c / \sigma(M)`.
+
+        Parameters
+        ----------
+        m: array_like
+            Mass of the overdensity/halo in Msun/h.
+        z: float, optional
+            Redshift (default is 0).
+
+        Returns
+        -------
+        nu: array_like
+            Peak height
+
+        Examples
+        --------
+        
+        """
+
     def linearBias(self, m: Any, z: float = 0, overdensity: Union[int, str, 'OverDensity'] = None) -> Any:
         r"""
         Compute the linear halo bias of a given model.

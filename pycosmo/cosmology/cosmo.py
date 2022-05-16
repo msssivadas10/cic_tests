@@ -612,9 +612,13 @@ class Cosmology(base.Cosmology):
 
     def massFunction(self, m: Any, z: float = 0, overdensity: OverDensityType = None, out: str = 'dndlnm') -> Any:
         return self.mass_function.massFunction( m, z, overdensity, out )
-
-    def linearBias(self, m: Any, z: float = 0, overdensity: OverDensityType = None) -> Any:
+    
+    def peakHeight(self, m: Any, z: float = 0) -> Any:
         m  = np.asfarray( m )
         r  = self.lagrangianR( m )
         nu = self.collapseOverdensity( z ) / np.sqrt( self.variance( r, z ) )
+        return nu
+
+    def linearBias(self, m: Any, z: float = 0, overdensity: OverDensityType = None) -> Any:
+        nu = self.peakHeight( m, z )
         return self.linear_bias.b( nu, z, overdensity )
