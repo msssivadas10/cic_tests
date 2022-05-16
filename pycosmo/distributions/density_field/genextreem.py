@@ -1,4 +1,5 @@
 from typing import Any 
+from itertools import product, repeat
 from pycosmo.cosmology import Cosmology
 from pycosmo.distributions.base import Distribution, DistributionError
 import pycosmo.utils.numeric as numeric 
@@ -7,7 +8,7 @@ import numpy as np
 
 class GenExtremeDistribution(Distribution):
 
-    __slots__ = 'cosmology', 'z', 'r', 'kn', 'b_log'
+    __slots__ = 'cosmology', 'z', 'r', 'kn', 'b2_log', 'power_law'
 
     def __init__(self, cm: Cosmology, r: float, z: float = 0) -> None:
         
@@ -20,7 +21,8 @@ class GenExtremeDistribution(Distribution):
 
         self.z  = z
 
-        self.b_log = 1.0 # log field bias 
+        self.b2_log    = 1.0 # log field bias 
+        self.power_law = None
         
     def sigma2Linear(self, z: float = 0) -> float:
         r"""
@@ -70,6 +72,38 @@ class GenExtremeDistribution(Distribution):
         r"""
         Return the measured log-field power spectrum.
         """
+
+    def _measuredPowerSpectrum(self, kx: Any, ky: Any, kz: Any, z: float = 0) -> Any:
+
+        def weightedPowerTerm(kx: Any, ky: Any, kz: Any, z: float) -> Any:
+            k  = np.sqrt( kx**2 + ky**2 + ky**2 )
+
+            # log field power spectrum
+            Pk = self.cosmology.linearPowerSpectrum( k, z, dim = True )
+
+            # mass-assignment function
+            Wk = ( np.sinc( 0.5*kx / self.kn ) * np.sinc( 0.5*ky / self.kn ) * np.sinc( 0.5*kz / self.kn ) )
+
+            return Pk * Wk**2 
+
+        kx, ky, kz = np.asfarray( kx ), np.asfarray( ky ), np.asfarray( kz )
+
+        y = 0.0
+        for nx, ny, nz in product( *repeat( range(3), 3 ) ):
+
+            # need only n's with length < 3
+            if nx**2 + ny**2 + nz**2 > 9:
+                continue
+
+            y += weightedPowerTerm( kx + 2*nx*self.kn, ky + 2*nx*self.kn, kz + 2*nx*self.kn, z )
+        
+        return y * self.b2_log 
+
+    
+
+
+
+
 
 
 
