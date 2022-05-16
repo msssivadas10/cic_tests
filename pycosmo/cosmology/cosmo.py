@@ -138,7 +138,7 @@ class Cosmology(base.Cosmology):
         self.w0, self.wa = w0, wa 
 
         # initialiing power spectrum
-        self.setPowerSpectrum( power_spectrum )
+        self.setPowerSpectrum( power_spectrum, filter )
 
         # initialising mass function
         self.setMassFunction( mass_function )
@@ -207,10 +207,12 @@ class Cosmology(base.Cosmology):
         self.Or0   = self.Oph0 + self.Ornu0
         return
 
-    def setPowerSpectrum(self, power_spectrum: PowerSpectrumType = None) -> None:
+    def setPowerSpectrum(self, power_spectrum: PowerSpectrumType = None, filter: str = None) -> None:
         # initialiing power spectrum
         if power_spectrum is None:
             power_spectrum = 'eisenstein98_nu' if self.Omnu0 > 1e-08 else 'eisenstein98_zb'
+        if filter is None:
+            filter = 'tophat'
 
         if isinstance(power_spectrum, str):
             if power_spectrum not in ps.models:
