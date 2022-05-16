@@ -65,6 +65,11 @@ class GenExtremeDistribution(Distribution):
         """
         mu = 0.73
         return mu * np.log( 1 + arg / mu )
+    
+    def measuredPowerSepctrum(self, kx: Any, ky: Any, kz: Any) -> Any:
+        r"""
+        Return the measured log-field power spectrum.
+        """
 
 
 
