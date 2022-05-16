@@ -68,7 +68,7 @@ class Cosmology(base.Cosmology):
     mass_function: str, HaloMassFunction, optional
         Tell the halo mass function model to use. Default is the model by Tinker et al (2008), `tinker08`. 
     linear_bias: str, optional
-        Tell the linear bias model to use.
+        Tell the linear bias model to use. Default is Tinker et al (2010).
 
     Raises
     ------
@@ -150,6 +150,9 @@ class Cosmology(base.Cosmology):
         self.power_spectrum = power_spectrum
 
         # initialising mass function
+        if mass_function is None:
+            mass_function = 'tinker08'
+
         if isinstance(mass_function, str):
             if mass_function not in mf.models:
                 raise ValueError(f"invalid value for mass-function: '{ mass_function }'")
@@ -159,6 +162,9 @@ class Cosmology(base.Cosmology):
         self.mass_function = mass_function
 
         # initialising linear bias
+        if linear_bias is None:
+            linear_bias = 'tinker10'
+
         if isinstance(linear_bias, str):
             if linear_bias not in bias.models:
                 raise ValueError(f"invalid value for linear bias: '{ linear_bias }'")
