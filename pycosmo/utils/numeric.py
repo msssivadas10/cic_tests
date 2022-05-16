@@ -1,5 +1,5 @@
 from typing import Any, Callable
-from pycosmo2.utils.gaussrules import legendrerule
+from pycosmo.utils.gaussrules import legendrerule
 from itertools import repeat
 import warnings
 import numpy as np
