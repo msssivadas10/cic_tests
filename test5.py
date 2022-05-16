@@ -1,4 +1,4 @@
-from pycosmo.cosmology.cosmo import Cosmology
+from pycosmo.cosmology import Cosmology
 import numpy as np
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
@@ -14,10 +14,10 @@ def test2():
     # plt.semilogx()
     plt.loglog()
 
-    y1 = c.linearBias( x, 0, 200 )
+    y1 = c.massFunction( x, 0, 200 )
     plt.plot( x, y1, color = 'tab:blue' )
 
-    y2 = c.lin( x, 0, 200 )
+    y2 = c.massFunction( x, 0, 200 )
     plt.plot( x, y2, 'o', ms = 4, color = 'green')
 
 
