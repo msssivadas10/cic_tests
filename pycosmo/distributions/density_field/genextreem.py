@@ -23,7 +23,16 @@ class GenExtremeDistribution(Distribution):
 
         self.b2_log    = 1.0 # log field bias 
         self.power_law = None
-        
+
+    def pdf(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+
+    def setup(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+
+    def supportInterval(self) -> tuple:
+        ...
+                
     def sigma2Linear(self, z: float = 0) -> float:
         r"""
         Linear variance in the box, using a k-space tophat filter (sharp-k filter) :math:`\sigma^2_{\rm lin}( k_N )`.
