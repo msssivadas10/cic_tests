@@ -52,30 +52,7 @@ def test2():
 
     p = GenExtremeDistribution( c, 1.95, 0  )
 
-    plt.figure()
-    plt.loglog()  
-
-    n1, n2 = 51, 501
-    k = np.logspace( -4, np.log10(p.kn), n1 )
-
-    t = np.random.uniform( 0, np.pi, (n2, n1) )
-    s = np.random.uniform( 0, 2*np.pi, (n2, n1) )
-    
-    kx = k*np.sin(t)*np.cos(s)
-    ky = k*np.sin(t)*np.sin(s)
-    kz = k*np.cos(t)
-
-    y = np.mean( p._measuredPowerSpectrum(kx, ky, kz), axis = 0 )
-
-    plt.plot( k/p.kn, y  )
-
-    k1 = np.sqrt( kx**2 + ky**2 + kz**2 ).flatten()
-    y1 = p.measuredPowerSepctrum( kx, ky, kz ).flatten()
-
-    plt.plot( k1/p.kn, y1, 'o', ms = 3 )
-
-
-    plt.show()
+    p.sigma2Box()
 
     return
 

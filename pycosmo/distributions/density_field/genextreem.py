@@ -4,6 +4,7 @@ from scipy.interpolate import CubicSpline
 from pycosmo.cosmology import Cosmology
 from pycosmo.distributions.base import Distribution, DistributionError
 import pycosmo.utils.numeric as numeric 
+import pycosmo.utils.gaussrules as gaussrules
 import pycosmo.utils.settings as settings
 import numpy as np
 
@@ -110,12 +111,19 @@ class GenExtremeDistribution(Distribution):
         def Delta2(k: Any, z: float) -> Any:
             return self.cosmology.linearPowerSpectrum( k, z, dim = False )
         
-        var = numeric.integrate1( 
-                                    Delta2, 
+        var = numeric.integrate2( 
+                                    Delta2,
                                     a = np.log( settings.ZERO ), b = np.log( self.kn ), 
-                                    args = (z, ), 
-                                    subdiv = settings.DEFAULT_SUBDIV 
+                                    args = (z, ),
+                                    eps = settings.RELTOL,
+                                    n = settings.DEFAULT_N
                                 )
+        # var = numeric.integrate1( 
+        #                             Delta2, 
+        #                             a = np.log( settings.ZERO ), b = np.log( self.kn ), 
+        #                             args = (z, ), 
+        #                             subdiv = settings.DEFAULT_SUBDIV 
+        #                         )
         return var
 
     def sigma2A(self, arg: float) -> float:
@@ -151,6 +159,28 @@ class GenExtremeDistribution(Distribution):
             Log field variance.
 
         """
+        def integrand(lnkx: Any, lnky: Any, lnkz: Any, z: float = 0) -> Any:
+            kx, ky, kz = np.exp( lnkx ), np.exp( lnky ), np.exp( lnkz )
+            k          = np.sqrt( kx**2 + ky**2 + kz**2 )
+            return k * self.measuredPowerSepctrum( kx, ky, kz, z )
+
+        nodes, weight, _ = gaussrules.legendrerule( settings.DEFAULT_N )
+        nodes            = nodes[ 1:-1:2 ]
+
+        # transform interval
+        a, b   = np.log( settings.ZERO ), np.log( self.kn )
+        m      = 0.5*( b - a )
+        nodes  = nodes * m + ( a + m )
+        weight = weight * m
+
+        # create k space
+        kx, ky, kz = np.meshgrid( nodes, nodes, nodes )
+        weight     = np.prod( np.meshgrid( weight, weight, weight ), axis = 0 )
+
+        y = np.sum( integrand( kx, ky, kz ) * weight ) / ( np.pi )**3
+
+        print( y )
+
     
 
 
