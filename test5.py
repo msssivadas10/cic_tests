@@ -52,7 +52,7 @@ def test2():
 
     p = GenExtremeDistribution( c, 1.95, 0  )
 
-    p.sigma2Box()
+    print( p.sigma2Box(), p.sigma2Linear() ) 
 
     return
 

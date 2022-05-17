@@ -1,5 +1,6 @@
 from typing import Any 
 from itertools import product, repeat
+import warnings
 from scipy.interpolate import CubicSpline
 from pycosmo.cosmology import Cosmology
 from pycosmo.distributions.base import Distribution, DistributionError
@@ -11,7 +12,7 @@ import numpy as np
 class GenExtremeDistribution(Distribution):
 
     # global setting for objects
-    INTERP_N     = 51    # number of interpolation points
+    INTERP_N     = 101   # number of interpolation points
     MEAN_N       = 501   # number of samples for averaging
     EXACT_GROWTH = False # use exact growth factor 
 
@@ -31,15 +32,6 @@ class GenExtremeDistribution(Distribution):
         self.b2_log    = 1.0 # log field bias 
 
         self._prepareSpline()
-
-    def pdf(self, *args: Any, **kwargs: Any) -> Any:
-        ...
-
-    def setup(self, *args: Any, **kwargs: Any) -> Any:
-        ...
-
-    def supportInterval(self) -> tuple:
-        ...
     
     def measuredPowerSepctrum(self, kx: Any, ky: Any, kz: Any, z: float = 0) -> Any:
         r"""
@@ -108,8 +100,8 @@ class GenExtremeDistribution(Distribution):
             Linear variance.
 
         """
-        def Delta2(k: Any, z: float) -> Any:
-            return self.cosmology.linearPowerSpectrum( k, z, dim = False )
+        def Delta2(lnk: Any, z: float) -> Any:
+            return self.cosmology.linearPowerSpectrum( np.exp( lnk ), z, dim = False )
         
         var = numeric.integrate2( 
                                     Delta2,
@@ -161,25 +153,40 @@ class GenExtremeDistribution(Distribution):
         """
         def integrand(lnkx: Any, lnky: Any, lnkz: Any, z: float = 0) -> Any:
             kx, ky, kz = np.exp( lnkx ), np.exp( lnky ), np.exp( lnkz )
-            k          = np.sqrt( kx**2 + ky**2 + kz**2 )
-            return k * self.measuredPowerSepctrum( kx, ky, kz, z )
+            return kx * ky * kz * self.measuredPowerSepctrum( kx, ky, kz, z )
 
-        nodes, weight, _ = gaussrules.legendrerule( settings.DEFAULT_N )
-        nodes            = nodes[ 1:-1:2 ]
+        nodes, wg, wk = gaussrules.legendrerule( 64 )
 
         # transform interval
         a, b   = np.log( settings.ZERO ), np.log( self.kn )
         m      = 0.5*( b - a )
         nodes  = nodes * m + ( a + m )
-        weight = weight * m
+        wg, wk = wg * m, wk * m
 
-        # create k space
-        kx, ky, kz = np.meshgrid( nodes, nodes, nodes )
-        weight     = np.prod( np.meshgrid( weight, weight, weight ), axis = 0 )
+        y = integrand( *np.meshgrid( nodes, nodes, nodes ), z )
 
-        y = np.sum( integrand( kx, ky, kz ) * weight ) / ( np.pi )**3
+        # gauss integral
+        weight = np.prod( np.meshgrid( wg, wg, wg ), axis = 0 )
+        Ig     = np.sum( y[ 1:-1:2, 1:-1:2, 1:-1:2 ] * weight ) / ( np.pi )**3
 
-        print( y )
+        # konrod integral
+        weight = np.prod( np.meshgrid( wk, wk, wk ), axis = 0 )
+        Ik     = np.sum( y * weight ) / ( np.pi )**3
+
+        if not np.allclose( Ik, Ig, settings.RELTOL, settings.ABSTOL ):
+            warnings.warn("Integral is not converged")
+
+        return Ik
+
+    def setup(self, sigma8: float) -> Any:
+        
+        ...
+
+    def pdf(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+
+    def supportInterval(self) -> tuple:
+        ...
 
     
 
