@@ -224,12 +224,13 @@ class GenExtremeDistribution(Distribution):
         """    
         a, b, c, d = -0.70, 1.25, -0.26, 0.06 # Eqn. 15
 
-        np3 = -6*self.cosmology.dlnsdlnr( self.r ) # Lukic et al (2018). Eqn. 42
+        np3 = -6*self.cosmology.dlnsdlnm( self.r ) # Lukic et al (2018). Eqn. 42
+        # np3 = self.cosmology.effectiveIndex( self.kn ) + 3
         Tn  = a*np3 + b           # Eqn. 13
         pn  = d + c*np.log( np3 ) # Eqn. 14
         if invert:
-            return ( arg / Tn )**( -1/pn )
-        return Tn * arg**( -pn ) # Eqn. 12
+            return ( arg / Tn )**( -1/( pn+0.5 ) )
+        return Tn * arg**( -pn ) * np.sqrt( arg ) # Eqn. 12 & 11
 
     def setup(self, sigma8: float, z: float = 0) -> Any:
         if sigma8 <= 0:
@@ -254,8 +255,8 @@ class GenExtremeDistribution(Distribution):
 
             return r1 + ( g3 - 3*g1*g2 + 2*g1**3 ) / ( g2 - g1**2 )**1.5 # Eqn. 18
 
-        r1    = self.skewnessA( sigma2Box ) * np.sqrt( sigma2Box ) # pearson's moment coefficient, Eqn. 11
-        shape = newton( shapeEquation, r1, args = ( r1, ), )
+        r1    = self.skewnessA( sigma2Box )  # pearson's moment coefficient, Eqn. 11
+        shape = newton( shapeEquation, -0.001, args = ( r1, ), )
 
         g1, g2 = gamma( 1-shape ), gamma( 1-shape*2 )
         scale  = -shape * np.sqrt( sigma2Box ) * ( g2 - g1**2 )**( -0.5 ) # Eqn. 19

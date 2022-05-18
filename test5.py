@@ -17,7 +17,7 @@ def test2():
 
         # print( p.param, p.supportInterval[1] ) 
 
-        x = np.linspace( -5.0, 2.0, 501 )
+        x = np.linspace( -6.0, 8.0, 501 )
         y = p.pdf( x )
 
         plt.plot( x, y, label = f'z={z}' )
@@ -28,6 +28,24 @@ def test2():
     plt.show()
 
     return
+
+def test1():
+    from scipy.special import gamma
+
+    def f(shape: float) -> float:
+        g1 = gamma( 1-shape )
+        g2 = gamma( 1-shape*2 )
+        g3 = gamma( 1-shape*3 )
+
+        return ( g3 - 3*g1*g2 + 2*g1**3 ) / ( g2 - g1**2 )**1.5
+
+    plt.figure()
+
+    x = np.linspace(-0.4, 0.0001, 101)
+    y = f(x)
+
+    plt.plot(x, y)
+    plt.show()
 
 
 if __name__ == '__main__':
