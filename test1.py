@@ -37,17 +37,16 @@ def plotit(scale: str = None):
 def gev(b: float, z: float, cm: Cosmology, sigma8: float, bias: float):
     d = GEV( b, z, cm )
     d.parametrize( sigma8, bias )
-
     # x = np.linspace(1, 5000, 51)
     # y = d.fcount( x, 5.0, 100 )
 
     # x = np.linspace( -5.0, d.support().b, 201)
     # y = d.f( x, True )
 
-    x = np.arange(500)
-    y = d.fcic( x, 100 )
+    # x = np.arange(500)
+    # y = d.fcic( x, 100 )
 
-    return x, y
+    # return x, y
 
 @timeit
 def lognorm(b: float, z: float, cm: Cosmology, sigma8: float, bias: float):
@@ -65,14 +64,15 @@ def lognorm(b: float, z: float, cm: Cosmology, sigma8: float, bias: float):
 
     return x, y
 
-@plotit(scale = 'semilogx')
+# @plotit(scale = 'semilogx')
 def main1():
     cm   = Cosmology( Om0 = 0.3, Ob0 = 0.05, h = 0.70 )
-    # x, y = gev( 2.0, 0.0, cm, 1.0, 0.8 )
+    # x, y = 
+    gev( 1.95, 0.0, cm, 0.8, 0.8 )
     # x, y = lognorm( 2.0, 0, cm, 1.0, 0.8 )
-    x = np.logspace(-3, 3, 21)
-    y = cm.neff( x )
-    return x, y
+    # x = np.logspace(-3, 3, 21)
+    # y = cm.neff( x )
+    # return x, y
 
 
 @plotit(scale = 'loglog')

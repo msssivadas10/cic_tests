@@ -473,6 +473,7 @@ class GEV(Distribution):
 
         self.sigma8, self.bias = sigma8, bias
 
+        print( vlin, vlog, vcic )
         return super().parametrize(
                                     xi     = xi,
                                     mu     = mu,
