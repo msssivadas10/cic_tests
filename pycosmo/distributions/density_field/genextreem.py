@@ -258,8 +258,11 @@ class GenExtremeDistribution(Distribution):
         r1    = self.skewnessA( sigma2Box )  # pearson's moment coefficient, Eqn. 11
         shape = newton( shapeEquation, -0.001, args = ( r1, ), )
 
+        # NOTE: Eqn. 19 gives negative scale parameter. but scale parameter must be positive
+        # and using the absolute value of shape parameter here. 
         g1, g2 = gamma( 1-shape ), gamma( 1-shape*2 )
-        scale  = -shape * np.sqrt( sigma2Box ) * ( g2 - g1**2 )**( -0.5 ) # Eqn. 19
+        scale  = np.abs( shape ) * np.sqrt( sigma2Box ) * ( g2 - g1**2 )**( -0.5 ) # Eqn. 19
+
         loc    = self.averageA( sigma2Lin ) - scale * ( g1 - 1 ) / shape # Eqn. 20
 
         self.param = GenExtremeParameters( loc, scale, shape )

@@ -41,7 +41,7 @@ def test1():
 
     plt.figure()
 
-    x = np.linspace(-0.4, 0.0001, 101)
+    x = np.linspace(-1, 0.0001, 101)
     y = f(x)
 
     plt.plot(x, y)
