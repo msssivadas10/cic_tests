@@ -5,25 +5,44 @@ plt.style.use('seaborn')
 from pycosmo.cosmology import Cosmology
 from pycosmo.distributions.density_field.genextreem import GenExtremeDistribution
 
-def test2():
+def test3():
     c = Cosmology( 0.7, 0.25, 0.05, 0.8, 1.0, power_spectrum = 'eisenstein98_zb' )
 
+    plt.figure()
+
+    p = GenExtremeDistribution( c, 1.95  )
+    x = np.logspace( 0, np.log10( 4 ), 51 ) - 1.95
+    y = p.pdf( x, log_field = False )
+    plt.plot( x, np.log10( y ), 'o-', ms = 5, label = f'R=2.0 h/Mpc' )
+
+    p = GenExtremeDistribution( c, 15.6  )
+    x = np.logspace( 0, np.log10( 4 ), 51 ) - 1.85
+    y = p.pdf( x, log_field = False )
+    plt.plot( x, np.log10( y ), 'o-', ms = 5, label = f'R=15.6 h/Mpc' )
+
+    plt.legend()
+    plt.xlabel('$\\delta$')
+    plt.ylabel('$\\log_{10} ~ P(\\delta)$')
+    plt.show()
+
+    return
+
+def test2():
+    c = Cosmology( 0.7, 0.25, 0.05, 0.8, 1.0, power_spectrum = 'eisenstein98_zb' )
     p = GenExtremeDistribution( c, 1.95  )
 
     plt.figure()
 
     for z in ( 0, 1, 2 ):
-        p.setup( 0.8, z )
-
         # print( p.param, p.supportInterval[1] ) 
 
-        x = np.linspace( -6.0, 8.0, 501 )
-        y = p.pdf( x )
+        x = np.linspace( -6.0, 8.0, 51 )
+        y = p.pdf( x, z = z )
 
-        plt.plot( x, y, label = f'z={z}' )
+        plt.plot( x, y, 'o-', ms = 5, label = f'z={z}' )
 
     plt.legend()
-    plt.xlabel('A')
+    plt.xlabel('A = $\\ln (1+\\delta)$')
     plt.ylabel('P(A)')
     plt.show()
 
@@ -49,4 +68,4 @@ def test1():
 
 
 if __name__ == '__main__':
-    test2()
+    test3()

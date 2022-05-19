@@ -24,6 +24,33 @@ class GenExtremeParameters:
         return f"GenExtremeParameters(loc={ self.loc }, scale={ self.scale }, shape={ self.shape })"
 
 class GenExtremeDistribution(Distribution):
+    r"""
+    Generalised extreme value distribution for the overdensity field. This distribution is based on the reversed 
+    Wiebull subclass [1]_.
+
+    .. math::   
+        P( A ) = \frac{1}{ \sigma } t(A)^{ 1 + \xi } \exp[ -t(A) ]
+
+    where :math:`A = \ln (\delta+1)` is the logarithmic overdensity field, 
+
+    .. math::
+        t(A) = \left[ 1 + \frac{A - \mu}{\sigma} \xi \right]^{-1/\xi}
+
+    This distribution is charecterised by the location parameter :math:`\mu`, positive scale parameter :math:`\sigma` 
+    and the negative shape parameter :math:`\xi`.
+
+    Parameters
+    ----------
+    cm: Cosmology
+        Cosmology object to use.
+    r: float
+        Pixel size or smoothing size of the overdenisty field in Mpc/h.
+
+    References
+    ----------
+    .. [1] Andrew Repp & István Szapudi. Precision Prediction for the Cosmological Density Distribution. arXive: 1705.08015v2 (2018).  
+    
+    """
 
     # global setting for objects
     INTERP_N     = 101   # number of interpolation points
@@ -233,6 +260,17 @@ class GenExtremeDistribution(Distribution):
         return Tn * arg**( -pn ) * np.sqrt( arg ) # Eqn. 12 & 11
 
     def setup(self, sigma8: float, z: float = 0) -> Any:
+        r"""
+        Setup the distribution by setting the parameters.
+
+        Parameters
+        ----------
+        sigma8: float
+            RMS value of fluctuations at 8 Mpc/h scale.
+        z: float
+            Redshift.
+            
+        """
         if sigma8 <= 0:
             raise CosmologyError("sigma8 must be positive")
         self.cosmology.sigma8 = sigma8
@@ -271,9 +309,46 @@ class GenExtremeDistribution(Distribution):
     def supportInterval(self) -> tuple:
         return ( -np.inf, self.param.loc - self.param.scale / self.param.shape ) 
 
-    def pdf(self, arg: Any) -> Any:
+    def pdf(self, arg: Any, z: float = None, sigma8: float = None, log_field: bool = True) -> Any:
+        r"""
+        Return the probability density function for the overdensity.
+
+        Parameters
+        ----------
+        arg: array_like
+            Argument to the distribution function. It could be the logarithmic overdensity, :math:`A=\ln(\delta+1)` 
+            or the 'linear' overdensity :math:`\delta` (specified by `log_field` parameter).
+        z: float, optional
+            Redshift. Default value if 0.
+        sigma8: float, optional
+            RMS fluctuation value at 8 Mpc/h scale (:math:`\sigma_8` parameter). If not given, use the value stored 
+            in the cosmology object, otherwise overwrite the value.
+        log_field: bool, optional
+            Tell whether the argument is the linear or logarithmic field.
+
+        Returns
+        -------
+        y: arrya_like
+            Value of probability density function.
+
+        Examples
+        --------
+
+        """
+        # setup:
+        if ( sigma8 is not None ) or ( z is not None ) :
+            sigma8 = self.cosmology.sigma8 if sigma8 is None else sigma8
+            z      = 0 if z is None else z
+            self.setup( sigma8, z )
+
+        # linear field:
+        if not log_field:
+            argp1 = np.asfarray( arg ) + 1
+            return self.pdf( np.log( argp1 ) ) / argp1
+
+        # log filed:
         if not np.ndim( arg ):
-            return self.pdf( [ arg ] )[0]
+            return self.pdf( [ arg ], log_field )[0]
 
         arg = np.asfarray( arg )
         sup = ( arg < self.supportInterval[1] )
