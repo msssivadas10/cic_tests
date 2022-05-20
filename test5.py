@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 plt.style.use('seaborn')
 
 from pycosmo.cosmology import Cosmology
-from pycosmo.distributions.density_field.genextreem import GenExtremeDistribution
+from pycosmo.distributions.density_field import GenExtremeDistribution
 
 def test3():
     c = Cosmology( 0.7, 0.25, 0.05, 0.8, 1.0, power_spectrum = 'eisenstein98_zb' )
@@ -33,8 +33,8 @@ def test2():
 
     plt.figure()
 
-    for z in ( 0, 1, 2 ):
-        # print( p.param, p.supportInterval[1] ) 
+    for z in ( 2, 1, 0 ):
+        # print( p.supportInterval[1] ) 
 
         x = np.linspace( -6.0, 8.0, 51 )
         y = p.pdf( x, z = z )
@@ -68,4 +68,4 @@ def test1():
 
 
 if __name__ == '__main__':
-    test3()
+    test2()
