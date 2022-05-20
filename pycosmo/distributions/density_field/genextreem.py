@@ -346,7 +346,7 @@ class GenExtremeDistribution(Distribution):
             argp1 = np.asfarray( arg ) + 1
             return self.pdf( np.log( argp1 ) ) / argp1
 
-        # log filed:
+        # log field:
         if not np.ndim( arg ):
             return self.pdf( [ arg ], log_field )[0]
 
@@ -363,16 +363,61 @@ class GenExtremeDistribution(Distribution):
         y[ sup ] = ( 1 + ( arg[ sup ] - loc ) * shape / scale )**( -1/shape )
         y[ sup ] = y[ sup ]**( 1 + shape ) * np.exp( -y[ sup ] ) / scale
         return y
-
-
     
+    def cdf(self, arg: Any, z: float = None, sigma8: float = None, log_field: bool = True) -> Any:
+        r"""
+        Return the cumulative distribution function for the overdensity.
 
-    
+        Parameters
+        ----------
+        arg: array_like
+            Argument to the distribution function. It could be the logarithmic overdensity, :math:`A=\ln(\delta+1)` 
+            or the 'linear' overdensity :math:`\delta` (specified by `log_field` parameter).
+        z: float, optional
+            Redshift. Default value if 0.
+        sigma8: float, optional
+            RMS fluctuation value at 8 Mpc/h scale (:math:`\sigma_8` parameter). If not given, use the value stored 
+            in the cosmology object, otherwise overwrite the value.
+        log_field: bool, optional
+            Tell whether the argument is the linear or logarithmic field.
 
+        Returns
+        -------
+        y: arrya_like
+            Value of cumulative distribution function.
 
+        Examples
+        --------
 
+        """
+        # setup:
+        if ( sigma8 is not None ) or ( z is not None ) :
+            sigma8 = self.cosmology.sigma8 if sigma8 is None else sigma8
+            z      = 0 if z is None else z
+            self.setup( sigma8, z )
 
+        # linear field:
+        if not log_field:
+            argp1 = np.asfarray( arg ) + 1
+            return self.cdf( np.log( argp1 ) )
 
+        # log field:
+        if not np.ndim( arg ):
+            return self.cdf( [ arg ], log_field )[0]
+
+        arg = np.asfarray( arg )
+        sup = ( arg < self.supportInterval[1] )
+
+        shape = self.param.shape
+        if shape >= 0:
+            raise DistributionError("shape must be negative")
+
+        loc, scale = self.param.loc, self.param.scale
+
+        y        = np.ones_like( arg )
+        y[ sup ] = ( 1 + ( arg[ sup ] - loc ) * shape / scale )**( -1/shape )
+        y[ sup ] = np.exp( -y[ sup ] ) 
+        return y
 
 
 
