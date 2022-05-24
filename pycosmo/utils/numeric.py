@@ -173,6 +173,73 @@ def integrate2(f: Callable, a: Any, b: Any, args: tuple = (), eps: float = 1e-06
             warnings.warn("integral is not converged to specified accuracy", NumericWarning)
     return Ik
 
+def odesolve(xdot: Callable, x0: Any, t: Any) -> Any:
+    r"""
+    Solve a system of first order differential equation using 4-th order Runge-Kutta method.
+
+    Parameters
+    ----------
+    xdot: callable
+        A python function representing the differential equation, `xdot = xdot(t, x)`.
+    x0: array_like
+        Initial conditions.
+    t: array_like
+        Times to solve the differential equation. Must be a 1D array, with at least 2 items.
+
+    Returns
+    -------
+    x: array_like
+        Solution of the differential equation at given times.
+
+    Examples
+    --------
+    Consider the differential equation 
+
+    .. math::
+        \frac{d^2 x}{dt^2} = 2, x(0) = 0, \frac{dx(0)}{dt} = 0
+
+    with solution :math:`x = t^2`.
+
+    >>> t = np.linspace(0, 1, 51)
+    >>> x = odesolve( lambda t, x: np.asfarray([ x[1], 2 ]), [0.0, 0.0], t )
+    >>> np.allclose( x[:,0], t**2 )
+    True
+      
+    """
+    
+    if not callable( xdot ):
+        raise TypeError("'xdot' must be a python callable")
+
+    t = np.asfarray(t)
+    if np.ndim(t) != 1:
+        raise TypeError("t must be an array of dimension 1")
+    elif len(t) < 2:
+        raise TypeError("t should have atleast 2 items")
+
+    xi = np.asfarray(x0)
+    x  = [ xi, ]
+    for i in range( len(t)-1 ):
+        ti = t[i]
+        dt = t[i+1] - ti
+        tj = ti + 0.5*dt
+
+        k1 = np.asfarray( 
+                            xdot( ti, xi ) 
+                        ) * dt
+        k2 = np.asfarray(
+                            xdot( tj, xi + 0.5*k1 )            
+                        ) * dt
+        k3 = np.asfarray(
+                            xdot( tj, xi + 0.5*k2 )
+                        ) * dt
+        k4 = np.asfarray( 
+                            xdot( t[i+1], xi + k3 )
+                        ) * dt
+        xi = xi + ( k1 + 2*k2 + 2*k3 + k4 ) / 6.0
+        x.append( xi )
+
+    return np.asfarray(x)
+
 def derivative(f: Callable, x: Any, h: Any = 0.01, args: tuple = ()) -> Any:
     r"""
     Compute the approximate value of the derivative at given point.

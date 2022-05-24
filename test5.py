@@ -79,7 +79,7 @@ def test4():
 
     fig = plt.figure(figsize = [6,6])
     ax = fig.add_subplot(111, projection='3d')
-    ax.plot(pd.position[:,0], pd.position[:,1], pd.position[:,2], 'o', ms = 0.3, alpha = 0.015)
+    ax.plot(pd.position[:,0], pd.position[:,1], pd.position[:,2], 'o', ms = 0.3, alpha = 0.02)
 
     f1, f2 = [0.,pd.boxsize,pd.boxsize,0.,0.], [0.,0.,pd.boxsize,pd.boxsize,0.]
     f3, f4 = [0.,0.,0.,0.,0.], [pd.boxsize,pd.boxsize,pd.boxsize,pd.boxsize,pd.boxsize]
