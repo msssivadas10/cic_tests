@@ -328,7 +328,7 @@ class GenExtremeDistribution(Distribution):
 
         Returns
         -------
-        y: arrya_like
+        y: array_like
             Value of probability density function.
 
         Examples
@@ -383,7 +383,7 @@ class GenExtremeDistribution(Distribution):
 
         Returns
         -------
-        y: arrya_like
+        y: array_like
             Value of cumulative distribution function.
 
         Examples

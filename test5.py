@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-plt.style.use('seaborn')
+plt.style.use('ggplot')
 
 from pycosmo.cosmology import Cosmology
 from pycosmo.distributions.density_field import GenExtremeDistribution
@@ -67,5 +67,35 @@ def test1():
     plt.show()
 
 
+def test4():
+    c = Cosmology( 0.7, 0.3, 0.05, 0.8, 1.0, power_spectrum = 'eisenstein98_zb' )
+    c.power_spectrum.use_exact_growth = False
+
+    from pycosmo.nbody.simulation import generateInitialCondition
+
+    pd = generateInitialCondition(200.0, 64, 0, c)
+
+    from mpl_toolkits.mplot3d import Axes3D
+
+    fig = plt.figure(figsize = [6,6])
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(pd.position[:,0], pd.position[:,1], pd.position[:,2], 'o', ms = 0.3, alpha = 0.015)
+
+    f1, f2 = [0.,pd.boxsize,pd.boxsize,0.,0.], [0.,0.,pd.boxsize,pd.boxsize,0.]
+    f3, f4 = [0.,0.,0.,0.,0.], [pd.boxsize,pd.boxsize,pd.boxsize,pd.boxsize,pd.boxsize]
+    ax.plot(f1, f2, f3, color = 'black', lw = 0.5)
+    ax.plot(f3, f1, f2, color = 'black', lw = 0.5)
+    ax.plot(f2, f3, f1, color = 'black', lw = 0.5)
+    ax.plot(f1, f2, f4, color = 'black', lw = 0.5)
+    ax.plot(f4, f1, f2, color = 'black', lw = 0.5)
+    ax.plot(f2, f4, f1, color = 'black', lw = 0.5)
+
+    print( pd.velocity.max() )
+
+    plt.show()
+
+    return
+
+
 if __name__ == '__main__':
-    test2()
+    test4()

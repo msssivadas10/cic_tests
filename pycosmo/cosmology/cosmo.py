@@ -546,7 +546,7 @@ class Cosmology(base.Cosmology):
     def f(self, z: Any, exact: bool = False) -> Any:
 
         def fzFit(z: Any) -> Any:
-            return self.Om( z )**0.55
+            return self.Om( z )**( 5./9 )
 
         def fzExact(z: Any) -> Any:
             return (
