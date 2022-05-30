@@ -31,7 +31,10 @@ KPC = 3.085677581491367e+19
 MPC = 3.085677581491367e+22 
 
 # mass of sun in kg 
-MSUN = 1.98842e+30           
+MSUN = 1.98842e+30   
+
+# GM for sun in m^3/s^2
+GMSUN = 1.32712440018e+20
 
 # year (sidereal) in sec
 YEAR = 31558149.8      
