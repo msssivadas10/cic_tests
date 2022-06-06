@@ -75,7 +75,7 @@ def densityCloudInCell(pos: Any, boxsize: float, gridsize: int, mass: Any = 1.0)
                                     np.hstack([ i[:,0:1], j[:,1:2], i[:,2:3] ]),
                                     bins    = gridsize,
                                     range   = _range,
-                                    weights = mass * t[:,0] * j[:,1] * t[:,2],
+                                    weights = mass * t[:,0] * d[:,1] * t[:,2],
                                 )[0]
                 + np.histogramdd(
                                     np.hstack([ i[:,0:1], j[:,1:2], j[:,2:3] ]),
@@ -99,7 +99,7 @@ def densityCloudInCell(pos: Any, boxsize: float, gridsize: int, mass: Any = 1.0)
                                     np.hstack([ j[:,0:1], j[:,1:2], i[:,2:3] ]),
                                     bins    = gridsize,
                                     range   = _range,
-                                    weights = mass * d[:,0] * j[:,1] * t[:,2],
+                                    weights = mass * d[:,0] * d[:,1] * t[:,2],
                                 )[0]
                 + np.histogramdd(
                                     np.hstack([ j[:,0:1], j[:,1:2], j[:,2:3] ]),
