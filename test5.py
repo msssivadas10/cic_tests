@@ -5,24 +5,28 @@ plt.style.use('ggplot')
 from pycosmo.cosmology import Cosmology
 from pycosmo.distributions.density_field import GenExtremeDistribution
 
+color = [ 'tab:blue', 'tab:green', 'orange' ]
+
 def test3():
     c = Cosmology( 0.7, 0.25, 0.05, 0.8, 1.0, power_spectrum = 'eisenstein98_zb' )
 
-    plt.figure()
+    plt.figure(figsize = [8,5])
+
+    plt.gca().tick_params(axis='both', which='major', labelsize=14)
 
     p = GenExtremeDistribution( c, 1.95  )
-    x = np.logspace( 0, np.log10( 4 ), 51 ) - 1.95
+    x = np.logspace( 0, np.log10( 4 ), 31 ) - 1.95
     y = p.pdf( x, log_field = False )
-    plt.plot( x, np.log10( y ), 'o-', ms = 5, label = f'R=2.0 h/Mpc' )
+    plt.plot( x, np.log10( y ), 'o-', ms = 4, color = color[0], label = f'2.0 h/Mpc' )
 
     p = GenExtremeDistribution( c, 15.6  )
-    x = np.logspace( 0, np.log10( 4 ), 51 ) - 1.85
+    x = np.logspace( 0, np.log10( 4 ), 21 ) - 1.85
     y = p.pdf( x, log_field = False )
-    plt.plot( x, np.log10( y ), 'o-', ms = 5, label = f'R=15.6 h/Mpc' )
+    plt.plot( x, np.log10( y ), 'o-', ms = 4, color = color[1], label = f'15.6 h/Mpc' )
 
-    plt.legend()
-    plt.xlabel('$\\delta$')
-    plt.ylabel('$\\log_{10} ~ P(\\delta)$')
+    plt.legend(title = "Cellsize", fontsize = 14, title_fontsize = 14)
+    plt.xlabel('$\\delta$', fontsize = 14)
+    plt.ylabel('$\\log_{10} ~ P(\\delta)$', fontsize = 14)
     plt.show()
 
     return
@@ -31,41 +35,22 @@ def test2():
     c = Cosmology( 0.7, 0.25, 0.05, 0.8, 1.0, power_spectrum = 'eisenstein98_zb' )
     p = GenExtremeDistribution( c, 1.95  )
 
-    plt.figure()
+    plt.figure(figsize = [8,5])
 
-    for z in ( 2, 1, 0 ):
-        # print( p.supportInterval[1] ) 
+    plt.gca().tick_params(axis='both', which='major', labelsize=14)
 
-        x = np.linspace( -6.0, 8.0, 51 )
+    for i, z in enumerate( [ 2, 1, 0 ] ):
+        x = np.linspace( -4.0, 6.0, 51 )
         y = p.pdf( x, z = z )
 
-        plt.plot( x, y, 'o-', ms = 5, label = f'z={z}' )
+        plt.plot( x, y, 'o-', ms = 4, color = color[i], label = f'{z:.1f}' )
 
-    plt.legend()
-    plt.xlabel('A = $\\ln (1+\\delta)$')
-    plt.ylabel('P(A)')
+    plt.legend(title = "Redshift", fontsize = 14, title_fontsize = 14)
+    plt.xlabel('A = $\\ln (1+\\delta)$', fontsize = 14)
+    plt.ylabel('P(A)', fontsize = 14)
     plt.show()
 
     return
-
-def test1():
-    from scipy.special import gamma
-
-    def f(shape: float) -> float:
-        g1 = gamma( 1-shape )
-        g2 = gamma( 1-shape*2 )
-        g3 = gamma( 1-shape*3 )
-
-        return ( g3 - 3*g1*g2 + 2*g1**3 ) / ( g2 - g1**2 )**1.5
-
-    plt.figure()
-
-    x = np.linspace(-1, 0.0001, 101)
-    y = f(x)
-
-    plt.plot(x, y)
-    plt.show()
-
 
 
 if __name__ == '__main__':
