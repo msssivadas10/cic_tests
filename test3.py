@@ -66,7 +66,7 @@ def test1():
 
 def test2():
     c   = Cosmology( 0.7, 0.3, 0.05, 0.8, 1.0, power_spectrum = 'eisenstein98_zb' )
-    pd  = InitialCondition(300.0, 64, c)(100)
+    pd  = InitialCondition(300.0, 48, c)(100)
     sim = ParticleMeshSimulation( pd, cm = c  )
 
     xout, aout = [], []
@@ -110,10 +110,6 @@ def test2():
 
         # plt.pause(0.01)
 
-        if j in i:
-            ...
-
-
     # plt.show()
 
     fig, (ax1, ax2) = plt.subplots( 1, 2, figsize = [12,6] )
@@ -122,11 +118,11 @@ def test2():
     ax2.tick_params(axis='both', which='major', labelsize=14)
 
     x, y = np.mgrid[ 0.0:sim.boxsize:128j, 0.0:sim.boxsize:128j ]
-    dens = densityCloudInCell( sim.currentPos, sim.boxsize, 128 )
+    dens = densityCloudInCell( sim.currentPos, sim.boxsize, 128 ).value
     ax1.pcolor( x, y, dens[..., 64], cmap = 'Spectral_r' )
 
     x, y = np.mgrid[ 0.0:sim.boxsize:64j, 0.0:sim.boxsize:64j ]
-    dens = densityCloudInCell( sim.currentPos, sim.boxsize, 64 )
+    dens = densityCloudInCell( sim.currentPos, sim.boxsize, 64 ).value
     ax2.pcolor( x, y, dens[..., 32], cmap = 'Spectral_r' )
 
     plt.show()

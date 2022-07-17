@@ -52,7 +52,7 @@ def testpp():
 
 def testpm():
     c  = Cosmology( 0.7, 0.3, 0.05, 0.8, 1.0, power_spectrum = 'eisenstein98_zb' )
-    pd = InitialCondition(100.0, 48, c)(100)
+    pd = InitialCondition(100.0, 48, c)(5)
 
     sim = ParticleMeshSimulation( pd, cm = c  )
 
@@ -63,7 +63,7 @@ def testpm():
     ax.scatter(sim.currentPos[:,0], sim.currentPos[:,1], sim.currentPos[:,2], s = 1, cmap = 'hot', c = col, alpha = 0.2)
     plt.pause(0.01)
 
-    a  = np.logspace( np.log10(sim.a), 0, 21 )
+    a  = np.logspace( np.log10(sim.a), 0, 201 )
 
     for da in np.diff( a ):
         sim.updateParticles(da)
