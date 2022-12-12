@@ -17,8 +17,55 @@ from typing import Any
 ############################################################################################
 
 def ngpDensity(pos: Any, boxsize: float, gridsize: int, mass: Any = 1.0) -> Any:
+    r"""
+    Nearest grid point density estimation. Assume the particles as points and each particle contribute 
+    only to the cell it lies.
+
+    Parameters
+    ----------
+    pos: array_like of shape (N,3)
+        Particle positions.
+    boxsize: float
+        Size of the bounding box for particles.
+    gridsize: int
+        Size of the density mesh along each dimension (G).
+    mass: array_like, optional
+        Mass of the perticle. If not scalar, must be a 1D array of length N.
+
+    Returns
+    -------
+    density: array_like of shape (G,G,G)
+        Density mesh. This will be a 3D array with the value at index (i,j,k) correspond to the density 
+        at that cell.
+
+    """
+
+    pos = np.asfarray( pos )
+    if np.ndim( pos ) != 2:
+        raise TypeError("'pos' must be a 2 dimensional array")
+    if pos.shape[1] != 3:
+        raise TypeError("'pos' should have 3 columns")
     
-    raise NotImplementedError()
+    mass = np.asfarray( mass )
+    if np.ndim( mass ) == 1:
+        if len( mass ) != pos.shape[0]:
+            raise TypeError("'mass' array should have same length as particles")
+    elif np.ndim( mass ) > 1:
+        raise TypeError("'mass' must be a scalar or 1D array")
+
+    cellsize = np.asfarray( boxsize ) / gridsize
+
+    i = np.floor( pos / cellsize )
+
+    _range = [ (0., gridsize), (0., gridsize), (0., gridsize) ]
+
+    dens = np.histogramdd(
+                            np.hstack([ i[:,0:1], i[:,1:2], i[:,2:3] ]),
+                            bins    = gridsize,
+                            range   = _range,
+                            weights = mass,
+                         )[0]
+    return dens
 
 def cicDensity(pos: Any, boxsize: float, gridsize: int, mass: Any = 1.0) -> Any:
     r"""
@@ -127,8 +174,46 @@ def cicDensity(pos: Any, boxsize: float, gridsize: int, mass: Any = 1.0) -> Any:
 ##################################################################################################
 
 def ngpInterpolate(value: Any, pos: Any, boxsize: float) -> Any:
+    r"""
+    Interpolate the values at grid points to given positions using nearest grid point scheme. 
 
-    raise NotImplementedError()
+    Parameters
+    ----------
+    value: array_like of shape (G,G,G)
+        Values of the quantity to be interpolated, on grid positions. Must be a 3D array.
+    pos: array_like of shape (N,3)
+        Particle positions.
+    boxsize: float
+        Size of bounding box of the particles.
+
+    Returns
+    -------
+    val: array_like of length N
+        Values interpolated to particle positions. Will be a 1D array.
+    
+    """
+
+    pos = np.asfarray( pos )
+    if np.ndim( pos ) != 2:
+        raise TypeError("'pos' must be a 2 dimensional array")
+    if pos.shape[1] != 3:
+        raise TypeError("'pos' should have 3 columns")
+    
+    value = np.asfarray( value )
+    if np.ndim( value ) != 3:
+        raise TypeError("'value' must be a 3 dimensional array")
+    
+    gridsize = value.shape[0]
+    if False in map( lambda n: n == gridsize, value.shape[1:] ):
+        raise TypeError("all dimensions of 'value' should be same")
+
+    cellsize = np.asfarray( boxsize ) / gridsize
+
+    i = np.floor( pos / cellsize ).astype( 'int' )
+
+    interpval = value[ i[:,0], i[:,1], i[:,2] ]
+
+    return interpval
 
 def cicInterpolate(value: Any, pos: Any, boxsize: float) -> Any:
     r"""

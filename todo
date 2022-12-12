@@ -9,8 +9,6 @@ Analysis
     - real
 - count in cells 
     - real: rectangle & circle
-- density/power
-    - density estimation: ngp[, tsc]
 
 N-body simulation
 -----------------
