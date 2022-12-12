@@ -1,0 +1,18 @@
+Distribution
+------------
+- GEV
+
+Analysis
+--------
+- correlation 
+    - angular 
+    - real
+- count in cells 
+    - real: rectangle & circle
+- density/power
+    - density estimation: ngp[, tsc]
+
+N-body simulation
+-----------------
+- initial condition: za, 2lpt
+- n-body code: pp, pm

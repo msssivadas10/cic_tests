@@ -12,3 +12,6 @@ DEFAULT_SUBDIV = 15
 
 # default relative step-size for differentiations
 DEFAULT_H = 0.01
+
+# default upper limit for density integration
+DELTA_MAX = 10.
