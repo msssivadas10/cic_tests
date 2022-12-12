@@ -45,8 +45,9 @@ class SkyRegion(BoundingBox):
 
     # link data to the region
 
-    def setdata(self, odf: pd.DataFrame, rdf: pd.DataFrame, ra: str = 'ra', dec: str = 'dec', mask: str = 'mask',
-                redshift: str = 'redshift', mag: str = 'mag', angle_unit: str = 'radian') -> None:
+    def setdata(self, odf: pd.DataFrame, rdf: pd.DataFrame, ra: str = 'ra', dec: str = 'dec', 
+                mask: str = 'mask',redshift: str = 'redshift', mag: str = 'mag', 
+                angle_unit: str = 'radian') -> None:
         r"""
         Link object and random data to the region. Both tables should have same column names. Object 
         data should be linked to the region to get count in cells or correlations.
