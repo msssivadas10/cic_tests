@@ -1103,7 +1103,7 @@ class Cosmology:
         Returns
         -------
         y: array_like
-            Hubble time in years.
+            Hubble time in Gyr.
         
         Examples
         --------
@@ -1111,7 +1111,7 @@ class Cosmology:
         """
 
         Hz = self.H( z ) * ( 1000.0 / const.MPC * const.YEAR ) # in 1/yr
-        return 1.0 / Hz
+        return 1.0 / Hz * 1e-09
     
     def comovingDistance(self, z: Any) -> Any:
         r"""

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-__all__ = ['distributions', 'cic', 'correlation', 'density']
+__all__ = ['distributions', 'cic', 'correlation', 'density', 'utils']
 
 from pycosmo.analysis._core import SkyRegion
-from pycosmo.analysis.helpers import angle, distances, filterCatalog
+

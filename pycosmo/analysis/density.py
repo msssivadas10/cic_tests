@@ -13,7 +13,7 @@ from typing import Any
 
 
 ############################################################################################
-# Density estimators
+# 3D Density estimators
 ############################################################################################
 
 def ngpDensity(pos: Any, boxsize: float, gridsize: int, mass: Any = 1.0) -> Any:

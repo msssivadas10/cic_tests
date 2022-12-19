@@ -64,8 +64,8 @@ class wMDM(Cosmology):
                  power_spectrum: PowerSpectrumType = None, filter: str = 'tophat', 
                  mass_function: MassFunctionType = 'tinker08', linear_bias: LinearBiasType = 'tinker10') -> None:
 
-        super().__init__(h, Om0, Ob0, sigma8, ns, flat, relspecies, Ode0, Omnu0, Nmnu, Tcmb0, w, Nnu, 
-                         power_spectrum, filter, mass_function, linear_bias, wa = 0)
+        super().__init__(h, Om0, Ob0, sigma8, ns, flat, relspecies, Ode0, Omnu0, Nmnu, Tcmb0, w, 0.0, Nnu, 
+                         power_spectrum, filter, mass_function, linear_bias)
 
 
 class wCDM(wMDM):
@@ -123,8 +123,8 @@ class wCDM(wMDM):
                  Nnu: float = 3, power_spectrum: PowerSpectrumType = None, filter: str = 'tophat', 
                  mass_function: MassFunctionType = 'tinker08', linear_bias: LinearBiasType = 'tinker10') -> None:
 
-        super().__init__(h, Om0, Ob0, sigma8, ns, flat, relspecies, Ode0, Tcmb0, w, Nnu, 
-                         power_spectrum, filter, mass_function, linear_bias, Omnu0 = 0, Nmnu = None)
+        super().__init__(h, Om0, Ob0, sigma8, ns, flat, relspecies, Ode0, 0.0, None, Tcmb0, w, Nnu, 
+                         power_spectrum, filter, mass_function, linear_bias)
 
 class LambdaCDM(wCDM):
     r"""
@@ -179,8 +179,8 @@ class LambdaCDM(wCDM):
                  power_spectrum: PowerSpectrumType = None, filter: str = 'tophat', 
                  mass_function: MassFunctionType = 'tinker08', linear_bias: LinearBiasType = 'tinker10') -> None:
 
-        super().__init__(h, Om0, Ob0, sigma8, ns, flat, relspecies, Ode0, Tcmb0, Nnu, 
-                         power_spectrum, filter, mass_function, linear_bias, w = -1)
+        super().__init__(h, Om0, Ob0, sigma8, ns, flat, relspecies, Ode0, Tcmb0, -1.0, Nnu, 
+                         power_spectrum, filter, mass_function, linear_bias)
 
 
 class Einstein_deSitter(LambdaCDM):
@@ -219,9 +219,8 @@ class Einstein_deSitter(LambdaCDM):
     def __init__(self, h: float, sigma8: float, ns: float, power_spectrum: PowerSpectrumType = None, filter: str = 'tophat', 
                  mass_function: MassFunctionType = 'tinker08', linear_bias: LinearBiasType = 'tinker10') -> None:
 
-        super().__init__(h, Om0 = 1.0, Ob0 = 0.0, sigma8 = sigma8, ns = ns, relspecies = False, Tcmb0 = 2.725, 
-                         Nnu = 0, power_spectrum = power_spectrum, filter = filter, mass_function = mass_function, 
-                         linear_bias = linear_bias)
+        super().__init__(h, 1.0, 0.0, sigma8, ns, True, False, 0.0, 2.725, 0., power_spectrum, filter, 
+                         mass_function, linear_bias)
 
 
 

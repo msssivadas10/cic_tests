@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
 import numpy as np, pandas as pd
-from pycosmo.analysis.cic import tile_circles2d, get_counts2d
-from pycosmo.analysis.helpers import BoundingBox, filterCatalog
+from pycosmo.analysis.cic import tile_circles2d, get_counts2d, BoundingBox
+from pycosmo.analysis.utils.misc import filterCatalog
 from typing import Any
 
 

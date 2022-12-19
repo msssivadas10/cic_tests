@@ -4,9 +4,8 @@ import numpy as np, pandas as pd
 import warnings
 from scipy.optimize import newton
 from sklearn.neighbors import BallTree, KDTree
-from pycosmo.analysis.helpers import angle, distances
-from typing import Any, Iterable, Callable
-from abc import ABC, abstractmethod, abstractproperty
+from pycosmo.analysis.utils import angle, distances
+from typing import Any
 
 
 def estimatorCode(estimator: str) -> int:
@@ -89,9 +88,9 @@ def correlationFromPairCount(nd: int, nr: int, dd: Any, rr: Any = None, dr: Any 
     return
 
 
-def correlation(sep: Any, odf: pd.DataFrame, rdf: pd.DataFrame, estimator: str = 'ls', c1: str = None, c2: str = None, 
-                c3: str = None, mask: str = None, mag: str = None, zrange: tuple = None, magnitude_cutoff: float = None,
-                return_pairs: bool = False, return_corr: bool = True) -> Any: 
+def correlation(sep: Any, odf: pd.DataFrame, rdf: pd.DataFrame, estimator: str = 'ls', c1: str = None, 
+                c2: str = None, c3: str = None, mask: str = None, mag: str = None, zrange: tuple = None, 
+                magnitude_cutoff: float = None, return_pairs: bool = False, return_corr: bool = True) -> Any: 
     ...
 
 
