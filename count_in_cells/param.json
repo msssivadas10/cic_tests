@@ -1,0 +1,11 @@
+{
+    "paths":{
+        "objects": "object-file-path",
+        "randoms": "/home/darkmatter/Documents/ms3/sky/data/hsc-ssp-pdr3_wide/photo_data/w2_rnd.csv.gz",
+        "patches": "patches.csv",
+        "output_dir": "./output"
+    },
+    "cellsize": 50.0,
+    "cell_subdivisions": 8,
+    "chunk_size": 1000000
+}
