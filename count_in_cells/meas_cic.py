@@ -69,9 +69,12 @@ def load_paramfile(param_file: str, restart: int = 0, check_values: bool = False
 
 
 # create patch mask images
-def create_patch_images(patch_file_path: str, random_catalog_path: str, cellsize: float, nsubdiv: int = 1, chunk_size: int = 1_000_000, comm = None, rank: int = 0, size: int = 1):
+def create_patch_images(patch_file_path: str, random_catalog_path: str, cellsize: float, nsubdiv: int, chunk_size: int, comm: object, rank: int, size: int):
 
     # load patches file
+    patches = pd.read_csv(patch_file_path, header = 0)
+
+    min_cellsize = cellsize / 2**nsubdiv
 
     # load random objects
 
