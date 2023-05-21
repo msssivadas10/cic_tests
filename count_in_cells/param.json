@@ -1,11 +1,39 @@
 {
-    "paths":{
-        "objects": "object-file-path",
-        "randoms": "/home/darkmatter/Documents/ms3/sky/data/hsc-ssp-pdr3_wide/photo_data/w2_rnd.csv.gz",
-        "patches": "patches.csv",
-        "output_dir": "./output"
+    "catalog": {
+        "object": "/home/ms3/Documents/phd/cosmo/data/photoz/w2_obj.csv.gz",
+        "random": "/home/ms3/Documents/phd/cosmo/data/photoz/w2_obj.csv.gz",
+        "compression": "gzip",
+        "chunk_size": 1000000,
+        "ra_shift": 0.0,
+        "dec_shift": 0.0,
+        "z_prefix": "photoz",
+        "z_suffix": "mean",
+        "magnitude": "{}_convolvedflux_0_20_mag",
+        "magnitude_offset": "{}_mag_offset",
+        "mask": "{}_mask_brightstar_any",
+        "filters": []
     },
-    "cellsize": 50.0,
-    "cell_subdivisions": 8,
-    "chunk_size": 1000000
+
+    "output": {
+        "path": "./output",
+        "patch_img_dir": "patch_images"
+    },
+
+    "jackknife": {
+        "region_rect": [215.0, 245.0, 42.5, 44.5],
+        "remove_regions": [],
+        "patch_xwidth": 2.0,
+        "patch_ywidth": 2.0,
+        "use_mask": ["g", "r", "i", "z", "y"]
+    },
+
+    "cic": {
+        "cellsize_arcsec": 50.0,
+        "cell_num_subdiv": 8,
+        "mag_upper_cutoff": {"i": 22.0},
+        "use_mask": ["i"],
+        "redshift": 3.0,
+        "redshift_width": 0.1,
+        "redshift_filter": null
+    }
 }
