@@ -34,6 +34,7 @@
         "use_mask": ["i"],
         "redshift": 3.0,
         "redshift_width": 0.1,
-        "redshift_filter": null
+        "redshift_filter": [],
+        "max_count": 100
     }
 }
