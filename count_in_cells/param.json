@@ -11,7 +11,8 @@
         "magnitude": "{}_convolvedflux_0_20_mag",
         "magnitude_offset": "{}_mag_offset",
         "mask": "{}_mask_brightstar_any",
-        "filters": []
+        "filters": ["g", "r", "i", "z", "y"],
+        "data_filter_conditions": []
     },
 
     "output": {
@@ -29,7 +30,7 @@
 
     "cic": {
         "cellsize_arcsec": 50.0,
-        "cell_num_subdiv": 8,
+        "cell_num_subdiv": 3,
         "mag_upper_cutoff": {"i": 22.0},
         "use_mask": ["i"],
         "redshift": 3.0,

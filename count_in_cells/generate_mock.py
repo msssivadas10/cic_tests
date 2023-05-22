@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sbn
 
-n = 1_000_0#00
+n = 1_000_00#0
 
 ra  = rnd.uniform(-1., 20., n)
 dec = rnd.uniform(-1, 3, n)
