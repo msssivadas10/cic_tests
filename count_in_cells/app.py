@@ -193,6 +193,8 @@ redshift_filters  = [ replace_fields( __cond, __mapper ) for __cond in options.c
 __failed = estimate_counts(patch_file        = patch_image_path,
                            odf_path          = options.catalog_object,
                            use_masks         = use_masks,
+                           subdiv            = options.cic_cell_num_subdiv,
+                           masked_frac       = 0.05, # options.cic_masked_frac,
                            odf_compression   = options.catalog_compression,
                            chunk_size        = options.catalog_chunk_size,
                            magnitude_filters = magnitude_filters,

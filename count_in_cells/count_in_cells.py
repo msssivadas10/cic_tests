@@ -10,10 +10,10 @@ from scipy.stats import binned_statistic_dd, binned_statistic
 from typing import Any 
 
 
-def estimate_counts(patch_file: str, odf_path: str, use_masks: list, subdiv: int = 0, max_count: int = 100, 
-                    odf_compression: str = 'gzip', chunk_size: int = 1_000, magnitude_filters: list = [], 
-                    redshift_filters: list = [], odf_filters: list = [], magnitude_offsets: dict = {}, 
-                    mpi_comm = None) -> int:
+def estimate_counts(patch_file: str, odf_path: str, use_masks: list, subdiv: int = 0, max_count: int = 100,
+                    masked_frac: float = 0.05, odf_compression: str = 'gzip', chunk_size: int = 1_000, 
+                    magnitude_filters: list = [], redshift_filters: list = [], odf_filters: list = [], 
+                    magnitude_offsets: dict = {}, mpi_comm = None) -> int:
     r"""
     Estimate count-in-cells distribution and first moments from data.
     """
@@ -94,8 +94,7 @@ def estimate_counts(patch_file: str, odf_path: str, use_masks: list, subdiv: int
 
     patch_bins = np.arange(0, n_patches + 1) - 0.5
 
-    count_hist = np.zeros( (max_count, n_patches, subdiv+1), dtype = 'int' ) # distribution / histogram
-    count_moms = np.zeros( (4        , n_patches, subdiv+1), dtype = 'int' ) # moments
+    count_hist = np.zeros( (max_count, subdiv+1, n_patches), dtype = 'int' ) # distribution / histogram
     count_bins = np.arange( max_count + 1 )
 
     logging.info( "started counting unmasked objects in cell" )
@@ -144,39 +143,73 @@ def estimate_counts(patch_file: str, odf_path: str, use_masks: list, subdiv: int
             # get the distribution of counts
             #
 
-            hi, mi = get_distribution_and_moments(counts_i,
-                                                  count_bins, 
-                                                  total_rcount,
-                                                  masked_rcount,
-                                                  n_patches,
-                                                  subdiv,
-                                                  masked_frac, )
-            count_hist = count_hist + hi
-            # count_moms = count_moms + mi
-            
+            count_hist += get_distribution(counts_i,
+                                           count_bins, 
+                                           total_rcount,
+                                           masked_rcount,
+                                           n_patches,
+                                           subdiv,
+                                           masked_frac, )
 
 
+    logging.info( "finished counting object histogram" )
+
+    # wait untill all process are completed, if using multiple process 
+    if USE_MPI:
+        mpi_comm.Barrier() # comm.barrier()
 
 
+    # combine the results from all process
+    logging.info( "starting communication...")
+    if RANK != 0 and USE_MPI:
 
-    logging.info( "finished counting random objects in cell" )
+        logging.info( "sent data to rank-0" )
+
+        # send data to process-0
+        mpi_comm.Send( count_hist, dest = 0, tag = 12 )
+
+    else:
+
+        # recieve data from other process, if using multiple process
+        if USE_MPI:
+
+            tmp = np.zeros( (max_count, subdiv+1, n_patches), dtype = 'int' ) # temporary storage
+            for src in range(1, SIZE):
+
+                logging.info( "recieving data from rank-%d", src )
+                
+                mpi_comm.Recv( tmp, source = src, tag = 12 )
+                count_hist += tmp
+
+        
+        count_hist  = count_hist[..., patches.flags] # remove bad patches
+
+        # moment calculations
+
+        #
+        # jackknife averaging over all patches ()
+        #
+
+        # save average results and variance
+
+    # wait untill all process are completed, if using multiple process 
+    if USE_MPI:
+        mpi_comm.Barrier() # comm.barrier()
+
+    logging.info( "finished counting histogram!" )
     
-
     return SUCCESS
 
 
-def get_distribution_and_moments(counts: Any, count_bins: Any, r_total: Any, r_mask: Any, 
-                                 n_patches: int, n_subdiv: int, mask_frac: float):
+def get_distribution(counts: Any, count_bins: Any, r_total: Any, r_mask: Any, 
+                     n_patches: int, n_subdiv: int, mask_frac: float):
     r"""
-    Count histogram and moments of masked counts 
+    Count histogram of masked counts 
     """
 
-    hist = np.empty( ( len(count_bins)-1, n_patches, n_subdiv+1 ), dtype = 'int' ) # distribution / histogram
-    moms = np.empty( (4, n_patches, n_subdiv+1), dtype = 'int' ) # moments
+    hist = np.empty( ( len(count_bins)-1, n_subdiv+1, n_patches ), dtype = 'int' ) # distribution / histogram
 
-    total_l, mask_l = r_total, r_mask
-    counts_l  = counts
-
+    total_l, mask_l, counts_l = r_total, r_mask, counts
     for level in range(n_subdiv, -1, -1): # subdivision levels
 
         # pixel goodness flag
@@ -188,17 +221,11 @@ def get_distribution_and_moments(counts: Any, count_bins: Any, r_total: Any, r_m
             mlp = isgood_l[..., p].flatten() # is the pixel good
 
             xlp = xlp[ mlp ]
-            hist[:, p, level] = binned_statistic(xlp,
+            hist[:, level, p] = binned_statistic(xlp,
                                                  values    = None, 
                                                  statistic = 'count',
                                                  bins      = count_bins, ).statistic
             
-            # moments (not stadardised)
-            moms[0, p, level] = len(xlp)
-            moms[1, p, level] = np.sum( xlp )
-            moms[2, p, level] = np.sum( xlp**2 )
-            moms[3, p, level] = np.sum( xlp**3 )
-        
         #  
         # doubling pixsize: combine 4 cells each into 1 
         #
@@ -215,4 +242,4 @@ def get_distribution_and_moments(counts: Any, count_bins: Any, r_total: Any, r_m
         counts_l = counts_l[0::2,:,:] + counts_l[1::2,:,:] # along ra
         counts_l = counts_l[:,0::2,:] + counts_l[:,1::2,:] # along dec
         
-    return hist, moms
+    return hist

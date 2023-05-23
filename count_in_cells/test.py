@@ -31,8 +31,11 @@
 # plt.show()
 
 import numpy as np
-from scipy.stats import binned_statistic
+# from scipy.stats import binned_statistic
 
-x = np.random.uniform(0, 1, 100)
-y = binned_statistic( x, values=None, statistic='count', bins=[0., 0.25, 0.5, 0.75, 1.] )
-print(y.statistic)
+# x = np.random.uniform(0, 1, 100)
+# y = binned_statistic( x, values=None, statistic='count', bins=[0., 0.25, 0.5, 0.75, 1.] )
+# print(y.statistic)
+
+x = np.arange(10).reshape((2, 5))
+print(x[:,[True, False, False, True, True]])

@@ -382,7 +382,6 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     if RANK != 0 and USE_MPI:
 
         logging.info( "sent data to rank-0" )
-        # logging.info( "send: total in (%f, %f) masked in (%f, %f)", np.min(total), np.max(total), np.min(masked), np.max(masked) )
 
         # send data to process-0
         mpi_comm.Send( total, dest = 0, tag = 10 )  # total count
@@ -401,18 +400,10 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
                 # total count
                 mpi_comm.Recv( tmp, source = src, tag = 10,  )
                 total = total + tmp
-                # __x1, __x2 = np.min(tmp), np.max(tmp)
 
                 # unmasked count
                 mpi_comm.Recv( tmp, source = src, tag = 11,  )
                 masked = masked + tmp
-                # logging.info( "recv: total in (%f, %f) masked in (%f, %f)", __x1, __x2, np.min(tmp), np.max(tmp) )
-
-
-        # calculate the completeness score of the cells
-        # score     = np.zeros( image_shape )
-        # is_finite = (total > 0.)
-        # score[ is_finite ] = unmasked[ is_finite ] / total[ is_finite ]
 
         # write patch image files 
         _ = PatchData(patches, 
