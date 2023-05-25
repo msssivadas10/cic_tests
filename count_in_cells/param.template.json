@@ -1,7 +1,7 @@
 {
     "catalog": {
-        "object": "/home/ms3/Documents/phd/cosmo/codes/cosmology_codes/count_in_cells/random.csv.gz",
-        "random": "/home/ms3/Documents/phd/cosmo/codes/cosmology_codes/count_in_cells/random.csv.gz",
+        "object": "tests/random.csv.gz",
+        "random": "tests/random.csv.gz",
         "compression": "gzip",
         "chunk_size": 50000,
         "ra_shift": 0.0,
@@ -17,7 +17,7 @@
         "magnitude_to_correct": []
     },
 
-    "output_dir": "./output",
+    "output_dir": "tests/output",
 
     "jackknife": {
         "region_rect": [0.0, 16.0, 0.0, 2.0],
@@ -29,7 +29,7 @@
 
     "cic": {
         "cellsize_arcsec": 0.1,
-        "cell_num_subdiv": 1,
+        "cell_num_subdiv": 2,
         "use_mask": ["g"],
         "magnitude_filter_conditions": [],
         "redshift_filter_conditions": [],
