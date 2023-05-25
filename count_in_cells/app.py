@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 #
 # measuring count in cells and its analysis
-# @author 
+# @author m. s. sūryan śivadās 
 #
     
 

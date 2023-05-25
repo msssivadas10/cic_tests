@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-import os
 import json # for loading the parameters file in json format
 from dataclasses import dataclass, asdict
 from collections import namedtuple
