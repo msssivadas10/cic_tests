@@ -34,8 +34,6 @@ except ModuleNotFoundError:
     HAS_MPI          = 0
 
 
-
-
 # argument parser object
 parser = ArgumentParser(prog = 'meas_cic', description = 'Do count-in-cells analysis on data.')
 parser.add_argument('param_file', help = 'path to the parameter file', type = str)
