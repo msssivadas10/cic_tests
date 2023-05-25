@@ -15,6 +15,11 @@ from patches import create_patches # for creating jackknife patches
 from count_in_cells import estimate_counts # for count-in-cells
 
 
+PY_VERSION = sys.version_info
+if not ( PY_VERSION.major >= 3 and PY_VERSION.minor >= 10 ):
+    print( "requires python version >= 3.10, code may not run properly...", flush = True ) 
+
+
 try:
     
     from mpi4py import MPI
@@ -34,7 +39,7 @@ except ModuleNotFoundError:
 # argument parser object
 parser = ArgumentParser(prog = 'meas_cic', description = 'Do count-in-cells analysis on data.')
 parser.add_argument('param_file', help = 'path to the parameter file', type = str)
-parser.add_argument('-r', '--restart', help = 'restart code', type = int, default = 0)
+# parser.add_argument('-r', '--restart', help = 'restart code', type = int, default = 0)
 
 
 # syncing processes: wait for all process to finish
@@ -86,6 +91,7 @@ def __initialise():
     # log messages from loading options
     __failed = 0
     if RANK == 0:
+
         if len( __msgs ):
             for __msg in __msgs:
                 if __msg.status == ERROR:
@@ -101,6 +107,13 @@ def __initialise():
                 logging.warning( __msg )
             else:
                 logging.info( __msg )
+
+        try:
+            optfile = os.path.join(output_dir, 'used_options.json')
+            options.save_to_json( optfile )
+            logging.warn( "used options are written to '%s'", optfile )
+        except Exception as e:
+            logging.warn( f"cannot save used options file: {e}" )
 
     __sync() # syncing again
     return options, __failed
@@ -145,61 +158,75 @@ def __create_and_save_patch_data(options):
     return __failed
 
 
-# TODO: calculate count-in-cells data
+# calculate count-in-cells data
+def __calculate_and_save_cic_measurements(options):
+
+    # column keys 
+    mask             = options.catalog_mask
+    magnitude        = options.catalog_magnitude
+    magnitude_offset = options.catalog_magnitude_offset
+
+    # field - column name mapping
+    __mapper = {'redshift': options.catalog_redshift,
+                'redshift_error': options.catalog_redshift_error,
+            }
+    for band in options.catalog_all_bands:
+        __mapper[ band ] = magnitude % {'band': band}
+
+    # masks to use
+    use_masks = [ mask % {'band': band} for band in options.cic_use_mask ]
+
+    # magnitude - offest pairs
+    magnitude_offsets = { magnitude % {'band': band} : magnitude_offset % {'band': band} for band in options.catalog_magnitude_to_correct } 
+
+    # magnitude filters
+    magnitude_filters = [ replace_fields( __cond, __mapper ) for __cond in options.cic_magnitude_filter_conditions ]
+
+    # redshift filters
+    redshift_filters  = [ replace_fields( __cond, __mapper ) for __cond in options.cic_redshift_filter_conditions ]
 
 
-
-# initialisin calculations...
-options, __failed = __initialise()
-if __failed:
-    logging.error( "initialization failed, see the log files for more information :(" )
-    sys.exit(1)
-
-# calculating patch images...
-__failed = __create_and_save_patch_data(options)
-if __failed:
-    logging.error("`create_patches` exited with non-zero status: patch generation failed!")
-    sys.exit(1)
-
-
-# patch file for jackknife sampling
-patch_image_path = os.path.join( options.output_dir, "patches.pid" ) 
-
-# column keys 
-mask             = options.catalog_mask
-magnitude        = options.catalog_magnitude
-magnitude_offset = options.catalog_magnitude_offset
-
-# field - column name mapping
-__mapper = {'redshift': options.catalog_redshift,
-            'redshift_error': options.catalog_redshift_error,
-           }
-for band in options.catalog_all_bands:
-    __mapper[ band ] = magnitude % {'band': band}
-
-# masks to use
-use_masks = [ mask % {'band': band} for band in options.cic_use_mask ]
-
-# magnitude - offest pairs
-magnitude_offsets = { magnitude % {'band': band} : magnitude_offset % {'band': band} for band in options.catalog_magnitude_to_correct } 
-
-# magnitude filters
-magnitude_filters = [ replace_fields( __cond, __mapper ) for __cond in options.cic_magnitude_filter_conditions ]
-
-# redshift filters
-redshift_filters  = [ replace_fields( __cond, __mapper ) for __cond in options.cic_redshift_filter_conditions ]
+    __failed = estimate_counts(output_dir        = options.output_dir,
+                               odf_path          = options.catalog_object,
+                               use_masks         = use_masks,
+                               subdiv            = options.cic_cell_num_subdiv,
+                               masked_frac       = options.cic_masked_frac,
+                               odf_compression   = options.catalog_compression,
+                               chunk_size        = options.catalog_chunk_size,
+                               magnitude_filters = magnitude_filters,
+                               redshift_filters  = redshift_filters,
+                               odf_filters       = options.catalog_object_filter_conditions,
+                               magnitude_offsets = magnitude_offsets,
+                               save_counts       = options.cic_save_counts,
+                               mpi_comm          = COMM
+                               )
+    return __failed
 
 
-__failed = estimate_counts(patch_file        = patch_image_path,
-                           odf_path          = options.catalog_object,
-                           use_masks         = use_masks,
-                           subdiv            = options.cic_cell_num_subdiv,
-                           masked_frac       = 0.05, # options.cic_masked_frac,
-                           odf_compression   = options.catalog_compression,
-                           chunk_size        = options.catalog_chunk_size,
-                           magnitude_filters = magnitude_filters,
-                           redshift_filters  = redshift_filters,
-                           odf_filters       = options.catalog_object_filter_conditions,
-                           magnitude_offsets = magnitude_offsets,
-                           mpi_comm          = COMM
-                        )
+# initialize, patch generation, measurement; in that order!
+def main():
+
+    # initialisin calculations...
+    options, __failed = __initialise()
+    if __failed:
+        logging.error("initialization failed, see the log files for more information :(")
+        sys.exit(1)
+
+    # calculating patch images...
+    __failed = __create_and_save_patch_data(options)
+    if __failed:
+        logging.error("`create_patches` exited with non-zero status: patch generation failed! :(")
+        sys.exit(1)
+
+    # measuring count-in-cells...
+    __failed = __calculate_and_save_cic_measurements(options)
+    if __failed:
+        logging.error("`estimate_counts` exited with non-zero status: cic measurement failled! :(")
+        sys.exit(1)
+
+    logging.info("all calculations completed successfully :)")
+    return 
+
+if __name__ == '__main__':
+    main()
+    

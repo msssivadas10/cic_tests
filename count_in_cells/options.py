@@ -2,7 +2,7 @@
 
 import os
 import json # for loading the parameters file in json format
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from collections import namedtuple
 from utils import WARN, ERROR, SUCCESS
 
@@ -32,6 +32,8 @@ class Options:
     cic_magnitude_filter_conditions: float
     cic_use_mask: list
     cic_max_count: int 
+    cic_masked_frac: float
+    cic_save_counts: bool
     jackknife_patch_xwidth: float
     jackknife_patch_ywidth: float
     jackknife_region_rect: list
@@ -39,6 +41,12 @@ class Options:
     jackknife_use_mask: list
     output_dir: str
 
+    def save_to_json(self, file: str):
+
+        with open( file, 'w' ) as file:
+            json.dump( asdict(self), file, indent = 4 )
+        return 
+        
 
 _OptionBlock = namedtuple( '_OptionBlock', ['name', 'fields', 'optional', 'value'], defaults = [False, None] )
 _OptionField = namedtuple( '_OptionField', ['name', 'optional', 'value'], defaults = [False, None] )
@@ -75,6 +83,8 @@ opt_tree = [
                                         _OptionField( 'cell_num_subdiv',             optional = True, value = 0  ),
                                         _OptionField( 'redshift_filter_conditions',  optional = True, value = [] ),
                                         _OptionField( 'magnitude_filter_conditions', optional = True, value = [] ),
+                                        _OptionField( 'save_counts',                 optional = True, value = False ),
+                                        _OptionField( 'masked_frac',                 optional = True, value = 0.05  ),
                                      ] 
                         ),
             _OptionBlock( 

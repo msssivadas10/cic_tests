@@ -17,8 +17,8 @@ for ra0, dec0, radius in [(5., 1., 0.5), (10., 1.2, 1.)]:
 
 
 df = pd.DataFrame({'ra': ra, 'dec': dec, 'g_mask': g_mask})
-df.to_csv("random.csv.gz", index = False, compression = 'gzip')
+df.to_csv("./count_in_cells/random.csv.gz", index = False, compression = 'gzip')
 
-# plt.figure()
-# sbn.scatterplot(df, x = 'ra', y = 'dec', hue = 'g_mask')
-# plt.show()
+plt.figure()
+sbn.scatterplot(df, x = 'ra', y = 'dec', hue = 'g_mask')
+plt.show()

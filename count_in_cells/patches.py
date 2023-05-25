@@ -44,6 +44,8 @@ class _PatchImage_Header:
     ra_cells : int
     dec_cells: int
     n_patches: int
+    # n_patches_ra: int  # no. of patches along ra 
+    # n_patches_dec: int # no. of patches along dec
 
     pixsize      : float # size of a pixel (cell)
     ra_patchsize : float # size of a patch along ra direction
@@ -85,6 +87,8 @@ class PatchData:
         self.header = _PatchImage_Header(ra_cells, 
                                          dec_cells, 
                                          n_patches, 
+                                        #  n_patches_ra,
+                                        #  n_patches_dec,
                                          pixsize, 
                                          ra_patchsize,
                                          dec_patchsize, 
@@ -221,7 +225,7 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     USE_MPI    = False
     if mpi_comm is not None:
         RANK, SIZE = mpi_comm.rank, mpi_comm.size
-        USE_MPI    = True
+        USE_MPI    = ( SIZE > 1 )
 
 
     #
@@ -247,7 +251,7 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
 
     patches, patch_flags = [], []
 
-    ra1 = reg_ra1
+    ra1, n_ra = reg_ra1, 0
     while 1:
 
         ra2 = ra1 + ra_size
@@ -273,7 +277,7 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
 
             dec1, n_dec = dec2, n_dec + 1
 
-        ra1 = ra2
+        ra1, n_ra = ra2, n_ra + 1
     
     if not len(patches):
         logging.error( "no patches in the region with given sizes" )
@@ -298,7 +302,6 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     patch_bins = np.arange(0, len(patches) + 1) - 0.5
 
     image_shape   = ( len(ra_bins)-1, len(dec_bins)-1, len(patch_bins)-1 )
-    total, masked = np.zeros( image_shape ), np.zeros( image_shape )
 
     logging.info( "creating patch images with pixsize = %f, image shape = (%d, %d), %d patches.", pixsize, *image_shape )
 
@@ -322,6 +325,10 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
 
     logging.info( "started counting random objects in cell" )
     
+    #
+    # counting random objects
+    #
+    total, masked = np.zeros( image_shape ), np.zeros( image_shape )
     with pd.read_csv(rdf_path, header = 0, compression = rdf_compression, chunksize = chunk_size) as rdf_iter:
 
         # total mask filter: masked in any filter
@@ -365,33 +372,30 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
                                                     bins = [ ra_bins, dec_bins, patch_bins ]
                                                 ).statistic
             
-            # print( RANK, chunk_id )
             total  = total + total_i
             masked = masked + masked_i
     
 
     logging.info( "finished counting random objects in cell" )
 
-    # wait untill all process are completed, if using multiple process 
+    #
+    # data communication: combine the results from all process
+    #
     if USE_MPI:
         mpi_comm.Barrier() # comm.barrier()
 
+        logging.info( "starting communication...")
+        if RANK != 0:
 
-    # combine the results from all process
-    logging.info( "starting communication...")
-    if RANK != 0 and USE_MPI:
+            logging.info( "sent data to rank-0" )
 
-        logging.info( "sent data to rank-0" )
+            # send data to process-0
+            mpi_comm.Send( total, dest = 0, tag = 10 )  # total count
+            mpi_comm.Send( masked, dest = 0, tag = 11 ) # unmasked count
 
-        # send data to process-0
-        mpi_comm.Send( total, dest = 0, tag = 10 )  # total count
-        mpi_comm.Send( masked, dest = 0, tag = 11 ) # unmasked count
+        else:
 
-    else:
-
-        # recieve data from other process, if using multiple process
-        if USE_MPI:
-
+            # recieve data from other process, if using multiple process
             tmp = np.zeros( image_shape ) # temporary storage
             for src in range(1, SIZE):
 
@@ -405,17 +409,23 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
                 mpi_comm.Recv( tmp, source = src, tag = 11,  )
                 masked = masked + tmp
 
-        # write patch image files 
-        _ = PatchData(patches, 
-                      patch_flags, 
-                      masked,
-                      total, 
-                      pixsize, 
-                      ra_size, 
-                      dec_size, 
-                      reg_rect, 
-                      ra_shift, 
-                      dec_shift,
+        mpi_comm.Barrier() # comm.barrier()
+            
+    #
+    # write patch image files to disc (at process 0) 
+    #
+    if RANK == 0:
+
+        _ = PatchData(patches       = patches, 
+                      flags         = patch_flags, 
+                      masked        = masked,
+                      total         = total, 
+                      pixsize       = pixsize, 
+                      ra_patchsize  = ra_size, 
+                      dec_patchsize = dec_size, 
+                      region        = reg_rect, 
+                      ra_shift      = ra_shift, 
+                      dec_shift     = dec_shift,
                     ).save_as( save_path )
         
         logging.info( "patch data saved to '%s'", save_path )
@@ -426,20 +436,7 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
         mpi_comm.Barrier() # comm.barrier()
 
     logging.info( "finished patch image computation job!" )
-    
+
     return SUCCESS
 
 
-
-# if __name__ == '__main__':
-#     from mpi4py import MPI
-#     comm = MPI.COMM_WORLD
-#     create_patches([0., 16., 0., 2.], 
-#                    4., 
-#                    2.,
-#                    pixsize = 0.2, 
-#                    rdf_path = '/home/ms3/Documents/phd/cosmo/codes/cosmology_codes/random.csv.gz', 
-#                    save_path= 'patches.pid',
-#                    rdf_compression = 'gzip',
-#                    use_masks = ['g'], 
-#                    mpi_comm = comm)
