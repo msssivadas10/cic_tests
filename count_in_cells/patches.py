@@ -87,8 +87,6 @@ class PatchData:
         self.header = _PatchImage_Header(ra_cells, 
                                          dec_cells, 
                                          n_patches, 
-                                        #  n_patches_ra,
-                                        #  n_patches_dec,
                                          pixsize, 
                                          ra_patchsize,
                                          dec_patchsize, 
