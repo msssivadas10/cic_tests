@@ -100,3 +100,9 @@
 # for p in range(n_patches):
 #     plt.plot(n, hist[:,0,p], '-', color = 'k', alpha = 0.1)
 # plt.show()
+
+import yaml, pprint as pp
+
+with open("tests/param.template.yml", 'r') as file:
+    x = yaml.safe_load(file)
+    pp.pprint(x)
