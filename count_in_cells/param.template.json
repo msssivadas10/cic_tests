@@ -22,13 +22,13 @@
     "jackknife": {
         "region_rect": [0.0, 16.0, 0.0, 2.0],
         "remove_regions": [],
-        "patch_xwidth": 4.0,
-        "patch_ywidth": 2.0,
+        "patch_width_ra": 4.0,
+        "patch_width_dec": 2.0,
         "use_mask": ["g"]
     },
 
     "cic": {
-        "cellsize_arcsec": 0.1,
+        "cellsize": 0.1,
         "cell_num_subdiv": 2,
         "use_mask": ["g"],
         "magnitude_filter_conditions": [],

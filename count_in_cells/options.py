@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import json # for loading the parameters file in json format
+import yaml, json # for loading the parameters file in yaml/json format
 from dataclasses import dataclass, asdict
 from collections import namedtuple
 from utils import WARN, ERROR, SUCCESS
@@ -26,15 +26,15 @@ class Options:
     catalog_random_filter_conditions: list
     catalog_magnitude_to_correct: list
     cic_cell_num_subdiv: int
-    cic_cellsize_arcsec: float
+    cic_cellsize: float
     cic_redshift_filter_conditions: list
     cic_magnitude_filter_conditions: float
     cic_use_mask: list
     cic_max_count: int 
     cic_masked_frac: float
     cic_save_counts: bool
-    jackknife_patch_xwidth: float
-    jackknife_patch_ywidth: float
+    jackknife_patch_width_ra: float
+    jackknife_patch_width_dec: float
     jackknife_region_rect: list
     jackknife_remove_regions: list
     jackknife_use_mask: list
@@ -42,8 +42,9 @@ class Options:
 
     def save_to_json(self, file: str):
 
-        with open( file, 'w' ) as file:
-            json.dump( asdict(self), file, indent = 4 )
+        with open( file, 'w' ) as fp:
+            for __key, __value in asdict( self ).items():
+                fp.write( f"{__key:32s} = {__value}\n" )
         return 
         
 
@@ -76,9 +77,9 @@ opt_tree = [
             _OptionBlock( 
                             name = 'cic',
                             fields = [
-                                        _OptionField( 'cellsize_arcsec' ),
-                                        _OptionField( 'max_count'       ),
-                                        _OptionField( 'use_mask'        ),
+                                        _OptionField( 'cellsize'  ),
+                                        _OptionField( 'max_count' ),
+                                        _OptionField( 'use_mask'  ),
                                         _OptionField( 'cell_num_subdiv',             optional = True, value = 0  ),
                                         _OptionField( 'redshift_filter_conditions',  optional = True, value = [] ),
                                         _OptionField( 'magnitude_filter_conditions', optional = True, value = [] ),
@@ -89,10 +90,10 @@ opt_tree = [
             _OptionBlock( 
                             name = 'jackknife',
                             fields = [
-                                        _OptionField( 'region_rect'  ),
-                                        _OptionField( 'patch_xwidth' ),
-                                        _OptionField( 'patch_ywidth' ),
-                                        _OptionField( 'use_mask'     ),
+                                        _OptionField( 'region_rect'     ),
+                                        _OptionField( 'patch_width_ra'  ),
+                                        _OptionField( 'patch_width_dec' ),
+                                        _OptionField( 'use_mask'        ),
                                         _OptionField( 'remove_regions', optional = True, value = [] ),
                                      ]
                         ),
@@ -103,13 +104,17 @@ opt_tree = [
     
 def load_options(file: str):
     r"""
-    Load options from a JSON file and run a check on options.
+    Load options from a YAML/JSON file and run a check on options.
     """
 
     with open(file, 'r') as fp:
-        _opts = json.load(fp)
-
-    # TODO: options check
+        try:
+            _opts = yaml.safe_load( fp )
+        except Exception:
+            try:
+                _opts = json.load( fp )
+            except Exception:
+                raise ValueError(f"{file} must be a valid JSON or YAML file")
 
     msgs, opts = [], {} 
     for item in opt_tree:

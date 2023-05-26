@@ -106,12 +106,12 @@ def __initialise():
             else:
                 logging.info( __msg )
 
-        try:
-            optfile = os.path.join(output_dir, 'used_options.json')
-            options.save_to_json( optfile )
-            logging.warn( "used options are written to '%s'", optfile )
-        except Exception as e:
-            logging.warn( f"cannot save used options file: {e}" )
+        # try:
+        optfile = os.path.join(output_dir, 'used_options.txt')
+        options.save_to_json( optfile )
+        logging.info( "used options are written to '%s'", optfile )
+        # except Exception as e:
+        #     logging.warning( f"cannot save used options file: {e}" )
 
     __sync() # syncing again
     return options, __failed
@@ -131,16 +131,15 @@ def __create_and_save_patch_data(options):
         logging.warning( f"cell subdivisions must be positive, will take absolute value" )
         cell_subdivisions = abs( cell_subdivisions )
 
-    max_cellsize_degree = options.cic_cellsize_arcsec #/ 3600.0
-    min_cellsize_degree = max_cellsize_degree / 2**cell_subdivisions
+    min_cellsize = options.cic_cellsize / 2**cell_subdivisions
 
     # masks to use
     use_masks = [ options.catalog_mask % {'band': band} for band in options.jackknife_use_mask ]
 
     __failed = create_patches(reg_rect        = options.jackknife_region_rect,
-                              ra_size         = options.jackknife_patch_xwidth,
-                              dec_size        = options.jackknife_patch_ywidth,
-                              pixsize         = min_cellsize_degree,
+                              ra_size         = options.jackknife_patch_width_ra,
+                              dec_size        = options.jackknife_patch_width_dec,
+                              pixsize         = min_cellsize,
                               rdf_path        = options.catalog_random,
                               save_path       = patch_image_path,
                               use_masks       = use_masks,
