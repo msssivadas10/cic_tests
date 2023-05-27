@@ -108,7 +108,7 @@ def __initialise():
 
         # try:
         optfile = os.path.join(output_dir, 'used_options.txt')
-        options.save_to_json( optfile )
+        options.save_as( optfile )
         logging.info( "used options are written to '%s'", optfile )
         # except Exception as e:
         #     logging.warning( f"cannot save used options file: {e}" )

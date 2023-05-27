@@ -40,7 +40,7 @@ class Options:
     jackknife_use_mask: list
     output_dir: str
 
-    def save_to_json(self, file: str):
+    def save_as(self, file: str):
 
         with open( file, 'w' ) as fp:
             for __key, __value in asdict( self ).items():
@@ -107,14 +107,26 @@ def load_options(file: str):
     Load options from a YAML/JSON file and run a check on options.
     """
 
-    with open(file, 'r') as fp:
+    def __load_options(fp):
+
+        # try yaml format first
         try:
-            _opts = yaml.safe_load( fp )
+            return yaml.safe_load( fp )
         except Exception:
-            try:
-                _opts = json.load( fp )
-            except Exception:
-                raise ValueError(f"{file} must be a valid JSON or YAML file")
+            pass
+
+        # try json format then
+        try:
+            return json.load( fp )
+        except Exception:
+            pass
+
+        # raise error: not a valid json or yaml
+        raise ValueError(f"{file} must be a valid JSON or YAML file")
+
+
+    with open(file, 'r') as fp:
+        _opts = __load_options( fp )
 
     msgs, opts = [], {} 
     for item in opt_tree:
