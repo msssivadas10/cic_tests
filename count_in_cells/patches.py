@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
-import numpy as np, pandas as pd
-import struct # for patch image data structure
+import os
 import logging # for log messages
+import numpy as np, pandas as pd
 from utils import check_datafile # to check data 
 from utils import is_bad_rect, intersect # check rectangles
 from utils import ERROR, SUCCESS
@@ -103,99 +103,48 @@ class PatchData:
         r"""
         Load patch image data from a file
         """
+        if not os.path.exists(file):
+            logging.error( f"file does not exist: %s", file)
+            return None
+
         try:
-            with open( file, 'rb' ) as file:
-                buf = file.read()
+            patch_data = np.load(file)
         except Exception as __e:
-            logging.error( f"error loading file: %s", __e )
+            logging.error("error loading patches file: %s", str(__e))
             return None
 
-        sign, = struct.unpack( '3sx', buf[:4] )
-        if sign != b'PID':
-            logging.error( "invalid patch image file %s", file )
-            return None
-        
+        pixsize, ra_patchsize, dec_patchsize = patch_data['sizes']
+        ra_shift, dec_shift = patch_data['shift']
 
-        # load header 
-        header_struct  = struct.Struct( "3s3L9d3sx" )
-
-        start = 4
-        stop  = start + header_struct.size
-        header = header_struct.unpack(buf[start:stop])[1:-1]
-
-        ra_cells, dec_cells, n_patches       = header[:3]
-        n_pixels                             = ra_cells * dec_cells * n_patches
-        pixsize, ra_patchsize, dec_patchsize = header[3:6]
-        region = header[6:10]
-        ra_shift, dec_shift = header[10:12]
-
-        # load patches coordinate and flag
-        patches_struct = struct.Struct( "3s{n}d{n}d{n}i3sx".format(n = n_patches ) )
-
-        start = stop
-        stop  = start + patches_struct.size
-        pdata = patches_struct.unpack(buf[start:stop])[1:-1]
-        patches = np.asfarray( pdata[:2*n_patches] ).reshape((2, n_patches)).T
-        flags   = np.array( pdata[2*n_patches:] )
-
-        # load values 
-        values_struct  = struct.Struct( "3s{m}d3sx".format(m = n_pixels) )
-
-        start  = stop
-        stop   = start + values_struct.size
-        masked = np.reshape(values_struct.unpack(buf[start:stop])[1:-1], (ra_cells, dec_cells, n_patches))
-
-        start  = stop
-        stop   = start + values_struct.size
-        total  = np.reshape(values_struct.unpack(buf[start:stop])[1:-1], (ra_cells, dec_cells, n_patches))
-
-        return cls(patches, flags, masked, total, pixsize, ra_patchsize, dec_patchsize, 
-                   region, ra_shift, dec_shift)
+        return PatchData(patches       = patch_data['patches'],
+                         flags         = patch_data['patch_flags'],
+                         masked        = patch_data['masked'],
+                         total         = patch_data['total'],
+                         pixsize       = pixsize,
+                         ra_patchsize  = ra_patchsize,
+                         dec_patchsize = dec_patchsize,
+                         region        = patch_data['region'],
+                         ra_shift      = ra_shift,
+                         dec_shift     = dec_shift
+                         )
 
     def save_as(self, file: str) -> int:
         r"""
         Save the patch image as a binary file
         """
-
-        n_patches = self.header.n_patches
-        n_pixels  = self.header.ra_cells * self.header.dec_cells * n_patches
-        patches   = self.patches.T
-
-        header_struct  = struct.Struct( "3s3L9d3sx" )
-        patches_struct = struct.Struct( "3s{n}d{n}d{n}i3sx".format(n = n_patches ) )
-        values_struct  = struct.Struct( "3s{m}d3sx".format(m = n_pixels) )
-
-        buf = (
-                struct.pack( "3sx", b'PID' ) # signature block
-
-                    # header block
-                    + header_struct.pack(b'BLK', 
-                                         self.header.ra_cells, 
-                                         self.header.dec_cells,
-                                         n_patches, 
-                                         self.header.pixsize, 
-                                         self.header.ra_patchsize, 
-                                         self.header.dec_patchsize, 
-                                         *self.header.region, 
-                                         self.header.ra_shift, 
-                                         self.header.dec_shift, 
-                                         b'END' )
-
-                    # patch data bloack
-                    + patches_struct.pack( b'BLK', *patches[0,:], *patches[1,:], *self.flags, b'END' ) 
-
-                    # masked count block
-                    + values_struct.pack( b'BLK', *self.masked.flatten(), b'END' )
-
-                    # total count block
-                    + values_struct.pack( b'BLK', *self.total.flatten(), b'END' )
-              )
-
-        with open( file, 'wb' ) as file:
-            file.write( buf )
-
+        
+        np.savez(file,
+                 sizes       = np.asfarray([self.header.pixsize, self.header.ra_patchsize, self.header.dec_patchsize]),
+                 region      = np.asfarray( self.header.region ),
+                 shift       = np.asfarray([self.header.ra_shift, self.header.dec_shift]),
+                 patches     = self.patches[:2,:],
+                 patch_flags = self.flags,
+                 masked      = self.masked,
+                 total       = self.total,
+                )
+        
         return SUCCESS
-    
+
     def get_unmasked_fraction(self) -> Any:
         
         frac = 1. - self.get_masked_fraction()
@@ -212,7 +161,7 @@ class PatchData:
         return frac
     
 
-def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: float, rdf_path: str, save_path: str, 
+def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: float, rdf_path: str, output_dir: str, 
                    use_masks: list, reg_to_remove: list = [], rdf_compression: str = 'gzip', chunk_size: int = 1_000, 
                    ra_shift: float = 0., dec_shift: float = 0., rdf_filters: list = [], mpi_comm = None) -> int:
     r"""
@@ -413,7 +362,8 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     # write patch image files to disc (at process 0) 
     #
     if RANK == 0:
-
+        
+        save_path = os.path.join(output_dir, "patch_data.npz")
         _ = PatchData(patches       = patches, 
                       flags         = patch_flags, 
                       masked        = masked,

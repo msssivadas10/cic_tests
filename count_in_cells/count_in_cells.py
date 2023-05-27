@@ -25,11 +25,7 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
         USE_MPI    = ( SIZE > 1 )
 
     # load jackknife patch images from the file
-    patch_file = os.path.join( output_dir, "patches.pid" )  # patch file for jackknife sampling
-    if not os.path.exists( patch_file ):
-        logging.error( "file does not exist: '%s'", patch_file )
-        return ERROR
-    
+    patch_file = os.path.join( output_dir, "patch_data.npz" )  # patch file for jackknife sampling
     patches    = PatchData.load_from( patch_file )
     if patches is None:
         logging.error( "failed to load patch file '%s'", patch_file )

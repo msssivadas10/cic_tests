@@ -120,8 +120,6 @@ def __initialise():
 # divide region into jackknife patches and random object counting
 def __create_and_save_patch_data(options):
 
-    patch_image_path = os.path.join( options.output_dir, "patches.pid" ) # file to which patch data is written
-
     cell_subdivisions = options.cic_cell_num_subdiv
     if not isinstance( cell_subdivisions, int ):
         logging.error( f"cell subdivisions must be an integer" )
@@ -141,7 +139,7 @@ def __create_and_save_patch_data(options):
                               dec_size        = options.jackknife_patch_width_dec,
                               pixsize         = min_cellsize,
                               rdf_path        = options.catalog_random,
-                              save_path       = patch_image_path,
+                              output_dir      = options.output_dir,
                               use_masks       = use_masks,
                               reg_to_remove   = options.jackknife_remove_regions,
                               rdf_compression = options.catalog_compression,
