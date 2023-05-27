@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
 import os
-import numpy as np, pandas as pd
 import logging # for log messages
+import numpy as np, pandas as pd
 from utils import check_datafile # to check data 
 from utils import ERROR, SUCCESS
 from patches import PatchData

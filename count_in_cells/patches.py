@@ -11,32 +11,6 @@ from scipy.stats import binned_statistic_dd
 from typing import Any 
 
 
-
-#
-# =============================================================== 
-# patch image data (.pid) file structure 
-# =============================================================== 
-# PID
-#
-# BLK {HEADER}
-#   RA_SIZE DEC_SIZE PATCH_SIZE
-#   PIXSIZE
-#   RA_PATCHSIZE DEC_PATCHSIZE
-#   REG_RA1 REG_RA2 REG_DEC1 REG_DEC2
-#   RA_SHIFT DEC_SHIFT 
-# END
-#  
-# BLK {PATCHES}
-#   RA1_0  RA1_1  ... RA1_N 
-#   DEC1_0 DEC1_1 ... DEC1_N
-#   FLAG_0 FLAG_1 ... FLAG_N
-# END
-#
-# BLK {DATA}
-#   V_000 V_001 ... V_LMN
-# END
-#  
-
 @dataclass(slots = True, frozen = True)
 class _PatchImage_Header:
     
