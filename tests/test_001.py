@@ -101,8 +101,18 @@
 #     plt.plot(n, hist[:,0,p], '-', color = 'k', alpha = 0.1)
 # plt.show()
 
-import yaml, pprint as pp
+# import yaml, pprint as pp
 
-with open("tests/param.template.yml", 'r') as file:
-    x = yaml.safe_load(file)
-    pp.pprint(x)
+# with open("tests/param.template.yml", 'r') as file:
+#     x = yaml.safe_load(file)
+#     pp.pprint(x)
+
+from argparse import ArgumentParser
+
+parser = ArgumentParser(prog = 'meas_cic', description = 'Do count-in-cells analysis on data.')
+# parser.add_argument('param_file', help = 'path to the parameter file', type = str)
+parser.add_argument('--opt-file', help = 'argument', type = int, default = 0)
+
+
+args = parser.parse_args()
+print( args )

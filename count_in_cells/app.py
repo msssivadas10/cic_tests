@@ -36,8 +36,7 @@ except ModuleNotFoundError:
 
 # argument parser object
 parser = ArgumentParser(prog = 'meas_cic', description = 'Do count-in-cells analysis on data.')
-parser.add_argument('param_file', help = 'path to the parameter file', type = str)
-# parser.add_argument('-r', '--restart', help = 'restart code', type = int, default = 0)
+parser.add_argument('--opt-file', help = 'path to the input options file', type = str)
 
 
 # syncing processes: wait for all process to finish
@@ -49,15 +48,12 @@ def __sync():
 
 
 # setting up calculations: loading options and configuring logging
-def __initialise():
+def __initialise(opt_file):
 
     __logque  = [] 
 
-    # parse input arguments
-    args = parser.parse_args()
-
     # loading options from the file
-    options, __msgs = load_options( args.param_file )
+    options, __msgs = load_options( opt_file )
 
     # create output directory if not exist, otherwise use existing
     output_dir = options.output_dir
@@ -199,10 +195,10 @@ def __calculate_and_save_cic_measurements(options):
 
 
 # initialize, patch generation, measurement; in that order!
-def main():
+def do_count_in_cells(opt_file):
 
     # initialisin calculations...
-    options, __failed = __initialise()
+    options, __failed = __initialise( opt_file )
     if __failed:
         logging.error("initialization failed, see the log files for more information :(")
         sys.exit(1)
@@ -222,6 +218,12 @@ def main():
     logging.info("all calculations completed successfully :)")
     return 
 
+
+
 if __name__ == '__main__':
-    main()
+
+    # parse input arguments
+    args = parser.parse_args()
+
+    do_count_in_cells( opt_file = args.opt_file )
     
