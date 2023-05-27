@@ -64,7 +64,7 @@ for OPTFILE in ${OPTFILES[@]}; do
         log "echo Using options file: ${OPTFILE}" $INFO
 
         # run the program with given options file
-        log "Executing '${MPI_ARGS} ${PYTHON} ${PROG} ${OPTFILE}'" $INFO
+        log "Executing '${MPI_ARGS} ${PYTHON} ${PROG} --opt-file=${OPTFILE}'" $INFO
         ${MPI_ARGS} ${PYTHON} ${PROG} --opt-file=${OPTFILE}
 
     fi
