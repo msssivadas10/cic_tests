@@ -115,6 +115,10 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
                 continue
             chunk_id += 1
 
+            # correct magnitudes
+            for __mag, __off in magnitude_offsets.items():
+                odf[ __mag ] = odf[ __mag ] - odf[ __off ]
+
             # apply all filters
             odf = odf.query( odf_filters ).reset_index(drop = True)
             if odf.shape[0] == 0:
