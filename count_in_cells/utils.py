@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 
 import os
-import pandas as pd
+import numpy as np, pandas as pd
 import logging
 import re
 from string import Template
+from typing import Any 
 
 
 # error codes: warning (2), error/failure (1) or success (0)
@@ -103,3 +104,21 @@ def replace_fields(__str: str, __mapper: dict) -> str:
         
     return Template( __str ).substitute( __mapper )
 
+
+def jackknife_error(obs: Any) -> tuple:
+    r"""
+    Estimate mean and error using jackknife resampling.
+    """
+
+    n_obs = obs.shape[-1] # number of observations
+
+    mean_jk  = np.mean( obs, axis = -1 )  # jackknife mean: same as sample mean
+    error_jk = np.zeros( obs.shape[:-1] ) # jackknife error
+    for p in range( n_obs ):
+        error_jk += ( np.mean( np.delete( obs, p, axis = -1 ), axis = -1 ) - mean_jk )**2
+    
+    error_jk = np.sqrt( error_jk * (n_obs - 1) / n_obs )
+
+    # TODO: apply bias correction
+
+    return mean_jk, error_jk

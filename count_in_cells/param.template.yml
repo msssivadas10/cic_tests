@@ -53,5 +53,13 @@ cic:
     cell_num_subdiv:             2     # number of subdivisions to use
     masked_frac:                 0.05  # maximum allowed masked fraction for a cell to select
     save_counts:                 true  # if true, save the counts
-    do_stats:                    true  # if true, estimate count distribution and moments
+    do_stats:                    false # if true, estimate count distribution and moments
 
+#
+#
+#
+cumstats:
+    data_files:      [tests/output/counts.npz, tests/output/counts.npz]
+    max_count:       1000
+    cell_num_subdiv: 2
+    masked_frac:     0.05

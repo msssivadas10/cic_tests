@@ -51,7 +51,7 @@ class PatchData:
                  dec_patchsize: float, region: list, ra_shift: float = 0., dec_shift: float = 0.) -> None:
 
         self.patches = np.asfarray( patches )
-        self.flags   = np.array( flags, dtype = 'int' )
+        self.flags   = np.array( flags, dtype = 'bool' )
         self.masked  = np.array( masked )
         self.total   = np.array( total )
 
@@ -202,6 +202,10 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     
     if not len(patches):
         logging.error( "no patches in the region with given sizes" )
+        return ERROR
+    
+    if len(patch_flags) - sum(patch_flags) < 1: # number of good patches
+        logging.error( "no good patches left in the region" )
         return ERROR
 
 

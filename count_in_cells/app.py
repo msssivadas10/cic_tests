@@ -10,9 +10,9 @@ import logging # for log messages
 from utils import WARN, ERROR, SUCCESS # status variables 
 from utils import replace_fields # for string replacement 
 from argparse import ArgumentParser # for argument parsing
-from options import load_cic_options # for loading the options file
+from options import load_options # for loading the options file
 from patches import create_patches # for creating jackknife patches
-from count_in_cells import estimate_counts, combine_regional_results # for count-in-cells
+from count_in_cells import estimate_counts, estimate_total_ditribution # for count-in-cells
 
 
 PY_VERSION = sys.version_info
@@ -22,11 +22,12 @@ if not ( PY_VERSION.major >= 3 and PY_VERSION.minor >= 10 ):
 
 try:
     
-    from mpi4py import MPI
+    # from mpi4py import MPI
 
-    COMM = MPI.COMM_WORLD
-    RANK, SIZE = COMM.rank, COMM.size
-    HAS_MPI    = 1
+    # COMM = MPI.COMM_WORLD
+    # RANK, SIZE = COMM.rank, COMM.size
+    # HAS_MPI    = 1
+    raise ModuleNotFoundError()
 
 except ModuleNotFoundError:
 
@@ -37,6 +38,7 @@ except ModuleNotFoundError:
 # argument parser object
 parser = ArgumentParser(prog = 'meas_cic', description = 'Do count-in-cells analysis on data.')
 parser.add_argument('--opt-file', help = 'path to the input options file', type = str)
+parser.add_argument('--inherits', help = 'path to the file from which missing options are inherited', type = str)
 parser.add_argument('--job', help = 'specify what job to do', type = int, default = 0)
 parser.add_argument('--flag', help = 'flags to control the execution', type = int, default = 0)
 
@@ -50,12 +52,12 @@ def __sync():
 
 
 # setting up calculations: loading options and configuring logging
-def __initialise(opt_file):
+def __initialise(opt_file, opt_file2, task_code = 0):
 
     __logque  = [] 
 
     # loading options from the file
-    options, __msgs = load_cic_options( opt_file )
+    options, __msgs, __failed = load_options( opt_file, base_file = opt_file2, task_code = task_code )
 
     # create output directory if not exist, otherwise use existing
     output_dir = options.output_dir
@@ -81,20 +83,18 @@ def __initialise(opt_file):
                         ])
     
     if not HAS_MPI:
-        logging.warn( "no module named 'mpi4py', computations will be serial. " )
+        logging.warning( "no module named 'mpi4py', computations will be serial. " )
     
 
     # log messages from loading options
-    __failed = 0
+    # __failed = 0
     if RANK == 0:
 
-        if len( __msgs ):
-            for __msg in __msgs:
-                if __msg.status == ERROR:
-                    logging.error( __msg.msg )
-                    __failed = 1
-                else:
-                    logging.warning( __msg.msg )
+        for __msg in __msgs:
+            if __msg.status == ERROR:
+                logging.error( __msg.msg )
+            else:
+                logging.warning( __msg.msg )
         
         for __msg, __status in __logque:
             if __status == ERROR:
@@ -104,12 +104,10 @@ def __initialise(opt_file):
             else:
                 logging.info( __msg )
 
-        # try:
-        optfile = os.path.join(output_dir, 'used_options.txt')
-        options.save_as( optfile )
-        logging.info( "used options are written to '%s'", optfile )
-        # except Exception as e:
-        #     logging.warning( f"cannot save used options file: {e}" )
+        if not __failed:
+            optfile = os.path.join(output_dir, 'used_options.txt')
+            options.save_as( optfile )
+            logging.info( "used options are written to '%s'", optfile )
 
     __sync() # syncing again
     return options, __failed
@@ -198,10 +196,10 @@ def __calculate_and_save_cic_measurements(options):
 
 
 # initialize, patch generation, measurement; in that order!
-def do_count_in_cells(opt_file, flag = 0):
+def do_count_in_cells(opt_file, opt_file2, flag = 0):
 
-    # initialisin calculations...
-    options, __failed = __initialise( opt_file )
+    # initialising calculations...
+    options, __failed = __initialise( opt_file, opt_file2, 0 )
     if __failed:
         logging.error("initialization failed, see the log files for more information :(")
         sys.exit(1)
@@ -225,6 +223,29 @@ def do_count_in_cells(opt_file, flag = 0):
     logging.info("all calculations completed successfully :)")
     return 
 
+def estimate_combined_distribution(opt_file, opt_file2, flag = 0):
+    
+    # initialising calculations...
+    options, __failed = __initialise( opt_file, opt_file2, 1 )
+    if __failed:
+        logging.error("initialization failed, see the log files for more information :(")
+        sys.exit(1)
+    if flag == 2: # stop execution after reading initialisation (only for debugging)
+        return
+    
+    # estimate combined distribution
+    __failed = estimate_total_ditribution(count_files = options.cumstats_data_files, 
+                                          output_dir  = options.output_dir, 
+                                          max_count   = options.cumstats_max_count, 
+                                          subdiv      = options.cumstats_cell_num_subdiv, 
+                                          masked_frac = options.cumstats_masked_frac
+                                         )
+    if __failed:
+        logging.error("`estimate_total_ditribution` exited with non-zero status! :(")
+        sys.exit(1)
+    if flag == 1: # stop exectution after calculating patch data
+        return 
+
 
 
 def main():
@@ -237,20 +258,30 @@ def main():
         # count distribution and moments. note that this requires estimation conditions, such as 
         # cellsize, patchsize, data filtering conditions are same for all counts. otherwise, the 
         # results will be unexpected. BEWARE....  
-        print("\033[1m\033[91m\nWarning!..., Warning!..., Warning!...\033[m")
-        print("This will combine count-in-cells results from multiple regions. Make sure that the setup in all these regions are same.")
-        print("\033[1m\033[91mIncorrect or non-matching settings results in errors or unexpected results... BE CAREFUL!...\033[m\n")
+        # print("\033[1m\033[91m\nWarning!..., Warning!..., Warning!...\033[m")
+        # print("This will combine count-in-cells results from multiple regions. Make sure that the setup in \
+        #       all these regions are same.Incorrect or non-matching settings results in errors or unexpected \
+        #       results... BE CAREFUL!...")
 
-        combine_regional_results(...)
+        file = args.opt_file
+        if file is None:
+            print("\033[1m\033[91mfatal error:\033[m no options file is given, program terminated :(")
+            return
+        
+        file2 = args.inherits
+
+        estimate_combined_distribution( opt_file = file, opt_file2 = file2, flag = args.flag )
     else:
         # do the count-in-cells measurements in the given region and estimate the distribution
         # and moments. the results are then saved to output folder
         file = args.opt_file
         if file is None:
-            print("\033[1m\033[91mNo options file is given...\033[m")
+            print("\033[1m\033[91mfatal error:\033[m no options file is given, program terminated :(")
             return
         
-        do_count_in_cells( opt_file = file, flag = args.flag )
+        file2 = args.inherits
+        
+        do_count_in_cells( opt_file = file, opt_file2 = file2, flag = args.flag )
     
 
 if __name__ == '__main__':

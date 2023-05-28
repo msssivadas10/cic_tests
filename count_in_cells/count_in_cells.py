@@ -3,7 +3,7 @@
 import os
 import logging # for log messages
 import numpy as np, pandas as pd
-from utils import check_datafile # to check data 
+from utils import check_datafile, jackknife_error 
 from utils import ERROR, SUCCESS
 from patches import PatchData
 from scipy.stats import binned_statistic_dd, binned_statistic, describe
@@ -25,7 +25,10 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
         RANK, SIZE = mpi_comm.rank, mpi_comm.size
         USE_MPI    = ( SIZE > 1 )
 
+    # 
     # load jackknife patch images from the file
+    #
+
     patch_file = os.path.join( output_dir, "patch_data.npz" )  # patch file for jackknife sampling
     patches    = PatchData.load_from( patch_file )
     if patches is None:
@@ -34,10 +37,15 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
     
     logging.info( "successfully loaded patch data" )
 
+
+    #
+    # checking parameters values and data file
+    #
+
     # checking cell subdivisions value
     if not isinstance( subdiv, int ):
         logging.error( f"cell subdivisions must be an integer" )
-        return 1
+        return ERROR
     if subdiv < 0:
         logging.warning( f"cell subdivisions must be positive, will take absolute value" )
         subdiv = abs( subdiv )
@@ -45,9 +53,14 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
     # checking max_count
     if not isinstance( max_count, int ):
         logging.error( f"max_count must be an integer" )
-        return 1
+        return ERROR
     if max_count < 10:
         logging.warning( f"max_count must be at least 10 (got {max_count})" )
+
+    # check masked fraction value
+    if masked_frac < 0. or masked_frac > 1.:
+        logging.error( f"masked_frac must be in between 0 and 1" )
+        return ERROR
 
     # check data file
     logging.info( "checking object catalog file: '%s'...", odf_path )
@@ -75,9 +88,8 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
     odf_filters = "&".join([ "(%s)" % __filter for __filter in odf_filters ])
 
 
-
     # 
-    # counting objects in cells
+    # counting ( un-masked ) objects in cells
     #
 
     ra_size, dec_size   = patches.header.ra_patchsize, patches.header.dec_patchsize # patch sizes
@@ -96,9 +108,6 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
     patch_bins = np.arange(0, n_patches + 1) - 0.5
 
 
-    #
-    # counting un-masked objects (TODO: direct estimation of distribution)
-    #
     logging.info( "started counting unmasked objects in cell" )
 
     counts = np.zeros(( len(ra_bins) - 1, len(dec_bins) - 1, n_patches ))
@@ -182,64 +191,30 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
     #
     if RANK == 0:
 
+        # apply patch flags to select only good patches
+        patch_flags = ~patches.flags.astype('bool') # will be `true` if patch is good
+        counts      = counts[:,:,patch_flags]
+        total       = patches.total[:,:,patch_flags]
+        masked      = patches.masked[:,:,patch_flags]
 
         if save_counts:
             save_path = os.path.join( output_dir, 'counts.npz' )
             np.savez(
                      save_path, 
                      counts = counts,
+                     total  = total,
+                     masked = masked,
                      sizes  = np.asfarray([min_pixsize, patches.header.ra_patchsize, patches.header.dec_patchsize]),)
             logging.info( "counts saved to '%s'", save_path )
 
         if do_stats:
-        
-            logging.info( "started counting histogram..." )
-
-            # estimating the count distribution and statistics
-            count_bins = np.arange( max_count + 2 ) - 0.5 # count bin edges {-1/2, 1/2, 3/2, ..., max_count + 0.5} 
-            cell_sizes = 2**np.arange( subdiv + 1 ) * patches.header.pixsize
-            count_hist, count_moms = get_distribution(counts, 
-                                                      count_bins, 
-                                                      patches.total,
-                                                      patches.masked,
-                                                      n_patches, 
-                                                      subdiv, 
-                                                      masked_frac)
-
-
-            # jackknife averaging over all patches
-            count_hist, count_hist_err = jackknife_error( count_hist, n_patches )
-            count_moms, count_moms_err = jackknife_error( count_moms, n_patches )
-
-            logging.info( "finished counting histogram!" )
-
-
-
-            # save average results and variance
-            logging.info( "saving outputs..." )
-
-            save_path = os.path.join( output_dir, 'count_histogram.csv' )
-            pd.DataFrame(count_hist
-                        ).reset_index(names = 'count'
-                                    ).to_csv(save_path, 
-                                            index = False)
-            logging.info( "count distribution saved to '%s'", save_path )
-            
-            save_path = os.path.join( output_dir, 'count_histogram_error.csv' )
-            pd.DataFrame(count_hist_err
-                        ).reset_index(names = 'count'
-                                    ).to_csv(save_path, 
-                                            index = False)
-            logging.info( "count distribution errors saved to '%s'", save_path )
-
-            save_path = os.path.join( output_dir, 'count_moments.csv' )
-            pd.DataFrame(np.vstack([ cell_sizes, count_moms, count_moms_err ]).T,
-                        columns = ['cell_size', 
-                                    'mean', 'variance', 'skewness', 'kurtosis', 
-                                    'mean_err', 'variance_err', 'skewness_err', 'kurtosis_err']
-                        ).to_csv(save_path,
-                                index = False)
-            logging.info( "count distribution moments saved to '%s'", save_path )
+            __estimate_distribution_and_save(counts,
+                                             total,
+                                             masked, 
+                                             max_count, 
+                                             subdiv, 
+                                             masked_frac,
+                                             output_dir)
 
 
     # wait untill all process are completed, if using multiple process 
@@ -251,14 +226,57 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
     return SUCCESS
 
 
-def get_distribution(counts: Any, count_bins: Any, r_total: Any, r_mask: Any, 
-                     n_patches: int, n_subdiv: int, masked_frac: float):
+def __estimate_distribution_and_save(counts: Any, total: Any, masked: Any, max_count: int, subdiv: int,
+                                     masked_frac: float, output_dir: str):
+
+    logging.info( "started counting histogram..." )
+
+    # estimating the count distribution
+    count_bins = np.arange( max_count + 2 ) - 0.5 # count bin edges {-1/2, 1/2, 3/2, ..., max_count + 0.5} 
+    count_hist = get_distribution(counts, 
+                                  count_bins, 
+                                  total,
+                                  masked,
+                                  subdiv, 
+                                  masked_frac)
+
+
+    # jackknife averaging over all patches
+    count_hist, count_hist_err = jackknife_error( count_hist )
+
+    logging.info( "finished counting histogram!" )
+
+
+
+    # save average results and variance
+    logging.info( "saving outputs..." )
+
+    save_path = os.path.join( output_dir, 'count_histogram.csv' )
+    pd.DataFrame(count_hist
+                ).reset_index(names = 'count'
+                            ).to_csv(save_path, 
+                                    index = False)
+    logging.info( "count distribution saved to '%s'", save_path )
+    
+    save_path = os.path.join( output_dir, 'count_histogram_error.csv' )
+    pd.DataFrame(count_hist_err
+                ).reset_index(names = 'count'
+                            ).to_csv(save_path, 
+                                    index = False)
+    logging.info( "count distribution errors saved to '%s'", save_path )
+    return 
+
+
+def get_distribution(counts: Any, count_bins: Any, r_total: Any, r_mask: Any, n_subdiv: int, 
+                     masked_frac: float) -> Any:
     r"""
     Count histogram of masked counts 
     """
 
+    n_patches = counts.shape[2]
+
     hist = np.zeros( ( len(count_bins)-1, n_subdiv+1, n_patches ), dtype = 'int' ) # distribution / histogram
-    stat = np.zeros( ( 4, n_subdiv+1, n_patches ), dtype = 'float' ) # descriptive statistics
+    # stat = np.zeros( ( 4, n_subdiv+1, n_patches ), dtype = 'float' ) # descriptive statistics
 
     total_l, mask_l, counts_l = r_total, r_mask, counts
     for level in range(n_subdiv + 1): # subdivision levels
@@ -274,8 +292,8 @@ def get_distribution(counts: Any, count_bins: Any, r_total: Any, r_mask: Any,
                                                  statistic = 'count',
                                                  bins      = count_bins, ).statistic
             
-            __stat = describe( xlp )
-            stat[:, level, p] = __stat.mean, __stat.variance, __stat.skewness, __stat.kurtosis 
+            # __stat = describe( xlp )
+            # stat[:, level, p] = __stat.mean, __stat.variance, __stat.skewness, __stat.kurtosis 
             
         #  
         # doubling pixsize: combine 4 cells each into 1 
@@ -292,32 +310,108 @@ def get_distribution(counts: Any, count_bins: Any, r_total: Any, r_mask: Any,
         counts_l = counts_l[0::2,:,:] + counts_l[1::2,:,:] # along ra
         counts_l = counts_l[:,0::2,:] + counts_l[:,1::2,:] # along dec
 
-    return hist, stat
+    return hist
 
 
-def jackknife_error(obs: Any, n_obs: int) -> tuple:
-    r"""
-    Estimate mean and error using jackknife resampling.
-    """
-
-    mean_jk = np.mean( obs, axis = -1 ) # same as sample mean
-
-    error_jk = np.zeros( obs.shape[:-1] ) # jackknife error
-    for p in range( n_obs ):
-        error_jk += ( np.mean( np.delete( obs, p, axis = -1 ), axis = -1 ) - mean_jk )**2
-    
-    error_jk = np.sqrt( error_jk * (n_obs - 1) / n_obs )
-
-    # TODO: apply bias correction
-
-    return mean_jk, error_jk
-
-
-def combine_regional_results(res_paths: list):
+def estimate_total_ditribution(count_files: list, output_dir: str, max_count: int, subdiv: int, 
+                               masked_frac: float)-> int:
     r"""
     Combine results from multiple non-overlapping, disconnected regions with same setup. That is, 
     the cellsize, patchsizes, data filtering conditions etc must be same in all to get correct 
     results. Note that not all these conditions are checked and the user should ensure this, if 
     want correct results...
     """
-    return NotImplemented
+
+    #
+    # checking parameters values and data file
+    #
+
+    # checking cell subdivisions value
+    if not isinstance( subdiv, int ):
+        logging.error( f"cell subdivisions must be an integer" )
+        return ERROR
+    if subdiv < 0:
+        logging.warning( f"cell subdivisions must be positive, will take absolute value" )
+        subdiv = abs( subdiv )
+
+    # checking max_count
+    if not isinstance( max_count, int ):
+        logging.error( f"max_count must be an integer" )
+        return ERROR
+    if max_count < 10:
+        logging.warning( f"max_count must be at least 10 (got {max_count})" )
+
+    # check masked fraction value
+    if masked_frac < 0. or masked_frac > 1.:
+        logging.error( f"masked_frac must be in between 0 and 1" )
+        return ERROR
+
+
+    #
+    # loading count-in-cells data from files
+    #
+
+    n_files = len(count_files)
+    if n_files < 2:
+        logging.error(f"at least 2 files are needed, got {n_files}")
+        return ERROR
+
+    counts, total, masked, __first_file = [], [], [], True
+    min_pixsize, ra_patchsize, dec_patchsize, ra_cells, dec_cells = 0., 0., 0., 0, 0
+    for file in count_files:
+        
+        if not os.path.exists(file):
+            logging.error(f"file does not exist: '{file}'")
+            return ERROR
+        
+        try:
+            __cdata = np.load(file)
+        except Exception as __e:
+            logging.error("error loading counts file: %s", str(__e))
+            return ERROR
+        
+        _min_pixsize, _ra_patchsize, _dec_patchsize = __cdata['sizes']
+        _counts               = __cdata['counts']
+        _total                = __cdata['total']
+        _masked               = __cdata['masked']
+        _ra_cells, _dec_cells = _counts.shape[:2]
+
+        counts.append( _counts )
+        total.append( _total )
+        masked.append( _masked )
+
+        if __first_file:
+            min_pixsize, ra_patchsize, dec_patchsize =_min_pixsize, _ra_patchsize, _dec_patchsize
+            ra_cells, dec_cells = _ra_cells, _dec_cells
+            continue
+
+        if abs(min_pixsize - _min_pixsize) > 1e-08:
+            logging.error(f"regions has different cellsizes: {min_pixsize} and {_min_pixsize}")
+            return ERROR
+        if abs(ra_patchsize - _ra_patchsize) > 1e-08:
+            logging.error(f"regions has different ra patchsizes: {ra_patchsize} and {_ra_patchsize}")
+            return ERROR
+        if abs(dec_patchsize - _dec_patchsize) > 1e-08:
+            logging.error(f"regions has different dec patchsizez: {dec_patchsize} and {_dec_patchsize}")
+            return ERROR
+        if ra_cells != _ra_cells or dec_cells != _dec_cells:
+            logging.error(f"regions has different image shapes: ({ra_cells}, {dec_cells}) and ({_ra_cells}, {_dec_cells})")
+            return ERROR
+        
+    counts = np.concatenate( counts, axis = -1 )
+    total  = np.concatenate( total,  axis = -1 )
+    masked = np.concatenate( masked, axis = -1 )
+
+    # 
+    # estimating the count distribution and save results (serial)
+    #
+
+    __estimate_distribution_and_save(counts,
+                                     total,
+                                     masked, 
+                                     max_count, 
+                                     subdiv, 
+                                     masked_frac,
+                                     output_dir)
+
+    return SUCCESS
