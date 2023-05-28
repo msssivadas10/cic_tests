@@ -196,7 +196,7 @@ def __calculate_and_save_cic_measurements(options):
 
 
 # initialize, patch generation, measurement; in that order!
-def do_count_in_cells(opt_file, opt_file2, flag = 0):
+def estimate_count_in_cells(opt_file, opt_file2, flag = 0):
 
     # initialising calculations...
     options, __failed = __initialise( opt_file, opt_file2, 0 )
@@ -223,7 +223,12 @@ def do_count_in_cells(opt_file, opt_file2, flag = 0):
     logging.info("all calculations completed successfully :)")
     return 
 
+
+# estimation of count distribution by combining data from different regions
 def estimate_combined_distribution(opt_file, opt_file2, flag = 0):
+
+    # warning message
+    print("\033[1m\033[91m\nWarning:\033[m make sure that all cic measurements used same setup, otherwise unexpected results may happen")
     
     # initialising calculations...
     options, __failed = __initialise( opt_file, opt_file2, 1 )
@@ -248,41 +253,23 @@ def estimate_combined_distribution(opt_file, opt_file2, flag = 0):
     return 
 
 
-
 def main():
 
     # parse input arguments
     args = parser.parse_args()
 
     if args.job == 1:
-        # assume the counts are estimated saved somewhere, then combine these results to find the 
-        # count distribution and moments. note that this requires estimation conditions, such as 
-        # cellsize, patchsize, data filtering conditions are same for all counts. otherwise, the 
-        # results will be unexpected. BEWARE....  
-        # print("\033[1m\033[91m\nWarning!..., Warning!..., Warning!...\033[m")
-        # print("This will combine count-in-cells results from multiple regions. Make sure that the setup in \
-        #       all these regions are same.Incorrect or non-matching settings results in errors or unexpected \
-        #       results... BE CAREFUL!...")
-
-        file = args.opt_file
-        if file is None:
-            print("\033[1m\033[91mfatal error:\033[m no options file is given, program terminated :(")
-            return
-        
-        file2 = args.inherits
-
-        estimate_combined_distribution( opt_file = file, opt_file2 = file2, flag = args.flag )
+        taskfn = estimate_combined_distribution
     else:
-        # do the count-in-cells measurements in the given region and estimate the distribution
-        # and moments. the results are then saved to output folder
-        file = args.opt_file
-        if file is None:
-            print("\033[1m\033[91mfatal error:\033[m no options file is given, program terminated :(")
-            return
-        
-        file2 = args.inherits
-        
-        do_count_in_cells( opt_file = file, opt_file2 = file2, flag = args.flag )
+        taskfn = estimate_count_in_cells
+
+    file1 = args.opt_file # main options file
+    file2 = args.inherits # [optional] other file look for options not in the main file
+    if file1 is None:
+        print("\033[1m\033[91mfatal error:\033[m no options file is given, program terminated :(")
+        return
+    
+    taskfn( opt_file = file1, opt_file2 = file2, flag = args.flag )
     
 
 if __name__ == '__main__':
