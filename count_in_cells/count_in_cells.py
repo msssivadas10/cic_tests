@@ -13,7 +13,8 @@ from typing import Any
 def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int = 0, max_count: int = 100,
                     masked_frac: float = 0.05, odf_compression: str = 'gzip', chunk_size: int = 1_000, 
                     magnitude_filters: list = [], redshift_filters: list = [], odf_filters: list = [], 
-                    magnitude_offsets: dict = {}, save_counts: bool = True, mpi_comm = None) -> int:
+                    magnitude_offsets: dict = {}, save_counts: bool = True, do_stats: bool = True, 
+                    mpi_comm = None) -> int:
     r"""
     Estimate count-in-cells distribution and first moments from data.
     """
@@ -177,64 +178,68 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
 
 
     #
-    # estimating count distribution and moments
+    # estimating count distribution and moments OR save the counts
     #
     if RANK == 0:
 
 
         if save_counts:
-            save_path = os.path.join( output_dir, 'counts.npy' )
-            np.save(save_path, counts)
+            save_path = os.path.join( output_dir, 'counts.npz' )
+            np.savez(
+                     save_path, 
+                     counts = counts,
+                     sizes  = np.asfarray([min_pixsize, patches.header.ra_patchsize, patches.header.dec_patchsize]),)
             logging.info( "counts saved to '%s'", save_path )
 
+        if do_stats:
         
-        logging.info( "started counting histogram..." )
+            logging.info( "started counting histogram..." )
 
-        # estimating the count distribution and statistics
-        count_bins = np.arange( max_count + 2 ) - 0.5 # count bin edges {-1/2, 1/2, 3/2, ..., max_count + 0.5} 
-        cell_sizes = 2**np.arange( subdiv + 1 ) * patches.header.pixsize
-        count_hist, count_moms = get_distribution(counts, 
-                                                  count_bins, 
-                                                  patches.total,
-                                                  patches.masked,
-                                                  n_patches, 
-                                                  subdiv, 
-                                                  masked_frac)
-
-
-        # jackknife averaging over all patches
-        count_hist, count_hist_err = jackknife_error( count_hist, n_patches )
-        count_moms, count_moms_err = jackknife_error( count_moms, n_patches )
-
-        logging.info( "finished counting histogram!" )
+            # estimating the count distribution and statistics
+            count_bins = np.arange( max_count + 2 ) - 0.5 # count bin edges {-1/2, 1/2, 3/2, ..., max_count + 0.5} 
+            cell_sizes = 2**np.arange( subdiv + 1 ) * patches.header.pixsize
+            count_hist, count_moms = get_distribution(counts, 
+                                                      count_bins, 
+                                                      patches.total,
+                                                      patches.masked,
+                                                      n_patches, 
+                                                      subdiv, 
+                                                      masked_frac)
 
 
+            # jackknife averaging over all patches
+            count_hist, count_hist_err = jackknife_error( count_hist, n_patches )
+            count_moms, count_moms_err = jackknife_error( count_moms, n_patches )
 
-        # TODO:save average results and variance
-        logging.info( "saving outputs..." )
+            logging.info( "finished counting histogram!" )
 
-        save_path = os.path.join( output_dir, 'count_histogram.csv' )
-        pd.DataFrame(count_hist
-                    ).reset_index(names = 'count'
-                                  ).to_csv(save_path, 
-                                           index = False)
-        logging.info( "count distribution saved to '%s'", save_path )
-        
-        save_path = os.path.join( output_dir, 'count_histogram_error.csv' )
-        pd.DataFrame(count_hist_err
-                    ).reset_index(names = 'count'
-                                  ).to_csv(save_path, 
-                                           index = False)
-        logging.info( "count distribution errors saved to '%s'", save_path )
 
-        save_path = os.path.join( output_dir, 'count_moments.csv' )
-        pd.DataFrame(np.vstack([ cell_sizes, count_moms, count_moms_err ]).T,
-                     columns = ['cell_size', 
-                                'mean', 'variance', 'skewness', 'kurtosis', 
-                                'mean_err', 'variance_err', 'skewness_err', 'kurtosis_err']
-                    ).to_csv(save_path,
-                             index = False)
-        logging.info( "count distribution moments saved to '%s'", save_path )
+
+            # save average results and variance
+            logging.info( "saving outputs..." )
+
+            save_path = os.path.join( output_dir, 'count_histogram.csv' )
+            pd.DataFrame(count_hist
+                        ).reset_index(names = 'count'
+                                    ).to_csv(save_path, 
+                                            index = False)
+            logging.info( "count distribution saved to '%s'", save_path )
+            
+            save_path = os.path.join( output_dir, 'count_histogram_error.csv' )
+            pd.DataFrame(count_hist_err
+                        ).reset_index(names = 'count'
+                                    ).to_csv(save_path, 
+                                            index = False)
+            logging.info( "count distribution errors saved to '%s'", save_path )
+
+            save_path = os.path.join( output_dir, 'count_moments.csv' )
+            pd.DataFrame(np.vstack([ cell_sizes, count_moms, count_moms_err ]).T,
+                        columns = ['cell_size', 
+                                    'mean', 'variance', 'skewness', 'kurtosis', 
+                                    'mean_err', 'variance_err', 'skewness_err', 'kurtosis_err']
+                        ).to_csv(save_path,
+                                index = False)
+            logging.info( "count distribution moments saved to '%s'", save_path )
 
 
     # wait untill all process are completed, if using multiple process 
@@ -306,3 +311,13 @@ def jackknife_error(obs: Any, n_obs: int) -> tuple:
     # TODO: apply bias correction
 
     return mean_jk, error_jk
+
+
+def combine_regional_results(res_paths: list):
+    r"""
+    Combine results from multiple non-overlapping, disconnected regions with same setup. That is, 
+    the cellsize, patchsizes, data filtering conditions etc must be same in all to get correct 
+    results. Note that not all these conditions are checked and the user should ensure this, if 
+    want correct results...
+    """
+    return NotImplemented

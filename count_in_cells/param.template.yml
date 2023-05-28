@@ -52,4 +52,6 @@ cic:
     redshift_filter_conditions:  []    # data filtering conditions for redshift selection
     cell_num_subdiv:             2     # number of subdivisions to use
     masked_frac:                 0.05  # maximum allowed masked fraction for a cell to select
-    save_counts:                 true  # if true, save the counts also
+    save_counts:                 true  # if true, save the counts
+    do_stats:                    true  # if true, estimate count distribution and moments
+

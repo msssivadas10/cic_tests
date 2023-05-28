@@ -10,9 +10,9 @@ import logging # for log messages
 from utils import WARN, ERROR, SUCCESS # status variables 
 from utils import replace_fields # for string replacement 
 from argparse import ArgumentParser # for argument parsing
-from options import load_options # for loading the options file
+from options import load_cic_options # for loading the options file
 from patches import create_patches # for creating jackknife patches
-from count_in_cells import estimate_counts # for count-in-cells
+from count_in_cells import estimate_counts, combine_regional_results # for count-in-cells
 
 
 PY_VERSION = sys.version_info
@@ -37,6 +37,8 @@ except ModuleNotFoundError:
 # argument parser object
 parser = ArgumentParser(prog = 'meas_cic', description = 'Do count-in-cells analysis on data.')
 parser.add_argument('--opt-file', help = 'path to the input options file', type = str)
+parser.add_argument('--job', help = 'specify what job to do', type = int, default = 0)
+parser.add_argument('--flag', help = 'flags to control the execution', type = int, default = 0)
 
 
 # syncing processes: wait for all process to finish
@@ -53,7 +55,7 @@ def __initialise(opt_file):
     __logque  = [] 
 
     # loading options from the file
-    options, __msgs = load_options( opt_file )
+    options, __msgs = load_cic_options( opt_file )
 
     # create output directory if not exist, otherwise use existing
     output_dir = options.output_dir
@@ -189,25 +191,30 @@ def __calculate_and_save_cic_measurements(options):
                                odf_filters       = options.catalog_object_filter_conditions,
                                magnitude_offsets = magnitude_offsets,
                                save_counts       = options.cic_save_counts,
+                               do_stats          = options.cic_do_stats,
                                mpi_comm          = COMM
                                )
     return __failed
 
 
 # initialize, patch generation, measurement; in that order!
-def do_count_in_cells(opt_file):
+def do_count_in_cells(opt_file, flag = 0):
 
     # initialisin calculations...
     options, __failed = __initialise( opt_file )
     if __failed:
         logging.error("initialization failed, see the log files for more information :(")
         sys.exit(1)
+    if flag == 2: # stop execution after reading initialisation (only for debugging)
+        return
 
     # calculating patch images...
     __failed = __create_and_save_patch_data(options)
     if __failed:
         logging.error("`create_patches` exited with non-zero status: patch generation failed! :(")
         sys.exit(1)
+    if flag == 1: # stop exectution after calculating patch data
+        return 
 
     # measuring count-in-cells...
     __failed = __calculate_and_save_cic_measurements(options)
@@ -220,10 +227,31 @@ def do_count_in_cells(opt_file):
 
 
 
-if __name__ == '__main__':
+def main():
 
     # parse input arguments
     args = parser.parse_args()
 
-    do_count_in_cells( opt_file = args.opt_file )
+    if args.job == 1:
+        # assume the counts are estimated saved somewhere, then combine these results to find the 
+        # count distribution and moments. note that this requires estimation conditions, such as 
+        # cellsize, patchsize, data filtering conditions are same for all counts. otherwise, the 
+        # results will be unexpected. BEWARE....  
+        print("\033[1m\033[91m\nWarning!..., Warning!..., Warning!...\033[m")
+        print("This will combine count-in-cells results from multiple regions. Make sure that the setup in all these regions are same.")
+        print("\033[1m\033[91mIncorrect or non-matching settings results in errors or unexpected results... BE CAREFUL!...\033[m\n")
+
+        combine_regional_results(...)
+    else:
+        # do the count-in-cells measurements in the given region and estimate the distribution
+        # and moments. the results are then saved to output folder
+        file = args.opt_file
+        if file is None:
+            print("\033[1m\033[91mNo options file is given...\033[m")
+            return
+        
+        do_count_in_cells( opt_file = file, flag = args.flag )
     
+
+if __name__ == '__main__':
+    main()

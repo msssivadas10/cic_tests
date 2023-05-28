@@ -6,7 +6,7 @@ from collections import namedtuple
 from utils import WARN, ERROR, SUCCESS
 
 
-
+# options for count-in-cells calculation
 @dataclass(slots = True, frozen = True, kw_only = True)
 class Options:
 
@@ -33,6 +33,7 @@ class Options:
     cic_max_count: int 
     cic_masked_frac: float
     cic_save_counts: bool
+    cic_do_stats: bool
     jackknife_patch_width_ra: float
     jackknife_patch_width_dec: float
     jackknife_region_rect: list
@@ -53,7 +54,7 @@ _OptionField = namedtuple( '_OptionField', ['name', 'optional', 'value'], defaul
 _Message     = namedtuple( '_Message', ['msg', 'status'], defaults = [ERROR] )
 
 # structure of the options
-opt_tree = [
+cic_opts = [
             _OptionBlock( 
                             name   = 'catalog',
                             fields = [
@@ -80,11 +81,12 @@ opt_tree = [
                                         _OptionField( 'cellsize'  ),
                                         _OptionField( 'max_count' ),
                                         _OptionField( 'use_mask'  ),
-                                        _OptionField( 'cell_num_subdiv',             optional = True, value = 0  ),
-                                        _OptionField( 'redshift_filter_conditions',  optional = True, value = [] ),
-                                        _OptionField( 'magnitude_filter_conditions', optional = True, value = [] ),
-                                        _OptionField( 'save_counts',                 optional = True, value = False ),
-                                        _OptionField( 'masked_frac',                 optional = True, value = 0.05  ),
+                                        _OptionField( 'cell_num_subdiv',             optional = True, value = 0    ),
+                                        _OptionField( 'redshift_filter_conditions',  optional = True, value = []   ),
+                                        _OptionField( 'magnitude_filter_conditions', optional = True, value = []   ),
+                                        _OptionField( 'save_counts',                 optional = True, value = True ),
+                                        _OptionField( 'do_stats',                    optional = True, value = True ),
+                                        _OptionField( 'masked_frac',                 optional = True, value = 0.05 ),
                                      ] 
                         ),
             _OptionBlock( 
@@ -101,35 +103,35 @@ opt_tree = [
         ]
 
 
+def __load_options(file: str):
+
+    # try yaml format first
+    try:
+        with open(file, 'r') as fp:
+            return yaml.safe_load( fp )
+    except Exception:
+        pass
+
+    # try json format then
+    try:
+        with open(file, 'r') as fp:
+            return json.load( fp )
+    except Exception:
+        pass
+
+    # raise error: not a valid json or yaml
+    raise ValueError(f"{file} must be a valid JSON or YAML file")
+
     
-def load_options(file: str):
+def load_cic_options(file: str):
     r"""
-    Load options from a YAML/JSON file and run a check on options.
+    Load count-in-cells measurements options from a YAML/JSON file.
     """
 
-    def __load_options(fp):
-
-        # try yaml format first
-        try:
-            return yaml.safe_load( fp )
-        except Exception:
-            pass
-
-        # try json format then
-        try:
-            return json.load( fp )
-        except Exception:
-            pass
-
-        # raise error: not a valid json or yaml
-        raise ValueError(f"{file} must be a valid JSON or YAML file")
-
-
-    with open(file, 'r') as fp:
-        _opts = __load_options( fp )
+    _opts = __load_options( file )
 
     msgs, opts = [], {} 
-    for item in opt_tree:
+    for item in cic_opts:
 
         # if the item is a field
         if isinstance( item, _OptionField ):
@@ -172,6 +174,33 @@ def load_options(file: str):
     
     msgs = sorted( msgs, key = lambda __msg: __msg.status )
     return Options( **opts ), msgs
+
+
+def load_stats_options(file: str):
+    r"""
+    Load options file for combining regional results and estimating statistics. 
+    """
+
+    _opts = __load_options( file )
+    msgs  = []
+
+    inputs = _opts.get('inputs')
+    if inputs is None:
+        msgs.append( _Message( f"'inputs' is a required field", ERROR ) )
+    elif not isinstance( inputs, (list, tuple) ):
+        msgs.append( _Message( f"'inputs' must be a list of files", ERROR ) )
+    elif len( inputs ) == 0:
+        msgs.append( _Message( f"'inputs' cannot be empty", ERROR ) )
+
+    output_dir = _opts.get('output_dir')
+    if output_dir is None:
+        output_dir = './output'
+        msgs.append( _Message( f"setting optional field 'output_dir' to {output_dir}", WARN ) )
+
+    msgs = sorted( msgs, key = lambda __msg: __msg.status )
+    return inputs, output_dir, msgs
+    
+
 
 
 

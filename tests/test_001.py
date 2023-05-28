@@ -107,12 +107,72 @@
 #     x = yaml.safe_load(file)
 #     pp.pprint(x)
 
-from argparse import ArgumentParser
+# from argparse import ArgumentParser
 
-parser = ArgumentParser(prog = 'meas_cic', description = 'Do count-in-cells analysis on data.')
-# parser.add_argument('param_file', help = 'path to the parameter file', type = str)
-parser.add_argument('--opt-file', help = 'argument', type = int, default = 0)
+# parser = ArgumentParser(prog = 'meas_cic', description = 'Do count-in-cells analysis on data.')
+# # parser.add_argument('param_file', help = 'path to the parameter file', type = str)
+# parser.add_argument('--opt-file', help = 'argument', type = int, default = 0)
 
 
-args = parser.parse_args()
-print( args )
+# args = parser.parse_args()
+# print( args )
+
+# from mpl_toolkits.basemap import Basemap
+# import numpy as np
+# import matplotlib.pyplot as plt
+
+
+# R = 10000000
+# m = Basemap(width = 2*R, height = R, projection = 'ortho', lat_0 = 0., lon_0 = 0.)
+
+
+# parallels = np.arange(-80,81,20)
+# m.drawparallels(parallels,labels=[False,True,True,False])
+
+# meridians = np.arange(-180,180,20)
+# m.drawmeridians(meridians,labels=[True,False,False,True])
+
+# # draw a black dot at the center.
+
+# lon = np.random.uniform(-90, 90, 100)
+# lat = np.random.uniform(-10, 10, 100)
+# xpt, ypt = m(lon, lat)
+# m.plot(xpt, ypt, 'ko')
+
+# # draw the title.
+# plt.show()
+
+# fig = plt.figure(figsize=(8,6))
+# ax = fig.add_subplot(111, projection="aitoff")
+# ax.scatter(lon*np.pi/180, lat*np.pi/180)
+# ax.set_xticklabels(['14h','16h','18h','20h','22h','0h','2h','4h','6h','8h','10h'])
+# ax.grid(True)
+# plt.show()
+
+# import numpy as np
+# from mpl_toolkits.basemap import Basemap
+# import matplotlib.pyplot as plt
+
+# fig = plt.figure(figsize = (5,5))
+
+# map = Basemap(projection = 'ortho', lon_0 = 15, lat_0 = 68, resolution = 'l')
+
+# map.drawcoastlines(linewidth = 1)
+# map.drawmeridians(np.arange(-180,180,1), linewidth = 1)
+# map.drawparallels(np.arange(-80,80,.25), linewidth = 1)
+
+# lllon = 7
+# urlon = 21
+# lllat = 67
+# urlat = 70
+
+# xmin, ymin = map(lllon, lllat)
+# xmax, ymax = map(urlon, urlat)
+
+# ax = plt.gca()
+
+# # ax.set_xlim([xmin, xmax])
+# # ax.set_ylim([ymin, ymax])
+
+# plt.show()
+
