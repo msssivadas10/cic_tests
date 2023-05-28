@@ -203,7 +203,7 @@ def do_count_in_cells(opt_file, opt_file2, flag = 0):
     if __failed:
         logging.error("initialization failed, see the log files for more information :(")
         sys.exit(1)
-    if flag == 2: # stop execution after reading initialisation (only for debugging)
+    if flag == 2: # stop execution after initialisation (only for debugging)
         return
 
     # calculating patch images...
@@ -230,7 +230,7 @@ def estimate_combined_distribution(opt_file, opt_file2, flag = 0):
     if __failed:
         logging.error("initialization failed, see the log files for more information :(")
         sys.exit(1)
-    if flag == 2: # stop execution after reading initialisation (only for debugging)
+    if flag == 2: # stop execution after initialisation (only for debugging)
         return
     
     # estimate combined distribution
@@ -243,8 +243,9 @@ def estimate_combined_distribution(opt_file, opt_file2, flag = 0):
     if __failed:
         logging.error("`estimate_total_ditribution` exited with non-zero status! :(")
         sys.exit(1)
-    if flag == 1: # stop exectution after calculating patch data
-        return 
+    
+    logging.info("all calculations completed successfully :)")
+    return 
 
 
 
