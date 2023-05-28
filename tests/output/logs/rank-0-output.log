@@ -1,0 +1,4 @@
+2023-05-29 00:03:02,534 [WARNING] no module named 'mpi4py', computations will be serial. 
+2023-05-29 00:03:02,534 [INFO] used options are written to 'tests/output/used_options.txt'
+2023-05-29 00:03:02,535 [ERROR] file does not exist: 'tests/output/counts.npz'
+2023-05-29 00:03:02,535 [ERROR] `estimate_total_ditribution` exited with non-zero status! :(

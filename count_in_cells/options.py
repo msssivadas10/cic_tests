@@ -48,6 +48,8 @@ class Options:
 
         with open( file, 'w' ) as fp:
             for __key, __value in asdict( self ).items():
+                if __value is None:
+                    continue
                 fp.write( f"{__key:32s} = {__value}\n" )
         return 
         

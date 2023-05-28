@@ -56,10 +56,12 @@ cic:
     do_stats:                    false # if true, estimate count distribution and moments
 
 #
-#
+# CUMULATIVE STATS SECTION: estimating pdf by aggrigating different regions
 #
 cumstats:
-    data_files:      [tests/output/counts.npz, tests/output/counts.npz]
-    max_count:       1000
-    cell_num_subdiv: 2
-    masked_frac:     0.05
+    data_files: # list of paths to regional results 
+        - tests/output/counts.npz 
+        - tests/output/counts.npz  
+    max_count:       1000  # SEE CIC SECTION
+    cell_num_subdiv: 2     # 
+    masked_frac:     0.05  #

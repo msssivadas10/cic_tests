@@ -1,0 +1,5 @@
+cumstats_data_files              = ['tests/output/counts.npz', 'tests/output/counts.npz']
+cumstats_max_count               = 1000
+cumstats_cell_num_subdiv         = 2
+cumstats_masked_frac             = 0.05
+output_dir                       = tests/output
