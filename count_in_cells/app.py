@@ -22,11 +22,11 @@ if not ( PY_VERSION.major >= 3 and PY_VERSION.minor >= 10 ):
 
 try:
     
-    # from mpi4py import MPI
+    from mpi4py import MPI
 
-    # COMM = MPI.COMM_WORLD
-    # RANK, SIZE = COMM.rank, COMM.size
-    # HAS_MPI    = 1
+    COMM = MPI.COMM_WORLD
+    RANK, SIZE = COMM.rank, COMM.size
+    HAS_MPI    = 1
     raise ModuleNotFoundError()
 
 except ModuleNotFoundError:
