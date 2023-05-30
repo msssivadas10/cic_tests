@@ -19,8 +19,6 @@ class Options:
     catalog_redshift                 : str   = None
     catalog_redshift_error           : str   = None
     catalog_all_bands                : list  = None
-    catalog_dec_shift                : float = None
-    catalog_ra_shift                 : float = None 
     catalog_object_filter_conditions : list  = None
     catalog_random_filter_conditions : list  = None
     catalog_magnitude_to_correct     : list  = None
@@ -67,8 +65,6 @@ opt_tree = [
                                         _OptionField( 'random' ),
                                         _OptionField( 'compression',              optional = True, value = 'infer'   ),
                                         _OptionField( 'chunk_size',               optional = True, value = 1_000_000 ),
-                                        _OptionField( 'ra_shift',                 optional = True, value = 0.0       ),
-                                        _OptionField( 'dec_shift',                optional = True, value = 0.0       ),
                                         _OptionField( 'redshift',                 optional = True, value = "redshift"           ),
                                         _OptionField( 'redshift_error',           optional = True, value = "redshift_error"     ),
                                         _OptionField( 'magnitude',                optional = True, value = "%(band)_mag"        ),

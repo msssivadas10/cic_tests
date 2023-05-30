@@ -12,8 +12,8 @@ from utils import replace_fields # for string replacement
 from argparse import ArgumentParser # for argument parsing
 from options import load_options # for loading the options file
 from patches import create_patches # for creating jackknife patches
-from count_in_cells import estimate_counts, estimate_total_ditribution # for count-in-cells
-
+from count_in_cells import estimate_counts, estimate_counts_distribution # for count-in-cells on single region
+from count_in_cells import estimate_total_ditribution # for combining results from similar regions
 
 PY_VERSION = sys.version_info
 if not ( PY_VERSION.major >= 3 and PY_VERSION.minor >= 10 ):
@@ -27,7 +27,6 @@ try:
     COMM = MPI.COMM_WORLD
     RANK, SIZE = COMM.rank, COMM.size
     HAS_MPI    = 1
-    raise ModuleNotFoundError()
 
 except ModuleNotFoundError:
 
@@ -59,17 +58,21 @@ def __initialise(opt_file, opt_file2, task_code = 0):
     # loading options from the file
     options, __msgs, __failed = load_options( opt_file, base_file = opt_file2, task_code = task_code )
 
-    # create output directory if not exist, otherwise use existing
     output_dir = options.output_dir
-    if not os.path.exists( output_dir ) and RANK == 0:
-        __logque.append( ( f"created output directory '{ output_dir }'", SUCCESS ) )
-        os.mkdir( output_dir ) # create the output directory
+    log_path   = os.path.join( output_dir, 'logs' )
 
-    # create log file directory if not exist, otherwise use existing
-    log_path = os.path.join( output_dir, 'logs' )
-    if not os.path.exists( log_path ) and RANK == 0:
-        __logque.append( ( f"created log directory '{ log_path }'", SUCCESS ) )
-        os.mkdir( log_path ) # create the log directory
+    
+    if RANK == 0:
+        # create output directory if not exist, otherwise use existing
+        if not os.path.exists( output_dir ) and RANK == 0:
+            __logque.append( ( f"created output directory '{ output_dir }'", SUCCESS ) )
+            os.mkdir( output_dir ) # create the output directory
+
+        # create log file directory if not exist, otherwise use existing
+        if not os.path.exists( log_path ) and RANK == 0:
+            __logque.append( ( f"created log directory '{ log_path }'", SUCCESS ) )
+            os.mkdir( log_path ) # create the log directory
+        
     log_path = os.path.join( log_path, f"rank-{ RANK }-output.log" )
 
     __sync() # sync processes so that the directories are availabe to all process 
@@ -125,23 +128,20 @@ def __create_and_save_patch_data(options):
         logging.warning( f"cell subdivisions must be positive, will take absolute value" )
         cell_subdivisions = abs( cell_subdivisions )
 
-    min_cellsize = options.cic_cellsize / 2**cell_subdivisions
-
     # masks to use
     use_masks = [ options.catalog_mask % {'band': band} for band in options.jackknife_use_mask ]
 
     __failed = create_patches(reg_rect        = options.jackknife_region_rect,
                               ra_size         = options.jackknife_patch_width_ra,
                               dec_size        = options.jackknife_patch_width_dec,
-                              pixsize         = min_cellsize,
+                              pixsize         = options.cic_cellsize,
                               rdf_path        = options.catalog_random,
                               output_dir      = options.output_dir,
                               use_masks       = use_masks,
+                              subdivisions    = cell_subdivisions,
                               reg_to_remove   = options.jackknife_remove_regions,
                               rdf_compression = options.catalog_compression,
                               chunk_size      = options.catalog_chunk_size,
-                              ra_shift        = options.catalog_ra_shift,
-                              dec_shift       = options.catalog_dec_shift,
                               rdf_filters     = options.catalog_random_filter_conditions,
                               mpi_comm        = COMM,
                              )
@@ -150,7 +150,7 @@ def __create_and_save_patch_data(options):
 
 
 # calculate count-in-cells data
-def __calculate_and_save_cic_measurements(options):
+def __make_cic_measurements(options):
 
     # column keys 
     mask             = options.catalog_mask
@@ -180,18 +180,24 @@ def __calculate_and_save_cic_measurements(options):
     __failed = estimate_counts(output_dir        = options.output_dir,
                                odf_path          = options.catalog_object,
                                use_masks         = use_masks,
-                               subdiv            = options.cic_cell_num_subdiv,
-                               masked_frac       = options.cic_masked_frac,
                                odf_compression   = options.catalog_compression,
                                chunk_size        = options.catalog_chunk_size,
                                magnitude_filters = magnitude_filters,
                                redshift_filters  = redshift_filters,
                                odf_filters       = options.catalog_object_filter_conditions,
                                magnitude_offsets = magnitude_offsets,
-                               save_counts       = options.cic_save_counts,
-                               do_stats          = options.cic_do_stats,
                                mpi_comm          = COMM
                                )
+    return __failed
+
+
+# calculate counts distribution
+def __measure_cic_distribution(options):
+
+    __failed = estimate_counts_distribution(output_dir  = options.output_dir,
+                                            max_count   = options.cic_max_count,
+                                            masked_frac = options.cic_masked_frac
+                                            )
     return __failed
 
 
@@ -203,21 +209,35 @@ def estimate_count_in_cells(opt_file, opt_file2, flag = 0):
     if __failed:
         logging.error("initialization failed, see the log files for more information :(")
         sys.exit(1)
-    if flag == 2: # stop execution after initialisation (only for debugging)
-        return
+    # if flag == 2: # stop execution after initialisation (only for debugging)
+    #     return
 
+    # if flag == 4:
+    #     logging.info("using patches data from '%s'...", options.output_dir)
+    # else:
     # calculating patch images...
     __failed = __create_and_save_patch_data(options)
     if __failed:
         logging.error("`create_patches` exited with non-zero status: patch generation failed! :(")
         sys.exit(1)
-    if flag == 1: # stop exectution after calculating patch data
-        return 
+    # if flag == 1: # stop exectution after calculating patch data
+    #     return 
 
     # measuring count-in-cells...
-    __failed = __calculate_and_save_cic_measurements(options)
+    # if flag == 5:
+    #     logging.info("using counts data from '%s'...", options.output_dir)
+    # else:
+    __failed = __make_cic_measurements(options)
     if __failed:
         logging.error("`estimate_counts` exited with non-zero status: cic measurement failled! :(")
+        sys.exit(1)
+    # if flag == 1: # stop execution after counting
+    #     return
+
+    # measuring counts distribution
+    __failed = __measure_cic_distribution(options)
+    if __failed:
+        logging.error("`estimate_counts_distribution` exited with non-zero status: cic measurement failled! :(")
         sys.exit(1)
 
     logging.info("all calculations completed successfully :)")

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import os
+import os, time
 import logging # for log messages
 import numpy as np, pandas as pd
 from utils import check_datafile # to check data 
@@ -18,26 +18,23 @@ class _PatchImage_Header:
     ra_cells : int
     dec_cells: int
     n_patches: int
-    # n_patches_ra: int  # no. of patches along ra 
-    # n_patches_dec: int # no. of patches along dec
+    
+    subdivisions: int # maximum subdivisions applied 
 
     pixsize      : float # size of a pixel (cell)
     ra_patchsize : float # size of a patch along ra direction
     dec_patchsize: float # size of a patch along dec direction
     
     # corners of the region rectangle
-    reg_ra1 : float
-    reg_ra2 : float
-    reg_dec1: float
-    reg_dec2: float
+    region: list
+    # reg_ra1 : float
+    # reg_ra2 : float
+    # reg_dec1: float
+    # reg_dec2: float
 
-    # shift to apply for coordinates
-    ra_shift : float = 0.
-    dec_shift: float = 0.
-
-    @property
-    def region(self) -> list:
-        return [ self.reg_ra1, self.reg_ra2, self.reg_dec1, self.reg_dec2 ]
+    # @property
+    # def region(self) -> list:
+    #     return [ self.reg_ra1, self.reg_ra2, self.reg_dec1, self.reg_dec2 ]
     
 
 class PatchData:
@@ -47,29 +44,22 @@ class PatchData:
 
     __slots__ = 'header', 'patches', 'flags', 'masked', 'total'
 
-    def __init__(self, patches: Any, flags: Any, masked: Any, total: Any, pixsize: float, ra_patchsize: float, 
-                 dec_patchsize: float, region: list, ra_shift: float = 0., dec_shift: float = 0.) -> None:
+    def __init__(self, patches: Any, flags: Any, masked: Any, total: Any, subdivisions: int, pixsize: float, 
+                 ra_patchsize: float, dec_patchsize: float, region: list) -> None:
 
         self.patches = np.asfarray( patches )
         self.flags   = np.array( flags, dtype = 'bool' )
         self.masked  = np.array( masked )
         self.total   = np.array( total )
 
-
-        ra_cells, dec_cells, n_patches       = total.shape
-        reg_ra1, reg_ra2, reg_dec1, reg_dec2 = region
-        self.header = _PatchImage_Header(ra_cells, 
-                                         dec_cells, 
-                                         n_patches, 
-                                         pixsize, 
-                                         ra_patchsize,
-                                         dec_patchsize, 
-                                         reg_ra1, 
-                                         reg_ra2, 
-                                         reg_dec1, 
-                                         reg_dec2, 
-                                         ra_shift, 
-                                         dec_shift
+        self.header = _PatchImage_Header(ra_cells      = total.shape[0], 
+                                         dec_cells     = total.shape[1], 
+                                         n_patches     = total.shape[2], 
+                                         subdivisions  = subdivisions,
+                                         pixsize       = pixsize, 
+                                         ra_patchsize  = ra_patchsize,
+                                         dec_patchsize = dec_patchsize, 
+                                         region        = region, 
                                         )
     
     @classmethod
@@ -88,18 +78,16 @@ class PatchData:
             return None
 
         pixsize, ra_patchsize, dec_patchsize = patch_data['sizes']
-        ra_shift, dec_shift = patch_data['shift']
 
         return PatchData(patches       = patch_data['patches'],
                          flags         = patch_data['patch_flags'],
                          masked        = patch_data['masked'],
                          total         = patch_data['total'],
+                         subdivisions  = patch_data['subdiv'],
                          pixsize       = pixsize,
                          ra_patchsize  = ra_patchsize,
                          dec_patchsize = dec_patchsize,
                          region        = patch_data['region'],
-                         ra_shift      = ra_shift,
-                         dec_shift     = dec_shift
                          )
 
     def save_as(self, file: str) -> int:
@@ -110,8 +98,8 @@ class PatchData:
         np.savez(file,
                  sizes       = np.asfarray([self.header.pixsize, self.header.ra_patchsize, self.header.dec_patchsize]),
                  region      = np.asfarray( self.header.region ),
-                 shift       = np.asfarray([self.header.ra_shift, self.header.dec_shift]),
-                 patches     = self.patches[:2,:],
+                 subdiv      = self.header.subdivisions,
+                 patches     = self.patches,
                  patch_flags = self.flags,
                  masked      = self.masked,
                  total       = self.total,
@@ -136,8 +124,8 @@ class PatchData:
     
 
 def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: float, rdf_path: str, output_dir: str, 
-                   use_masks: list, reg_to_remove: list = [], rdf_compression: str = 'gzip', chunk_size: int = 1_000, 
-                   ra_shift: float = 0., dec_shift: float = 0., rdf_filters: list = [], mpi_comm = None) -> int:
+                   use_masks: list, subdivisions: int = 0, reg_to_remove: list = [], rdf_compression: str = 'gzip', 
+                   chunk_size: int = 1_000, rdf_filters: list = [], mpi_comm = None) -> int:
     r"""
     Divide a rectangular region in to rectangular patches of same size. 
     """
@@ -156,6 +144,27 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     if ra_size <= 0. or dec_size <= 0.:
         logging.error( "patch sizes must be positive (ra_size = %f, dec_size = %f)", ra_size, dec_size )
         return ERROR
+    
+    if pixsize <= 0. or pixsize > min( ra_size, dec_size ):
+        logging.error( "pixsize (= %f) must be less than the patch sizes, min(%f, %f)", pixsize, ra_size, dec_size )
+        return ERROR
+    
+    # for the calculations to work, image shape must be (even, even). if pixsize does not make this, 
+    # correct the pixsize and patchsizes
+    ra_cells = int( ra_size / pixsize )
+    if ra_cells % 2: 
+        ra_cells = ra_cells - 1 
+    ra_size = ra_cells * pixsize # corrected patchsize along ra
+
+    dec_cells = int( dec_size / pixsize )
+    if dec_cells % 2: 
+        dec_cells = dec_cells - 1 
+    dec_size = dec_cells * pixsize # corrected patchsize along dec
+
+    # after coorecting the size, apply subdivisions to get the smallest pixel
+    __res   = 2**subdivisions 
+    pixsize = pixsize / __res 
+    ra_cells, dec_cells = ra_cells * __res, dec_cells * __res
     
     # check region rectangles
     logging.info( "checking the region rectangle..." )
@@ -212,21 +221,18 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     #
     # generate patch completeness images
     #
-    
-    if pixsize <= 0. or pixsize > min( ra_size, dec_size ):
-        logging.error( "pixsize (= %f) must be less than the patch sizes, min(%f, %f)", pixsize, ra_size, dec_size )
-        return ERROR
-    
 
-    ra_bins = np.arange(0., ra_size + pixsize, pixsize)
-    ra_bins = ra_bins[ ra_bins <= ra_size ] 
+    # ra_bins = np.arange(0., ra_size + pixsize, pixsize)
+    # ra_bins = ra_bins[ ra_bins <= ra_size ] 
 
-    dec_bins = np.arange(0., dec_size + pixsize, pixsize)
-    dec_bins = dec_bins[ dec_bins <= dec_size ] 
-
+    # dec_bins = np.arange(0., dec_size + pixsize, pixsize)
+    # dec_bins = dec_bins[ dec_bins <= dec_size ]
+     
+    ra_bins    = np.linspace(0., ra_size, ra_cells + 1)
+    dec_bins   = np.linspace(0., dec_size, dec_cells + 1)
     patch_bins = np.arange(0, len(patches) + 1) - 0.5
 
-    image_shape   = ( len(ra_bins)-1, len(dec_bins)-1, len(patch_bins)-1 )
+    image_shape = ( ra_cells, dec_cells, len(patch_bins)-1 )
 
     logging.info( "creating patch images with pixsize = %f, image shape = (%d, %d), %d patches.", pixsize, *image_shape )
 
@@ -249,6 +255,7 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     rdf_filters = "&".join([ "(%s)" % __filter for __filter in rdf_filters ])
 
     logging.info( "started counting random objects in cell" )
+    __t_init = time.time()
     
     #
     # counting random objects
@@ -278,8 +285,8 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
             mask_weight = rdf.eval( mask_filter ).to_numpy().astype( 'float' ) # mask value: is masked in any filter?
 
             # shift the origin to the lower-left corner of the region 
-            rdf['ra']  = rdf['ra']  - reg_ra1  - ra_shift
-            rdf['dec'] = rdf['dec'] - reg_dec1 - dec_shift
+            rdf['ra']  = rdf['ra']  - reg_ra1  
+            rdf['dec'] = rdf['dec'] - reg_dec1 
 
             # get patch id
             i = np.floor( rdf['ra']  / ra_size ).astype( 'int' ) 
@@ -302,6 +309,7 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
     
 
     logging.info( "finished counting random objects in cell" )
+    logging.info( "time taken: %g sec", time.time() - __t_init )
 
     #
     # data communication: combine the results from all process
@@ -346,12 +354,11 @@ def create_patches(reg_rect: list, ra_size: float, dec_size: float, pixsize: flo
                       flags         = patch_flags, 
                       masked        = masked,
                       total         = total, 
+                      subdivisions  = subdivisions,
                       pixsize       = pixsize, 
                       ra_patchsize  = ra_size, 
                       dec_patchsize = dec_size, 
                       region        = reg_rect, 
-                      ra_shift      = ra_shift, 
-                      dec_shift     = dec_shift,
                     ).save_as( save_path )
         
         logging.info( "patch data saved to '%s'", save_path )

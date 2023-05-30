@@ -1,22 +1,20 @@
 #!/usr/bin/python3
 
-import os
+import os, time
 import logging # for log messages
 import numpy as np, pandas as pd
 from utils import check_datafile, jackknife_error 
 from utils import ERROR, SUCCESS
 from patches import PatchData
-from scipy.stats import binned_statistic_dd, binned_statistic, describe
+from scipy.stats import binned_statistic_dd, binned_statistic
 from typing import Any 
 
 
-def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int = 0, max_count: int = 100,
-                    masked_frac: float = 0.05, odf_compression: str = 'gzip', chunk_size: int = 1_000, 
-                    magnitude_filters: list = [], redshift_filters: list = [], odf_filters: list = [], 
-                    magnitude_offsets: dict = {}, save_counts: bool = True, do_stats: bool = True, 
-                    mpi_comm = None) -> int:
+def estimate_counts(output_dir: str, odf_path: str, use_masks: list, odf_compression: str = 'gzip', 
+                    chunk_size: int = 1_000, magnitude_filters: list = [], redshift_filters: list = [], 
+                    odf_filters: list = [], magnitude_offsets: dict = {}, mpi_comm = None) -> int:
     r"""
-    Estimate count-in-cells distribution and first moments from data.
+    Count objects in pre-computed cells.
     """
 
     RANK, SIZE = 0, 1
@@ -41,26 +39,6 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
     #
     # checking parameters values and data file
     #
-
-    # checking cell subdivisions value
-    if not isinstance( subdiv, int ):
-        logging.error( f"cell subdivisions must be an integer" )
-        return ERROR
-    if subdiv < 0:
-        logging.warning( f"cell subdivisions must be positive, will take absolute value" )
-        subdiv = abs( subdiv )
-
-    # checking max_count
-    if not isinstance( max_count, int ):
-        logging.error( f"max_count must be an integer" )
-        return ERROR
-    if max_count < 10:
-        logging.warning( f"max_count must be at least 10 (got {max_count})" )
-
-    # check masked fraction value
-    if masked_frac < 0. or masked_frac > 1.:
-        logging.error( f"masked_frac must be in between 0 and 1" )
-        return ERROR
 
     # check data file
     logging.info( "checking object catalog file: '%s'...", odf_path )
@@ -93,7 +71,6 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
     #
 
     ra_size, dec_size   = patches.header.ra_patchsize, patches.header.dec_patchsize # patch sizes
-    ra_shift, dec_shift = patches.header.ra_shift, patches.header.dec_shift # coordinate shifts
     n_dec, n_patches    = int( (reg_dec2 - reg_dec1) / patches.header.dec_patchsize ), patches.header.n_patches
 
     # cell size
@@ -109,6 +86,7 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
 
 
     logging.info( "started counting unmasked objects in cell" )
+    __t_init = time.time()
 
     counts = np.zeros(( len(ra_bins) - 1, len(dec_bins) - 1, n_patches ))
     with pd.read_csv(odf_path, header = 0, compression = odf_compression, chunksize = chunk_size) as odf_iter:
@@ -135,8 +113,8 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
                 continue
 
             # shift the origin to the lower-left corner of the region 
-            odf['ra']  = odf['ra']  - reg_ra1  - ra_shift
-            odf['dec'] = odf['dec'] - reg_dec1 - dec_shift
+            odf['ra']  = odf['ra']  - reg_ra1  
+            odf['dec'] = odf['dec'] - reg_dec1 
 
             # get patch id
             i = np.floor( odf['ra']  / ra_size ).astype( 'int' ) 
@@ -157,6 +135,8 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
 
 
     logging.info( "finished counting objects" )
+    logging.info( "time taken: %g sec", time.time() - __t_init )
+
 
     #
     # data communication: combine the results from all process
@@ -187,7 +167,7 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
 
 
     #
-    # estimating count distribution and moments OR save the counts
+    # save the counts
     #
     if RANK == 0:
 
@@ -197,24 +177,24 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
         total       = patches.total[:,:,patch_flags]
         masked      = patches.masked[:,:,patch_flags]
 
-        if save_counts:
-            save_path = os.path.join( output_dir, 'counts.npz' )
-            np.savez(
-                     save_path, 
-                     counts = counts,
-                     total  = total,
-                     masked = masked,
-                     sizes  = np.asfarray([min_pixsize, patches.header.ra_patchsize, patches.header.dec_patchsize]),)
-            logging.info( "counts saved to '%s'", save_path )
+        # if save_counts:
+        save_path = os.path.join( output_dir, 'counts.npz' )
+        np.savez(save_path, 
+                 counts = counts,
+                 total  = total,
+                 masked = masked,
+                 sizes  = np.asfarray([min_pixsize, patches.header.ra_patchsize, patches.header.dec_patchsize]),
+                 subdiv = patches.header.subdivisions, )
+        logging.info( "counts saved to '%s'", save_path )
 
-        if do_stats:
-            __estimate_distribution_and_save(counts,
-                                             total,
-                                             masked, 
-                                             max_count, 
-                                             subdiv, 
-                                             masked_frac,
-                                             output_dir)
+        # if do_stats:
+        #     __estimate_distribution_and_save(counts,
+        #                                      total,
+        #                                      masked, 
+        #                                      max_count, 
+        #                                      subdiv, 
+        #                                      masked_frac,
+        #                                      output_dir)
 
 
     # wait untill all process are completed, if using multiple process 
@@ -228,27 +208,58 @@ def estimate_counts(output_dir: str, odf_path: str, use_masks: list, subdiv: int
 
 def __estimate_distribution_and_save(counts: Any, total: Any, masked: Any, max_count: int, subdiv: int,
                                      masked_frac: float, output_dir: str):
+    
+
+    def merge_cells(arr):
+        arr = arr[0::2,:,:] + arr[1::2,:,:] # along ra
+        arr = arr[:,0::2,:] + arr[:,1::2,:] # along dec
+        return arr
 
     logging.info( "started counting histogram..." )
 
+    #
     # estimating the count distribution
+    #
     count_bins = np.arange( max_count + 2 ) - 0.5 # count bin edges {-1/2, 1/2, 3/2, ..., max_count + 0.5} 
-    count_hist = get_distribution(counts, 
-                                  count_bins, 
-                                  total,
-                                  masked,
-                                  subdiv, 
-                                  masked_frac)
+    # count_hist = get_distribution(counts, count_bins, total, masked, subdiv, masked_frac)
+
+    n_patches  = counts.shape[2]
+    count_hist = np.zeros( ( len(count_bins)-1, subdiv+1, n_patches ), dtype = 'int' ) # distribution / histogram
+
+    total_l, mask_l, counts_l = total, masked, counts
+    for level in range(subdiv + 1): # subdivision levels
+
+        # pixel goodness flag
+        isgood_l = ( (total_l > 0) & (mask_l < masked_frac * total_l) )
+
+        for p in range( n_patches ): # patches
+
+            xlp = counts_l[ isgood_l[..., p] , p].flatten() # good pixel values
+            count_hist[:, level, p] = binned_statistic(xlp,
+                                                       values    = None, 
+                                                       statistic = 'count',
+                                                       bins      = count_bins, ).statistic
+            
+        if level == subdiv:
+            break
+        
+        # doubling pixsize: combine 4 cells each into 1 
+        total_l  = merge_cells( total_l )
+        mask_l   = merge_cells( mask_l )
+        counts_l = merge_cells( counts_l )
 
 
+    # 
     # jackknife averaging over all patches
+    #
     count_hist, count_hist_err = jackknife_error( count_hist )
 
     logging.info( "finished counting histogram!" )
 
 
-
+    # 
     # save average results and variance
+    #  
     logging.info( "saving outputs..." )
 
     save_path = os.path.join( output_dir, 'count_histogram.csv' )
@@ -267,50 +278,44 @@ def __estimate_distribution_and_save(counts: Any, total: Any, masked: Any, max_c
     return 
 
 
-def get_distribution(counts: Any, count_bins: Any, r_total: Any, r_mask: Any, n_subdiv: int, 
-                     masked_frac: float) -> Any:
+def estimate_counts_distribution(output_dir: str, max_count: int = 100, masked_frac: float = 0.05) -> int:
     r"""
-    Count histogram of masked counts 
+    Estimate the distribution from pre-computed counts.
     """
 
-    n_patches = counts.shape[2]
+    #
+    # loading the counts data 
+    #
+    counts_file = os.path.join( output_dir, "counts.npz" ) 
+    try:
+        count_data = np.load( counts_file )
+    except Exception as e:
+        logging.error( "failed to load count file: %s", str(e) )
+        return ERROR
+    
+    logging.info( "successfully loaded counts data" )
 
-    hist = np.zeros( ( len(count_bins)-1, n_subdiv+1, n_patches ), dtype = 'int' ) # distribution / histogram
-    # stat = np.zeros( ( 4, n_subdiv+1, n_patches ), dtype = 'float' ) # descriptive statistics
 
-    total_l, mask_l, counts_l = r_total, r_mask, counts
-    for level in range(n_subdiv + 1): # subdivision levels
+    # checking max_count
+    if not isinstance( max_count, int ):
+        logging.error( f"max_count must be an integer" )
+        return ERROR
+    if max_count < 10:
+        logging.warning( f"max_count must be at least 10 (got {max_count})" )
 
-        # pixel goodness flag
-        isgood_l = ( (total_l > 0) & (mask_l < masked_frac * total_l) )
-
-        for p in range( n_patches ): # patches
-
-            xlp = counts_l[ isgood_l[..., p] , p].flatten() # good pixel values
-            hist[:, level, p] = binned_statistic(xlp,
-                                                 values    = None, 
-                                                 statistic = 'count',
-                                                 bins      = count_bins, ).statistic
-            
-            # __stat = describe( xlp )
-            # stat[:, level, p] = __stat.mean, __stat.variance, __stat.skewness, __stat.kurtosis 
-            
-        #  
-        # doubling pixsize: combine 4 cells each into 1 
-        #
-        if level == n_subdiv:
-            break
-        
-        total_l = total_l[0::2,:,:] + total_l[1::2,:,:] # along ra
-        total_l = total_l[:,0::2,:] + total_l[:,1::2,:] # along dec
-
-        mask_l = mask_l[0::2,:,:] + mask_l[1::2,:,:] # along ra
-        mask_l = mask_l[:,0::2,:] + mask_l[:,1::2,:] # along dec
-
-        counts_l = counts_l[0::2,:,:] + counts_l[1::2,:,:] # along ra
-        counts_l = counts_l[:,0::2,:] + counts_l[:,1::2,:] # along dec
-
-    return hist
+    # check masked fraction value
+    if masked_frac < 0. or masked_frac > 1.:
+        logging.error( f"masked_frac must be in between 0 and 1" )
+        return ERROR
+    
+    __estimate_distribution_and_save(counts      = count_data['counts'],
+                                     total       = count_data['total'],
+                                     masked      = count_data['masked'], 
+                                     max_count   = max_count, 
+                                     subdiv      = count_data['subdiv'], 
+                                     masked_frac = masked_frac,
+                                     output_dir  = output_dir)
+    return SUCCESS
 
 
 def estimate_total_ditribution(count_files: list, output_dir: str, max_count: int, subdiv: int, 

@@ -17,8 +17,6 @@ catalog:
     random:                   tests/random.csv.gz # [REQUIRED] path to the random catalog
     compression:              gzip  # file compression to use for catalog files: must be any of { infer, None, bz2, gzip, tar, xz, zip, zstd }
     chunk_size:               50000 # size of a chunk of data loaded at a time
-    ra_shift:                 0.0   # if specified, shift the ra coordinate by this amount    
-    dec_shift:                0.0   # if specified, shift the dec coordinate by this amount 
     redshift:                 photoz_mean,          # name of the redshift column
     redshift_error:           photoz_err_mean       # name of the redshift error column. 
     magnitude:                "%(band)s_mag"        # name of the magnitude column

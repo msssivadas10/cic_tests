@@ -4,8 +4,6 @@
         "random": "tests/random.csv.gz",
         "compression": "gzip",
         "chunk_size": 50000,
-        "ra_shift": 0.0,
-        "dec_shift": 0.0,
         "redshift": "photoz_mean",
         "redshift_error": "photoz_err_mean",
         "magnitude": "%(band)s_mag",
