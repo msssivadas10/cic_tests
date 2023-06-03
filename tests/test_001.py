@@ -176,3 +176,117 @@
 
 # plt.show()
 
+import numpy as np
+from mpi4py import MPI
+import matplotlib.pyplot as plt
+
+comm = MPI.COMM_WORLD
+size = comm.Get_size()
+rank = comm.Get_rank()
+
+# x, y = None, None
+# split = None
+# xcount, xdisp = None, None
+# ycount, ydisp = None, None
+# a = None
+
+n1, n2, n3 = None, 4, 4
+
+# r, rem = None, None#divmod(n1, size)
+# # r = np.repeat( r, size ) + np.where( np.arange(size) < rem, 1, 0 )
+# xcount = None#r * n2 * n3
+# xdisp  = None#np.insert(np.cumsum(xcount), 0, 0)[:-1]
+
+# if rank == 0:
+#     a = 2
+
+#     x = np.arange(n1*n2*n3).reshape((n1, n2, n3)).astype('float64')
+#     split = np.array_split(x, size, axis = 0)
+
+#     r = np.array([len(xi) for xi in split])
+#     xcount = r * x.shape[0] * x.shape[1]
+#     xdisp  = np.insert(np.cumsum(xcount), 0, 0)[:-1]
+#     # for xi in split:
+#     #     print(id(xi))
+
+#     # print(xcount, xcount2)
+#     # print(xdisp, xdisp2)
+
+# # split = comm.bcast(split, root=0)
+# xcount = comm.bcast(xcount, root=0)
+# xdisp = comm.bcast(xdisp, root=0)
+# r = comm.bcast(r, root=0)
+# # a = comm.bcast(a, root=0)
+# # print(rank, a)
+
+# # y = np.zeros(split[rank].shape)
+# y = np.zeros((r[rank], n2, n3))
+# # comm.Scatterv([x, xcount, xdisp, MPI.DOUBLE], y, root = 0)
+
+# print(rank, y.shape)
+
+# # print(rank, id(split[rank]))
+
+test = None
+outputData=None
+if rank == 0:
+    n1=10
+    test = np.arange(n1*n2*n3,dtype='float64').reshape((n1,n2,n3))
+    outputData = np.zeros((n1,n2),dtype='float64')
+    # split = np.array_split(test,size,axis = 0) #Split input array by the number of available cores
+
+    # split_sizes = []
+
+    # for i in range(0,len(split),1):
+    #     split_sizes = np.append(split_sizes, len(split[i]))
+
+    # split_sizes_input = split_sizes*n2*n3
+    # displacements_input = np.insert(np.cumsum(split_sizes_input),0,0)[0:-1]
+
+
+    # print("Input data split into vectors of sizes %s" %split_sizes_input)
+    # print("Input data split with displacements of %s" %displacements_input)
+
+# else:
+# #Create variables on other cores
+#     split_sizes_input = None
+#     displacements_input = None
+#     split = None
+#     test = None
+
+# print('b',rank,n1)
+n1=comm.bcast(n1,root=0)
+# print('a',rank,n1)
+
+r, rem = divmod(n1, size)
+split_sizes = np.repeat(r, size) + np.where(np.arange(size) < rem, 1, 0)
+split_sizes_input = split_sizes*n2*n3#None
+displacements_input = np.insert(np.cumsum(split_sizes_input),0,0)[:-1]#None
+split_sizes_output = split_sizes*n2
+displacements_output = np.insert(np.cumsum(split_sizes_output),0,0)[:-1]
+
+# split = comm.bcast(split, root=0) #Broadcast split array to other cores
+# print(rank, split_sizes)#_input)
+# split_sizes = comm.bcast(split_sizes_input, root = 0)
+# print(rank, split_sizes)#_input)
+# displacements = 
+# comm.bcast(displacements_input, root = 0)
+
+chunk = np.zeros((split_sizes[rank],n2,n3))#np.zeros(np.shape(split[rank])) #Create array to receive subset of data on each core, where rank specifies the core
+# print("Rank %d with output_chunk shape %s" %(rank,output_chunk.shape))
+comm.Scatterv([test,split_sizes_input, displacements_input,MPI.DOUBLE],chunk,root=0)
+
+output = np.zeros((split_sizes[rank],n2))
+# for i in range(split_sizes[rank]):
+output[:]=chunk.sum(axis=2)[:]
+# print(rank,output_chunk.shape,output_chunk)
+
+# print("Output shape %s for rank %d" %(output_chunk.shape,rank))
+comm.Barrier()
+
+comm.Gatherv(output,[outputData,split_sizes_output,displacements_output,MPI.DOUBLE], root=0) #Gather output data together
+
+
+if rank == 0:
+    print(outputData)
+    print(test.sum(2))
