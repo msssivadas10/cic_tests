@@ -18,7 +18,8 @@ def _get_counts(df_path: str, region: Rectangle, patchsize_x: float, patchsize_y
                 bad_patches: list[bool], use_masks: list[str], filters: list[str] = [], 
                 expressions: list[str] = [], output_dir: str = '.', filename: str = 'counts.dat', 
                 compression: str = 'infer', chunk_size: int = 1_000, x_coord: str = 'ra', y_coord: str = 'dec', 
-                frac: bool = False, log: bool = True):
+                frac: bool = False, log: bool = True, delimiter: str = ',', comment: str = '#', header: int = 0,
+                colnames: list[str] = None):
     r"""
     Divide the given patches into cells and count the total and masked number of objects in each cells. This is a 
     private function and is called by other public functions (just to make sure no error happen!...)
@@ -52,7 +53,15 @@ def _get_counts(df_path: str, region: Rectangle, patchsize_x: float, patchsize_y
     
     # checking data...
     required_cols = [x_coord, y_coord, *use_masks]
-    check_datafile(df_path, compression, chunk_size, required_cols, filters + expressions) # raise exception on failure
+    check_datafile(df_path, 
+                   required_cols, 
+                   filters + expressions, 
+                   compression, 
+                   chunk_size, 
+                   header, 
+                   delimiter, 
+                   comment, 
+                   colnames,            ) # raise exception on failure
 
     filters   = [*filters, 
                  f"{x_coord} >= {rx_min}", f"{x_coord} <= {rx_max}", 
@@ -73,7 +82,10 @@ def _get_counts(df_path: str, region: Rectangle, patchsize_x: float, patchsize_y
 
     total, exposed = np.zeros(img_shape), np.zeros(img_shape)
     with pd.read_csv(df_path, 
-                     header      = 0, 
+                     header      = header,
+                     delimiter   = delimiter,
+                     comment     = comment,
+                     names       = colnames,  
                      compression = compression,
                      chunksize   = chunk_size   ) as df_iter:
         
@@ -212,8 +224,8 @@ def _get_counts(df_path: str, region: Rectangle, patchsize_x: float, patchsize_y
 def create_patches(region: Rectangle | list[float], patchsize_x: float, patchsize_y: float, pixsize: float, 
                    df_path: str, output_dir: str, use_masks: list[str], x_coord: str = 'ra', y_coord: str = 'dec', 
                    subdiv: int = 0, compression: str = 'infer', chunk_size: int = 1_000, filters: list[str] = [], 
-                   expressions: list[str] = [], bad_regions: list[Rectangle | list[float]] = [], 
-                   log: bool = True):
+                   expressions: list[str] = [], bad_regions: list[Rectangle | list[float]] = [], log: bool = True, 
+                   delimiter: str = ',', comment: str = '#', header: int = 0, colnames: list[str] = None):
     r"""
     Divide a rectangular region in to rectangular patches of same dimensions. Then, each of these 
     patches are divided into square cells of smallest possible size.
@@ -328,7 +340,11 @@ def create_patches(region: Rectangle | list[float], patchsize_x: float, patchsiz
                 x_coord      = x_coord, 
                 y_coord      = y_coord, 
                 frac         = True,
-                log          = log              )
+                log          = log,
+                delimiter    = delimiter,
+                comment      = comment, 
+                header       = header,
+                colnames     = colnames          )
     
     if log:
         logging.info( "finished patch image computation :)" )
@@ -337,8 +353,8 @@ def create_patches(region: Rectangle | list[float], patchsize_x: float, patchsiz
 
 def estimate_counts(df_path: str, use_masks: list[str], output_dir: str, patch_file: str = None, 
                     compression: str = 'infer', chunk_size: int = 1_000, filters: list[str] = [], 
-                    expressions: list[str] = [], x_coord: str = 'ra', y_coord: str = 'dec', 
-                    log: bool = True):
+                    expressions: list[str] = [], x_coord: str = 'ra', y_coord: str = 'dec', log: bool = True,
+                    delimiter: str = ',', comment: str = '#', header: int = 0, colnames: list[str] = None):
     r"""
     Count the number of objects satisfying a set of conditions, in some pre-computed cells.
     """
@@ -392,7 +408,11 @@ def estimate_counts(df_path: str, use_masks: list[str], output_dir: str, patch_f
                 x_coord      = x_coord, 
                 y_coord      = y_coord, 
                 frac         = False,
-                log          = log,              )
+                log          = log,  
+                delimiter    = delimiter,
+                comment      = comment, 
+                header       = header,
+                colnames     = colnames          )
     return    
 
 
@@ -547,6 +567,7 @@ def estimate_distribution(output_dir: str, count_files: str | list[str] = None,
             logging.info( "finished estimating distribution :)" )
         return
 
+
     # receieving data from others
     error = [distr]
     for src in range(1, SIZE):
@@ -556,6 +577,7 @@ def estimate_distribution(output_dir: str, count_files: str | list[str] = None,
 
         comm.Recv( tmp, source = src, tag = 13,  )
         error.append(tmp)
+    error = np.concatenate(error, axis = -1) # now it is just count distribution
 
 
     # 
@@ -563,13 +585,13 @@ def estimate_distribution(output_dir: str, count_files: str | list[str] = None,
     #
     if log:
         logging.info("estimatimating jackknife error...")
-        __t_init = time.time()
+        __t_init = time.time()    
 
-    
-    error = np.concatenate(error, axis = -1)
-    distr = np.sum( error,                       axis = -1) / n_patches # mean
-    error = np.sum((error - distr[...,None])**2, axis = -1) / (n_patches * (n_patches - 1)) # variance
-    error = np.sqrt(error) # std. error
+    # average distribution:
+    distr = np.sum(error, axis = -1) / n_patches 
+
+    # std. error (now var error become the 'error'...)
+    error = np.sqrt(np.sum((error - distr[...,None])**2, axis = -1) / (n_patches * (n_patches - 1))) 
 
     if log:
         logging.info(f"finished error estimation in %g seconds! :)", time.time() - __t_init)

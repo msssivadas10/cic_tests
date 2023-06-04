@@ -178,18 +178,24 @@ def __calculate_patch_data(options: Options) -> None:
         pixsize     = __check_type(options.counting_cellsize,   [float, int], 'pixsize'      )
         max_subdiv  = __check_type(options.counting_max_subdiv, [int],        'max_subdiv', 0)
 
-        # path to the random catalog 
-        catalog     = __check_type(options.catalog_random,  [str], 'random catalog path')
+        # random catalog 
+        catalog     = __check_type(options.random_catalog_path,  [str], 'random catalog path')
+        mask        = __check_type(options.random_catalog_mask,    [str], 'mask key', default_mask)
+        x_coord     = __check_type(options.random_catalog_x_coord, [str], 'x_coord',  'ra'        )
+        y_coord     = __check_type(options.random_catalog_y_coord, [str], 'y_coord',  'dec'       )
+        compression = options.random_catalog_compression
+        chunk_size  = options.random_catalog_chunk_size
+        delimiter   = options.random_catalog_delimiter
+        comment     = options.random_catalog_comment
+        header      = options.random_catalog_header
+        colnames    = options.random_catalog_colnames
 
-        # column names
-        mask        = __check_type(options.catalog_mask,    [str], 'mask key', default_mask)
-        x_coord     = __check_type(options.catalog_x_coord, [str], 'x_coord',  'ra'        )
-        y_coord     = __check_type(options.catalog_y_coord, [str], 'y_coord',  'dec'       )
-        compression = options.catalog_compression
-        chunk_size  = options.catalog_chunk_size
+        if colnames is None and header is None:
+            header = 0
+
 
         # all bands used in the survey
-        all_bands   = __check_array(options.catalog_all_bands, [str], 'all_bands', default_allbands)
+        all_bands   = __check_array(options.all_bands, [str], 'all_bands', default_allbands)
 
         # set of masks to use
         mask_bands  = __check_array(options.counting_random_mask, [str], 'use_masks', [])
@@ -201,7 +207,7 @@ def __calculate_patch_data(options: Options) -> None:
 
         # data filters for random
         filters = []
-        for expr in __check_array(options.catalog_random_filters, [str], 'random_filters', []):
+        for expr in __check_array(options.random_catalog_filters, [str], 'random_catalog_filters', []):
             if '%(band)s' in expr:
                 for band in all_bands:
                     filters.append(expr % {'band': band})
@@ -231,7 +237,11 @@ def __calculate_patch_data(options: Options) -> None:
                        filters      = filters, 
                        expressions  = expressions, 
                        bad_regions  = bad_regions, 
-                       log          = True         )
+                       log          = True,
+                       delimiter    = delimiter, 
+                       comment      = comment, 
+                       header       = header, 
+                       colnames     = colnames    )
         return 
 
     except ValueError as e1: # failure in loading options 
@@ -253,20 +263,27 @@ def __count_objects(options: Options) -> None:
         # check options 
         #
 
-        # path to the random catalog and column names
-        catalog        = __check_type(options.catalog_object,           [str], 'object catalog path'                       )
-        mask           = __check_type(options.catalog_mask,             [str], 'mask key',           default_mask          )
-        magnitude      = __check_type(options.catalog_magnitude,        [str], 'magnitude key',      default_magnitude     )
-        mag_offset     = __check_type(options.catalog_magnitude_offset, [str], 'magnitude key',      default_mag_offset    )
-        redshift       = __check_type(options.catalog_redshift,         [str], 'redshift key',       default_redshift      )
-        redshift_error = __check_type(options.catalog_redshift_error,   [str], 'redshift error key', default_redshift_error)
-        x_coord        = __check_type(options.catalog_x_coord,          [str], 'x_coord',            'ra'                  )
-        y_coord        = __check_type(options.catalog_y_coord,          [str], 'y_coord',            'dec'                 )
-        compression    = options.catalog_compression
-        chunk_size     = options.catalog_chunk_size
+        # object catalog
+        catalog        = __check_type(options.object_catalog_path,             [str], 'object catalog path'                       )
+        mask           = __check_type(options.object_catalog_mask,             [str], 'mask key',           default_mask          )
+        magnitude      = __check_type(options.object_catalog_magnitude,        [str], 'magnitude key',      default_magnitude     )
+        mag_offset     = __check_type(options.object_catalog_magnitude_offset, [str], 'magnitude key',      default_mag_offset    )
+        redshift       = __check_type(options.object_catalog_redshift,         [str], 'redshift key',       default_redshift      )
+        redshift_error = __check_type(options.object_catalog_redshift_error,   [str], 'redshift error key', default_redshift_error)
+        x_coord        = __check_type(options.object_catalog_x_coord,          [str], 'x_coord',            'ra'                  )
+        y_coord        = __check_type(options.object_catalog_y_coord,          [str], 'y_coord',            'dec'                 )
+        compression    = options.object_catalog_compression
+        chunk_size     = options.object_catalog_chunk_size
+        delimiter      = options.object_catalog_delimiter
+        comment        = options.object_catalog_comment
+        header         = options.object_catalog_header
+        colnames       = options.object_catalog_colnames
+
+        if colnames is None and header is None:
+            header = 0
 
         # all bands used in the survey
-        all_bands   = __check_array(options.catalog_all_bands, [str], 'all_bands', default_allbands)
+        all_bands   = __check_array(options.all_bands, [str], 'all_bands', default_allbands)
 
         # set of masks to use
         mask_bands  = __check_array(options.counting_object_mask, [str], 'use_masks', [])
@@ -284,7 +301,7 @@ def __count_objects(options: Options) -> None:
 
         # data filters for objects, incl. special filters for magnitude and redshift selections
         filters = []
-        for expr in __check_array(options.catalog_object_filters, [str], 'object_filters', []):
+        for expr in __check_array(options.object_catalog_filters, [str], 'object_catalog_filters', []):
             if '%(band)s' in expr:
                 for band in all_bands:
                     filters.append(expr % {'band': band})
@@ -294,7 +311,7 @@ def __count_objects(options: Options) -> None:
 
         # expressions to evaluate on 
         expressions = []
-        for expr in __check_array(options.catalog_object_expressions, [str], 'object_expressions', []):
+        for expr in __check_array(options.object_catalog_expressions, [str], 'object_catalog_expressions', []):
             if '%(band)s' in expr:
                 for band in all_bands:
                     expressions.append(expr % {'band': band})
@@ -319,7 +336,11 @@ def __count_objects(options: Options) -> None:
                         expressions = expressions,
                         x_coord     = x_coord,
                         y_coord     = y_coord,
-                        log         = True         )
+                        log         = True, 
+                        delimiter    = delimiter, 
+                        comment      = comment, 
+                        header       = header, 
+                        colnames     = colnames   )
         return 
     
     except ValueError as e1:

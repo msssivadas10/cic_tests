@@ -11,35 +11,48 @@ from utils import CICError
 #
 @dataclass(slots = True, kw_only = True)
 class Options:
-    catalog_object              : str   = None
-    catalog_random              : str   = None
-    catalog_compression         : str   = None
-    catalog_chunk_size          : int   = None
-    catalog_redshift            : str   = None
-    catalog_redshift_error      : str   = None
-    catalog_magnitude           : str   = None
-    catalog_magnitude_offset    : str   = None
-    catalog_mask                : str   = None
-    catalog_x_coord             : str   = None
-    catalog_y_coord             : str   = None
-    catalog_all_bands           : list  = None
-    catalog_object_filters      : list  = None
-    catalog_random_filters      : list  = None
-    catalog_object_expressions  : list  = None
-    catalog_random_expressions  : list  = None
-    counting_region_rect        : list  = None
-    counting_patchsize_x        : float = None
-    counting_patchsize_y        : float = None
-    counting_remove_regions     : list  = None
-    counting_cellsize           : float = None
-    counting_random_mask        : list  = None
-    counting_object_mask        : list  = None
-    counting_max_subdiv         : int   = None
-    distribution_masked_frac    : float = None
-    distribution_max_count      : int   = None # 
-    distribution_count_files    : list  = None # path(s) files storing the count data   
-    distribution_patch_files    : list  = None # path(s) files storing the patch data   
-    output_dir                  : str   = None # directory to write / look for output files
+    random_catalog_path            : str   = None
+    random_catalog_compression     : str   = None
+    random_catalog_chunk_size      : int   = None
+    random_catalog_delimiter       : str   = None
+    random_catalog_comment         : str   = None
+    random_catalog_header          : int   = None
+    random_catalog_colnames        : list  = None
+    random_catalog_mask            : str   = None
+    random_catalog_x_coord         : str   = None
+    random_catalog_y_coord         : str   = None
+    random_catalog_filters         : list  = None
+    random_catalog_expressions     : list  = None
+    object_catalog_path            : str   = None
+    object_catalog_compression     : str   = None
+    object_catalog_chunk_size      : int   = None
+    object_catalog_delimiter       : str   = None
+    object_catalog_comment         : str   = None
+    object_catalog_header          : int   = None
+    object_catalog_colnames        : list  = None
+    object_catalog_redshift        : str   = None
+    object_catalog_redshift_error  : str   = None
+    object_catalog_magnitude       : str   = None
+    object_catalog_magnitude_offset: str   = None
+    object_catalog_mask            : str   = None
+    object_catalog_x_coord         : str   = None
+    object_catalog_y_coord         : str   = None
+    object_catalog_filters         : list  = None
+    object_catalog_expressions     : list  = None
+    counting_region_rect           : list  = None
+    counting_patchsize_x           : float = None
+    counting_patchsize_y           : float = None
+    counting_remove_regions        : list  = None
+    counting_cellsize              : float = None
+    counting_random_mask           : list  = None
+    counting_object_mask           : list  = None
+    counting_max_subdiv            : int   = None
+    distribution_masked_frac       : float = None
+    distribution_max_count         : int   = None # 
+    distribution_count_files       : list  = None # path(s) files storing the count data   
+    distribution_patch_files       : list  = None # path(s) files storing the patch data   
+    output_dir                     : str   = None # directory to write / look for output files
+    all_bands                      : list  = None
     
     def _save_as(self, file: str):
         r"""
@@ -97,12 +110,32 @@ def __load_options(file: str):
 # structure of the options
 opt_tree = (
             _OptionBlock( 
-                            name   = 'catalog',
+                            name   = 'random_catalog',
                             fields = [
-                                        'object',
-                                        'random',
+                                        'path',
                                         'compression',
-                                        'chunk_size',               
+                                        'chunk_size', 
+                                        'delimiter',
+                                        'comment',
+                                        'header',
+                                        'colnames',              
+                                        'mask',    
+                                        'x_coord',
+                                        'y_coord',                 
+                                        'filters', 
+                                        'expressions', 
+                                    ] 
+                        ),
+            _OptionBlock( 
+                            name   = 'object_catalog',
+                            fields = [
+                                        'path',
+                                        'compression',
+                                        'chunk_size',
+                                        'delimiter',
+                                        'comment',
+                                        'header',
+                                        'colnames',               
                                         'redshift',                    
                                         'redshift_error',              
                                         'magnitude',                
@@ -110,12 +143,8 @@ opt_tree = (
                                         'mask',    
                                         'x_coord',
                                         'y_coord',                 
-                                        'all_bands',                
-                                        'object_filters', 
-                                        'random_filters', 
-                                        'object_expressions', 
-                                        'random_expressions', 
-
+                                        'filters', 
+                                        'expressions', 
                                     ] 
                         ),
             _OptionBlock( 
@@ -141,6 +170,7 @@ opt_tree = (
                                      ]
                         ),
             'output_dir',
+            'all_bands',
             )
 
 def load_options(file: str, alt_file: str = None) -> Options:

@@ -69,8 +69,9 @@ def get_typename_of(__obj: Any) -> str:
     return get_typename( type(__obj) )
 
 
-def check_datafile(path: str, compression: str, chunk_size: int, required_cols: list[str] = [], 
-                   expressions: list[str] = []) -> None:
+def check_datafile(path: str, required_cols: list[str] = [], expressions: list[str] = [], 
+                   compression: str = 'infer', chunk_size: int = 1_000_000, header: int = 0, 
+                   delimiter: str = ',', comment: str = '#', colnames: list[str] = None) -> None:
     r"""
     Check if the data file exist and can be loaded properly. If not, 'CICError' exception is 
     raised. 
@@ -85,18 +86,25 @@ def check_datafile(path: str, compression: str, chunk_size: int, required_cols: 
         raise CICError( f"unsupported compression: '{compression}'" )
     
     # check chunksize
-    if not isinstance( chunk_size, int ):
-        raise CICError( f"chunk_size must be an integer, got value {chunk_size}" )
-    elif chunk_size < 1:
-        raise CICError( f"chunk_size must be an integer >= 1, got value {chunk_size}" )
+    if chunk_size is not None:
+        if not isinstance(chunk_size, int):
+            raise CICError( f"chunk_size must be an integer, got value {chunk_size}" )
+        elif chunk_size < 1:
+            raise CICError( f"chunk_size must be an integer >= 1, got value {chunk_size}" )
     
     # check if the data can be loaded and apply filters correctly
-    with pd.read_csv( path, header = 0, compression = compression, chunksize = chunk_size ) as df_iter:
+    with pd.read_csv(path, 
+                     header      = header,
+                     delimiter   = delimiter,
+                     comment     = comment, 
+                     names       = colnames, 
+                     compression = compression, 
+                     chunksize   = chunk_size ) as df_iter:
         
-        __df = df_iter.get_chunk(10)
+        _df = df_iter.get_chunk(10)
 
         # check for columns
-        __df_cols = __df.columns
+        _df_cols = _df.columns
         for col in required_cols:
 
             if not isinstance(col, str):
@@ -105,7 +113,7 @@ def check_datafile(path: str, compression: str, chunk_size: int, required_cols: 
             if not col:
                 raise CICError( "column name cannot be an empty string" )
             
-            if col not in __df_cols:
+            if col not in _df_cols:
                 raise CICError( "missing required column '%s'" % col )
             
         # check expressions
@@ -118,7 +126,7 @@ def check_datafile(path: str, compression: str, chunk_size: int, required_cols: 
                 raise CICError( "expression cannot be an empty string" )
             
             try:
-                _ = __df.eval( expr )
+                _ = _df.eval( expr )
             except Exception as e:
                 raise CICError(f"cannot evaluate expression: '{expr}': {e}")
     
