@@ -287,12 +287,15 @@ class CountData:
         #
         # i.e., total format { int[5], float[7], float[shape_0*shape_1*shape_2*ndata], float[2*shape_2], bool[shape_2] }
 
-        ndata, shape = self.header.ndata, self.header.data_shape
+        ndata, shape  = self.header.ndata, self.header.data_shape
+        n_patches     = int(len(self.patch_flags))
+        n_bad_patches = int(sum(self.patch_flags)) 
 
-        __fmt = f'5q7d{ ndata * shape[0] * shape[1] * shape[2] }d{ 2*shape[2] }d{ shape[2] }?'
+        __fmt = f'6q7d{ ndata * shape[0] * shape[1] * shape[2] }d{ 2*n_patches }d{ n_patches }?'
         buf   = struct.pack(__fmt,
                             ndata, 
                             *shape, 
+                            n_bad_patches,
                             self.header.max_subdiv,
                             self.header.pixsize,
                             self.header.patchsize_x,
@@ -363,22 +366,23 @@ class CountData:
         with open(file, 'rb') as f:
             buf = f.read()
 
-        __fmt = '5q'
+        __fmt = '6q'
         start = 0
         stop  = start + struct.calcsize(__fmt)
-        ndata, ncells_x, ncells_y, n_patches, max_subdiv = struct.unpack(__fmt, buf[start:stop])
+        ndata, ncells_x, ncells_y, n_good_patches, n_bad_patches, max_subdiv = struct.unpack(__fmt, buf[start:stop])
+        n_patches = n_good_patches + n_bad_patches
 
         __fmt = '7d'
         start = stop
         stop  = start + struct.calcsize(__fmt)
         pixsize, patchsize_x, patchsize_y, xmin, xmax, ymin, ymax = struct.unpack(__fmt, buf[start:stop])
 
-        __fmt = f'{ndata * ncells_x * ncells_y * n_patches}d'
+        __fmt = f'{ndata * ncells_x * ncells_y * n_good_patches}d'
         start = stop
         stop  = start + struct.calcsize(__fmt)
         data  = list(
                         np.asfarray(struct.unpack(__fmt, buf[start:stop]) 
-                                    ).reshape((ndata, ncells_x, ncells_y, n_patches))
+                                    ).reshape((ndata, ncells_x, ncells_y, n_good_patches))
                     )
 
         __fmt = f'{2*n_patches}d'

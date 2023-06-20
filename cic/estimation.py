@@ -378,11 +378,12 @@ def estimate_counts(df_path: str, use_masks: list[str], output_dir: str, patch_f
         logging.info( "loaded patch data from file '%s'", patch_file )
 
 
-    x_cells, y_cells, n_patches = patch_specs.data_shape 
-    patchsize_x, patchsize_y    = patch_specs.patchsize_x, patch_specs.patchsize_y
-    pixsize = patch_specs.pixsize    # smallest possible cellsize
-    subdiv  = patch_specs.max_subdiv # number of subdivisions applied to the cells
-    region  = patch_specs.region
+    x_cells, y_cells         = patch_specs.data_shape[:2]
+    patchsize_x, patchsize_y = patch_specs.patchsize_x, patch_specs.patchsize_y
+    pixsize                  = patch_specs.pixsize    # smallest possible cellsize
+    subdiv                   = patch_specs.max_subdiv # number of subdivisions applied to the cells
+    region                   = patch_specs.region
+    n_patches                = len(patch_coord)
 
     #
     # counting objects in cells (total and exposed / non-masked)
