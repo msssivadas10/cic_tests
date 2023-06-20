@@ -232,9 +232,13 @@ class CountData:
         self.patch_llcoords = np.asfarray(patch_llcoords)
         self.patch_flags    = np.array(patch_flags).astype('bool')
 
-        n_patches = len(self.patch_flags)
-        if n_patches != len(self.patch_llcoords) or n_patches != shape[2]:
-            raise CICError( f"number of patches should be {shape[2]} (data), got {n_patches} (flags) and {len(self.patch_llcoords)} (coords)" )
+         
+        if len(self.patch_flags) != len(self.patch_llcoords):
+            raise CICError( f"number of flags and patch coordinates must be same, got {len(self.patch_flags)} and {len(self.patch_llcoords)}" )
+        
+        n_patches = len(self.patch_flags) - sum(self.patch_flags) # number of good patches
+        if n_patches != shape[2]:
+            raise CICError( f"number of patches should be {n_patches}, got {shape[2]}" )
             
         if ndata < 1:
             raise CICError( f"no data is available" ) 

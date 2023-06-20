@@ -139,6 +139,11 @@ def __initialize(opt_file: str, alt_opt_file: str = None) -> Options:
                 __raise_error_and_exit("creating log directory raised exception '%s'" % e)
     log_path = os.path.join(log_path, '%d.log' % rank)
     
+    # FIXME: log files are not created properly
+    comm.Barrier()
+    if not os.path.exists(log_path):
+        open(log_path, 'w').close()
+    
 
     # configure logger
     logging.basicConfig(level = logging.INFO,
