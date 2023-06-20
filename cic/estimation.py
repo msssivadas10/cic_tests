@@ -533,7 +533,10 @@ def estimate_distribution(output_dir: str, count_files: str | list[str] = None,
         for p in range(split_sizes[RANK]):
 
             # using counts from good cells of this patch...
-            good_counts      = exp_count_c[p, good_cells[p,:,:]].flatten()
+            good_counts = exp_count_c[p, good_cells[p,:,:]].flatten()
+            if len(good_counts) < 1:
+                continue
+
             distr[:,level,p] = binned_statistic(good_counts, 
                                                 values    = None,
                                                 statistic = 'count',
@@ -553,6 +556,7 @@ def estimate_distribution(output_dir: str, count_files: str | list[str] = None,
 
         
     comm.Barrier() # wait untill all process to sync...
+
     if log:
         logging.info(f"finished estimation of count histogram in %g seconds! :)", time.time() - __t_init)
 
