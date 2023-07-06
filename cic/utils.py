@@ -175,10 +175,10 @@ class Rectangle:
         r"""
         Union with another rectangle.
         """
-        return Rectangle([min(self.xmin, other.xmin), 
+        return Rectangle( min(self.xmin, other.xmin), 
                           max(self.xmax, other.xmax), 
                           min(self.ymin, other.ymin), 
-                          max(self.ymax, other.ymax)])
+                          max(self.ymax, other.ymax) )
     
     def __eq__(self, other):
         if not isinstance(other, Rectangle):
@@ -340,9 +340,9 @@ class CountData:
 
             for i in range(self.header.ndata):
                 self.data[i] = np.concatenate( [self.data[i], other.data[i]], axis = -1 )
-
+            
             self.patch_flags    = np.concatenate([self.patch_flags,    other.patch_flags],    axis = -1)
-            self.patch_llcoords = np.concatenate([self.patch_llcoords, other.patch_llcoords], axis = -1)
+            self.patch_llcoords = np.concatenate([self.patch_llcoords, other.patch_llcoords], axis = 0)
 
         # update header
         self.header = _CountHeader(data_shape  = (shape1[0], shape1[1], nimag), 
