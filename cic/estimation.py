@@ -436,8 +436,8 @@ def estimate_distribution(output_dir: str, count_files: str | list[str] = None,
 
     if not isinstance(max_count, int):
         raise CICError("max_count must be an integer")
-    elif max_count < 10:
-        raise CICError("max_count must be at least 10, got %d" % max_count)
+    elif max_count < 5:
+        raise CICError("max_count must be at least 5, got %d" % max_count)
 
     if masked_frac < 0. or masked_frac > 1.:
         raise CICError("masked_frac must be a number between 0 and 1")
@@ -648,8 +648,8 @@ def estimate_distribution2(output_dir: str, count_files: str | list[str] = None,
 
     if not isinstance(max_count, int):
         raise CICError("max_count must be an integer")
-    elif max_count < 10:
-        raise CICError("max_count must be at least 10, got %d" % max_count)
+    elif max_count < 5:
+        raise CICError("max_count must be at least 5, got %d" % max_count)
 
     if masked_frac < 0. or masked_frac > 1.:
         raise CICError("masked_frac must be a number between 0 and 1")
