@@ -381,7 +381,7 @@ def __calculate_distribution(options: Options) -> None:
         #
         # estimate distribution
         #
-        estimate_distribution2(output_dir  = output_dir,
+        estimate_distribution(output_dir  = output_dir,
                                 count_files = count_files,
                                 patch_files = patch_files,
                                 max_count   = max_count,
