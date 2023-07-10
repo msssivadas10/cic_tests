@@ -35,9 +35,10 @@ rank, size = comm.rank, comm.size
 
 # argument parser object
 parser = ArgumentParser(prog = prog_name, description = prog_info)
-parser.add_argument('--opt',     help = 'path to the input options file',    type = str)
-parser.add_argument('--alt-opt', help = 'path to an alternate options file', type = str)
-parser.add_argument('--flag',    help = 'flags to control the execution',    type = int, default = 1)
+parser.add_argument('--opt',       help = 'path to the input options file',    type   = str)
+parser.add_argument('--alt-opt',   help = 'path to an alternate options file', type   = str)
+parser.add_argument('--flag',      help = 'flags to control the execution',    type   = int,          default = 1)
+parser.add_argument('--ser-distr', help = 'use serial mode pdf calculation',   action = 'store_true', default = False)
 
 
 # default values
@@ -359,7 +360,12 @@ def __count_objects(options: Options) -> None:
     return 
 
 # calculating count distribution
-def __calculate_distribution(options: Options) -> None:
+def __calculate_distribution(options: Options, serial: bool = False) -> None:
+
+    estimate_distribution_f = estimate_distribution 
+    if serial:
+        logging.warning("using serial mode for distribution estimation! :)")
+        estimate_distribution_f = estimate_distribution2
     
     try:
         
@@ -381,7 +387,7 @@ def __calculate_distribution(options: Options) -> None:
         #
         # estimate distribution
         #
-        estimate_distribution(output_dir  = output_dir,
+        estimate_distribution_f(output_dir  = output_dir,
                                 count_files = count_files,
                                 patch_files = patch_files,
                                 max_count   = max_count,
@@ -432,7 +438,7 @@ def main():
             return 
     
     # measuring distribution...
-    __calculate_distribution(options)    
+    __calculate_distribution(options, serial = args.ser_distr)    
     logging.info("exiting after successfull distribution estimation :)")
     return
 
