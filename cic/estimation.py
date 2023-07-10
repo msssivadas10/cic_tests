@@ -630,3 +630,156 @@ def estimate_distribution(output_dir: str, count_files: str | list[str] = None,
             logging.info( "finished estimating distribution :)" )
     return
     
+
+def estimate_distribution2(output_dir: str, count_files: str | list[str] = None, 
+                           patch_files: str | list[str] = None, max_count: int = 1_000, 
+                           masked_frac: float = 0.05, log: bool = True):
+    r"""
+    Estimate count-in-cells distribution using pre-computed count image (serial version).
+    """ 
+    # import sys
+    # sys.stderr.write("\033[91mwarning:\033[m using parellelised test version\n")
+
+    comm       = MPI.COMM_WORLD    
+    RANK, SIZE = comm.rank, comm.size 
+    if RANK != 0:
+        return
+
+
+    if not isinstance(max_count, int):
+        raise CICError("max_count must be an integer")
+    elif max_count < 10:
+        raise CICError("max_count must be at least 10, got %d" % max_count)
+
+    if masked_frac < 0. or masked_frac > 1.:
+        raise CICError("masked_frac must be a number between 0 and 1")
+
+
+    if log:
+        logging.info( "started estimating distribution..." )
+
+    #
+    # load counts and patch data from files 
+    #
+    if log:
+        logging.info( "loading data files..." )
+        __t_init = time.time()
+
+    if not os.path.exists(output_dir):
+        raise CICError(f"path does not exist: {output_dir}")
+    
+    if not count_files:
+        count_files = os.path.join(output_dir, 'count_data.dat')
+    if isinstance(count_files, str):
+        count_files = [count_files]
+    
+    if not patch_files:
+        patch_files = os.path.join(output_dir, 'patch_data.dat')
+    if isinstance(patch_files, str):
+        patch_files = [patch_files]
+
+    if len(patch_files) != len(count_files):
+        raise CICError(f"number of patch files {len(patch_files)} must be same as number of count files {len(count_files)}")
+
+    # patch and count data
+    count_data = CountData.merge_load(count_files)
+
+    patch_data = CountData.merge_load(patch_files)
+    patch_data.assert_similar(count_data, ignore = ['ndata'])
+
+    exp_frac, exp_count = patch_data.data[0].T, count_data.data[1].T
+    subdiv, pixsize = patch_data.header.max_subdiv, patch_data.header.pixsize
+    x_cells, y_cells, n_patches = patch_data.header.data_shape
+
+    if log:
+        logging.info( "successfully loaded all data in %g seconds :)", time.time() - __t_init )
+
+
+    #
+    # estimating distribution of counts with a histogram
+    #
+    if log:
+        logging.info("started estimation of count histogram...")
+        __t_init = time.time()
+    
+    # count the distribution...
+    count_bins       = np.arange(max_count + 2) - 0.5 # bins centered at count values
+    min_exposed_frac = 1.0 - masked_frac              # lowest exposed fraction allowed
+    error            = np.zeros((max_count + 1, subdiv + 1, n_patches))
+    for level in range(subdiv + 1):
+
+        # cells with exposed fraction greater than the minimum is marked good
+        good_cells = (exp_frac > min_exposed_frac)  
+        for p in range(n_patches):
+
+            # using counts from good cells of this patch...
+            good_counts = exp_count[p, good_cells[p,:,:]].flatten()
+            if len(good_counts) < 1:
+                continue
+
+            error[:,level,p] = binned_statistic(good_counts, 
+                                                values    = None,
+                                                statistic = 'count',
+                                                bins      = count_bins ).statistic
+            
+        if level == subdiv:
+            break
+        
+        # after each level, double the cellsize. i.e., merge two cells from each direction 
+        # for fractions, take the average value as the new cell fraction
+        exp_frac = 0.5*(exp_frac[:,0::2,:] + exp_frac[:,1::2,:]) # along y direction
+        exp_frac = 0.5*(exp_frac[:,:,0::2] + exp_frac[:,:,1::2]) # along x direction
+        
+        #  for counts, take sum as the new cell count
+        exp_count = exp_count[:,0::2,:] + exp_count[:,1::2,:] # along y direction
+        exp_count = exp_count[:,:,0::2] + exp_count[:,:,1::2] # along x direction
+
+        
+    if log:
+        logging.info(f"finished estimation of count histogram in %g seconds! :)", time.time() - __t_init)
+
+
+    # 
+    # jackknife average and error
+    #
+    if log:
+        logging.info("estimatimating jackknife error...")
+        __t_init = time.time()    
+
+    # average distribution:
+    distr = np.sum(error, axis = -1) / n_patches 
+
+    # std. error (now var error become the 'error'...)
+    error = np.sqrt(np.sum((error - distr[...,None])**2, axis = -1) / (n_patches * (n_patches - 1))) 
+
+    if log:
+        logging.info(f"finished error estimation in %g seconds! :)", time.time() - __t_init)
+
+
+    # 
+    # save results to disk
+    # 
+    count     = np.arange(max_count + 1)[:,None]
+    columns   = ['count'] + ['distr_%d' % level for level in range(subdiv + 1)] + ['error_%d' % level for level in range(subdiv + 1)]
+    save_path = os.path.join(output_dir, 'count_histogram.csv')
+    pd.DataFrame(np.concatenate([count, distr, error], axis = 1),
+                 columns = columns).to_csv(save_path,
+                                           index        = False,
+                                           float_format = "%16.8e")
+    if log:
+        logging.info("estimated distribution saved to '%s'", save_path)
+
+
+    save_path = os.path.join(output_dir, 'cellsizes.csv')
+    np.savetxt(save_path, 
+               pixsize * 2**np.arange(subdiv + 1), 
+               fmt = "%16.8e")
+    if log:
+        logging.info("cellsizes are saved to '%s'", save_path)
+
+
+    # finishing...
+    if log:
+            logging.info( "finished estimating distribution :)" )
+    return
+    

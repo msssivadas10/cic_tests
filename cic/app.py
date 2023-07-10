@@ -25,7 +25,7 @@ import os
 import logging 
 from argparse import ArgumentParser
 from options import load_options, Options
-from estimation import create_patches, estimate_counts, estimate_distribution
+from estimation import create_patches, estimate_counts, estimate_distribution, estimate_distribution2
 from utils import replace_fields, get_typename, Rectangle, CICError
 
 
@@ -381,7 +381,7 @@ def __calculate_distribution(options: Options) -> None:
         #
         # estimate distribution
         #
-        estimate_distribution(output_dir  = output_dir,
+        estimate_distribution2(output_dir  = output_dir,
                                 count_files = count_files,
                                 patch_files = patch_files,
                                 max_count   = max_count,
